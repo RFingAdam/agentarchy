@@ -99,3 +99,29 @@ SECTIONS=(
     done < <(grep -E '^(Background|Foreground|Decoration|active|inactive)[A-Za-z]*=' "$file")
   done
 }
+
+# The install path, with a stub kwriteconfig6 standing in for a Plasma that is not installed here.
+# This is the case the first golden-path run got wrong: a session that names a colour scheme whose
+# colours were never written renders stock Breeze while every check says it is themed.
+@test "with no Plasma session the whole scheme is seeded into kdeglobals" {
+  stub="$BATS_TEST_TMPDIR/stub"
+  mkdir -p "$stub"
+  cat >"$stub/kwriteconfig6" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$KWRITE_LOG"
+STUB
+  chmod +x "$stub/kwriteconfig6"
+
+  KWRITE_LOG="$BATS_TEST_TMPDIR/kwrite.log"
+  export KWRITE_LOG
+  run env PATH="$stub:/usr/bin:/bin" HOME="$BATS_TEST_TMPDIR/home" KWRITE_LOG="$KWRITE_LOG" \
+    OAL_PATH="$SRC" "$SRC/bin/oal-theme-set-kde" tokyo-night
+  [ "$status" -eq 0 ]
+  [[ $output == *"seeded kdeglobals"* ]]
+
+  # Every colour section reaches kdeglobals, not just the name.
+  grep -q -- '--file kdeglobals --group Colors:Window --key BackgroundNormal 26,27,38' "$KWRITE_LOG"
+  grep -q -- '--file kdeglobals --group WM --key activeBackground 122,162,247' "$KWRITE_LOG"
+  grep -q -- '--file kdeglobals --group General --key ColorScheme OAL Tokyo Night' "$KWRITE_LOG"
+  [ "$(grep -c -- '--file kdeglobals' "$KWRITE_LOG")" -gt 80 ]
+}

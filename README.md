@@ -36,6 +36,25 @@ independent project, not affiliated with or endorsed by Basecamp or DHH. See `NO
 | `test/` | bats unit tests and the VM golden path |
 | `docs/superpowers/` | design spec and per-phase implementation plans |
 
+## Try it in a VM
+
+Everything runs headless on a Linux host with KVM and QEMU; nothing touches your machine's desktop.
+
+```
+test/vm/golden-path                 # pristine Arch cloud image -> installed Agentarchy ->
+                                    # reboot -> themed Plasma 6 Wayland session -> assertions
+                                    # -> screenshots, in about six minutes
+test/vm/golden-path --keep          # same, but leave the VM up to poke at
+test/vm/vm-ssh                      # a shell in the guest
+```
+
+Evidence from each run lands in `.vm/artifacts/<timestamp>/`: `bootstrap.log`, `assertions.txt`,
+`timings.txt` and two screenshots (one from QEMU's framebuffer, one from inside the session).
+`test/vm/README.md` documents the harness, including how to watch the guest live over VNC.
+
+This is deliberately not part of `bin/oal-dev-check`: CI runners have no VM, and a gate that cannot
+run in CI is a gate that rots.
+
 ## Developing
 
 ```

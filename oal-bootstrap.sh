@@ -97,6 +97,12 @@ sudo oal-apply-system --install-user "$user" --first-install
 log "Provisioning the user environment"
 oal-provision-user --first-install
 
+# Land on a themed desktop instead of stock Breeze. No Plasma session exists during a bootstrap, so
+# this writes the colour scheme and points kdeglobals at it; the first login reads that. The
+# wallpaper needs a live session and is applied the first time the theme is set inside one.
+log "Applying the default theme"
+oal-theme-set-kde "${OAL_DEFAULT_THEME:-tokyo-night}"
+
 log "Done"
 cat <<'NEXT'
 

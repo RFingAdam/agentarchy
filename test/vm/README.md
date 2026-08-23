@@ -14,6 +14,20 @@ test/vm/vm-shot out.png # screenshot (QMP framebuffer, or --guest via spectacle)
 test/vm/vm-down         # stop it (--purge also throws the disk away)
 ```
 
+Those are the pieces. The whole phase gate is one command on top of them:
+
+```
+test/vm/golden-path            # pristine image -> bootstrap -> reboot -> assertions -> screenshots
+test/vm/golden-path --keep     # ...and leave the VM up afterwards
+```
+
+`golden-path` runs six timed stages (boot, sync, bootstrap, reboot, session, assert) and writes
+everything it learned to `.vm/artifacts/<timestamp>/`: `bootstrap.log`, `assertions.txt`,
+`timings.txt`, `desktop-qmp.png`, `desktop-guest.png`. A failure prints the stage that failed, the
+tail of the boot console and the guest's journal before it stops. The assertions themselves live in
+`test/vm/assertions.sh`, which runs inside the guest (fed over ssh, so it does not need the checkout
+to be synced) and always runs every check rather than stopping at the first failure.
+
 The whole loop, from nothing to a running guest you can talk to:
 
 ```bash

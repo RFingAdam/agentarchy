@@ -78,3 +78,10 @@ meta() {
     grep -qE "^${p}$" "$SRC/.gitignore" || { echo ".gitignore is missing $p"; return 1; }
   done
 }
+
+@test "the package puts OAL_PATH into login shells" {
+  # Without /etc/profile.d/oal.sh, OAL_PATH is unset in a login shell and every vendored command
+  # that resolves its own tree through it (oal-show-logo, oal-theme-set, oal-menu) reads from '/'.
+  grep -q 'etc/profile.d/oal.sh "\$pkgdir/etc/profile.d/oal.sh"' "$PKGBUILD"
+  [ -f "$SRC/etc/profile.d/oal.sh" ]
+}

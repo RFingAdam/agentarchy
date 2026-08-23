@@ -145,26 +145,53 @@ echo "wrote $konsole_file"
 
 (( dry_run )) && exit 0
 
-# From here on we are talking to a live Plasma session. Every step is optional: a missing tool means
-# this box is not running Plasma (a chroot, the ISO build, a server), and the generated files are
-# still the right answer for whenever it does.
-apply() {
-  local tool="$1"; shift
-  if ! command -v "$tool" >/dev/null; then
-    echo "skipping $tool: not installed"
-    return 0
-  fi
-  "$tool" "$@" || echo "warning: $tool failed"
+# From here on we are talking to Plasma. There are three situations and all three are normal: a
+# live session (apply now), an install or chroot with no session (write config the next login reads),
+# and a box with no Plasma at all (the files on disk are still correct, say so and move on).
+
+# Seed kdeglobals with the scheme itself, key by key. kdeglobals *is* the active colour config --
+# [Colors:*], [WM] and the [General] name -- so this is what plasma-apply-colorscheme does when a
+# session is running. Writing only ColorScheme= names a scheme whose colours are never read: the
+# session comes up claiming to be themed and rendering stock Breeze, which is exactly what the first
+# golden-path run caught. kwriteconfig6 rather than an INI merge so the rest of kdeglobals survives.
+seed_kdeglobals() {
+  local group="" line key value
+  while IFS= read -r line; do
+    case "$line" in
+      \[*\]) group="${line#[}"; group="${group%]}" ;;
+      *=*)
+        [[ -n $group ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        kwriteconfig6 --file kdeglobals --group "$group" --key "$key" "$value"
+        ;;
+    esac
+  done <"$scheme_file"
 }
 
-apply plasma-apply-colorscheme "$scheme_name"
+if command -v plasma-apply-colorscheme >/dev/null && plasma-apply-colorscheme "$scheme_name" 2>/dev/null; then
+  echo "applied $scheme_name to the running session"
+elif command -v kwriteconfig6 >/dev/null; then
+  # The install path: oal-bootstrap.sh runs long before anyone logs in, and a fresh Agentarchy
+  # should come up themed rather than stock Breeze.
+  seed_kdeglobals
+  echo "no running Plasma session: seeded kdeglobals with $scheme_name for the next login"
+else
+  echo "skipping colour scheme: Plasma is not installed"
+fi
 
 background="$(find -L "$theme_dir/backgrounds" -maxdepth 1 -type f \
   \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) 2>/dev/null | sort | head -1)"
-if [[ -n $background ]]; then
-  apply plasma-apply-wallpaperimage "$background"
-else
+if [[ -z $background ]]; then
   echo "skipping wallpaper: theme '$slug' ships no background"
+elif ! command -v plasma-apply-wallpaperimage >/dev/null; then
+  echo "skipping wallpaper: plasma-apply-wallpaperimage is not installed"
+elif plasma-apply-wallpaperimage "$background" 2>/dev/null; then
+  echo "set the wallpaper to $background"
+else
+  # The wallpaper lives in the containment config of a running shell; there is no supported way to
+  # preseed it from an install, so it waits for the first oal-theme-set-kde inside a session.
+  echo "no running Plasma session: wallpaper deferred (run oal-theme-set-kde again after login)"
 fi
 
 # Konsole picks its scheme up from the profile, not from the colour scheme, so point the default

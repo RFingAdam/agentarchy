@@ -57,6 +57,12 @@ package() {
   install -Dm644 version "$share/version"
   # Shipped so an installed system can still tell vendored files from native ones.
   install -Dm644 upstream/VENDORED-FILES.txt "$share/upstream/VENDORED-FILES.txt"
+  # The one file under etc/ an installed system cannot work without: it is what puts OAL_PATH into a
+  # login shell, and vendored commands read it to find their own tree. The rest of etc/ (units,
+  # sudoers, sysctl, some of it still Hyprland-shaped) is a per-file decision that Phase 4 owns, so
+  # it ships under /usr/share/agentarchy/etc where those decisions can be made against real files.
+  install -Dm644 etc/profile.d/oal.sh "$pkgdir/etc/profile.d/oal.sh"
+
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
 
