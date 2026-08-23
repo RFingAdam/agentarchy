@@ -45,6 +45,12 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 - [ ] Confirm the git author identity you want on this public repo (commits currently use your global
       gitconfig email). Blocked on you: it is your identity.
 
+- [ ] Fix GitHub Actions billing for this private repo: the first two `check` runs did not start ("recent account
+      payments have failed or your spending limit needs to be increased" — Settings → Billing & plans). Private repos
+      bill Actions minutes; making the repo public removes the charge but only after the Phase 2 asset audit.
+      Blocked on you: it is your GitHub account/payment method. Until then run `bin/oal-dev-check` locally (it is
+      exactly what CI runs).
+
 ## Review log
 (appended at the end of each phase)
 
