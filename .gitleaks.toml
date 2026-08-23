@@ -11,6 +11,11 @@ paths = [
   # re-report findings already allowlisted at their real path.
   '''^\.sync/''',
   '''^\.superpowers/''',
+  # Same reasoning for the VM harness scratch (test/vm/README.md): both are gitignored, and the
+  # multi-gigabyte qcow2 disks in them are what the filesystem scan chokes on -- gitleaks reads a
+  # file into memory, so a 24 G disk image is an out-of-memory kill, not a finding.
+  '''^\.vm/''',
+  '''^\.vm-cache/''',
   '''test/fixtures/.*''',
   '''themes/.*/backgrounds/.*''',
   # bin/oal-install-chromium-google-account: the OAuth2 client id/secret here is the public pair
