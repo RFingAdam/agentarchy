@@ -11,11 +11,18 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
   - [x] Task 5 first real vendoring run
   - [x] Task 6 hygiene gates + oal-dev-check
   - [x] Task 7 GitHub Actions CI
-- [ ] Phase 1 — Package + bootstrap + VM golden path
-  - [ ] Replace the six `default/pacman/*` files (mirrorlist-edge/rc/stable, pacman-edge/rc/stable.conf) —
-        the rename map pointed every upstream repo host at `*.agentarchy.invalid`, which by design never
-        resolves, so the VM golden path dies at the first `pacman -Sy` until they name a real repo (or the
-        files are dropped and stock Arch mirrors are used).
+- [ ] Phase 1 — Package + bootstrap + VM golden path (plan: docs/superpowers/plans/2026-08-23-phase-1-vm-bootable.md)
+  - [x] Task 1 VM harness (`test/vm/`)
+  - [x] Task 2 native package lists + Plasma desktop step
+  - [x] ~~Replace the six `default/pacman/*` files~~ — resolved by **dropping** them instead: they are
+        excluded from vendoring, and Agentarchy installs from stock Arch mirrors. It has no repos of its
+        own, so there was nothing for a rewritten `pacman.conf` to point at.
+  - [ ] The package **channel** cluster is now inert and must not be advertised until a phase gives
+        Agentarchy real repositories: `bin/oal-channel-set`, `bin/oal-channel-current`,
+        `bin/oal-version-channel` and `bin/oal-refresh-pacman` still implement upstream's stable/rc/edge
+        switching against the `default/pacman/*` files that no longer exist, so `oal-refresh-pacman` fails
+        at its first `cp`. Decide per command: port to a real Agentarchy repo, or exclude from vendoring.
+        Not urgent — nothing on the golden path calls them (`oal-reinstall-pkgs` was patched off it).
   - [ ] PKGBUILD must not link `bin/oal-dev-*` or `bin/oal-dev-lib.sh` into `/usr/bin` — they are repo
         tooling (they look for `upstream/PIN` above themselves) and have no meaning on an installed system.
   - [ ] Supply the Phase 1 replacements listed in `upstream/EXCLUDED-ASSETS.md` (SDDM/Plymouth logo,
