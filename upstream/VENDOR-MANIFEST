@@ -59,3 +59,10 @@ exclude **/logo.*
 exclude **/icon.*
 exclude **/logos/**
 exclude themes/*/hyprland.lua
+# Three more wallpapers carry the wordmark or the logo mark but were never named after the upstream
+# project, so no name-based rule could reach them. Caught by looking at the pixels (runbook step (a)
+# in upstream/README.md), which is the only thing that can find this class of file. Listed as path
+# literals because there is no pattern here to generalise.
+exclude themes/lumon/backgrounds/02-opinions-equally.webp
+exclude themes/tokyo-night/backgrounds/5-oma-cityscape.jpg
+exclude themes/tokyo-night/backgrounds/6-oma.webp

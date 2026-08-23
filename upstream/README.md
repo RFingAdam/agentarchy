@@ -99,7 +99,10 @@ names is recorded by hand in `EXCLUDED-ASSETS.md`, because nothing can detect it
    No gate can see inside an image, so this step is the only thing standing between upstream's
    wordmark and a file called `themes/<x>/backgrounds/oal.webp`. Anything branded gets an `exclude`
    in `VENDOR-MANIFEST` and a row in `EXCLUDED-ASSETS.md` — not a deletion, which the next
-   `--apply` would undo.
+   `--apply` would undo. Name-based excludes are not enough on their own: three wallpapers carried
+   the wordmark or the logo mark without ever mentioning the upstream project in their filename.
+   The whole pre-existing wallpaper set was reviewed by eye on 2026-08-23 and those three removed,
+   so a future bump only has to eyeball assets this diff shows as **new or changed**.
 4. **(b) Diff the four reports against the previous commit.**
    `git diff HEAD -- upstream/VENDORED-FILES.txt upstream/EXCLUDED-BIN.txt upstream/NEEDS-PORT.txt upstream/DANGLING.txt`.
    New `EXCLUDED-BIN` entries mean upstream grew a compositor dependency; new `DANGLING` entries

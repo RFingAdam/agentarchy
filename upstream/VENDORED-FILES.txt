@@ -654,7 +654,6 @@ themes/last-horizon/colors.toml
 themes/last-horizon/icons.theme
 themes/last-horizon/vscode.json
 themes/lumon/backgrounds/01-united-in-severance.webp
-themes/lumon/backgrounds/02-opinions-equally.webp
 themes/lumon/btop.theme
 themes/lumon/chromium.theme
 themes/lumon/colors.toml
@@ -735,8 +734,6 @@ themes/tokyo-night/backgrounds/1-quattro.webp
 themes/tokyo-night/backgrounds/2-swirl-buck.webp
 themes/tokyo-night/backgrounds/3-sunset-lake.webp
 themes/tokyo-night/backgrounds/4-omakub.webp
-themes/tokyo-night/backgrounds/5-oma-cityscape.jpg
-themes/tokyo-night/backgrounds/6-oma.webp
 themes/tokyo-night/colors.toml
 themes/tokyo-night/icons.theme
 themes/tokyo-night/keyboard.rgb
