@@ -42,3 +42,20 @@ exclude agents/skills/acceptance-tests.md
 # --- symlinks are never vendored in Phase 0 (the sync refuses them); this one points at the
 # upstream root icon.png (branding, itself never vendored)
 exclude default/chromium/extensions/copy-url/icon.png
+
+# --- upstream branding / compositor screenshots — never vendored; Phase 2 regenerates previews.
+# Gates are text-based and cannot see inside an image, so every "never vendor branding" rule has to
+# live here as a path exclude. themes/*/unlock.png is the upstream wordmark in each theme's colours
+# (checked 2026-08-23: gruvbox spells it out, tokyo-night/vantablack/white are the logo mark), and
+# default/plymouth/preview-unlock.png is a screenshot of the boot splash showing that wordmark.
+exclude themes/*/backgrounds/*omarchy*
+exclude themes/*/preview.png
+exclude themes/*/preview-unlock.png
+exclude themes/*/unlock.png
+exclude default/plymouth/logo.png
+exclude default/plymouth/logos/**
+exclude default/plymouth/preview-unlock.png
+exclude **/logo.*
+exclude **/icon.*
+exclude **/logos/**
+exclude themes/*/hyprland.lua
