@@ -1,0 +1,18 @@
+# build / sync scratch
+.sync/
+.superpowers/
+release/
+*.pkg.tar.zst
+*.iso
+
+# local state
+.env
+.env.*
+*.age
+!docs/examples/**/*.age.example
+.claude/settings.local.json
+
+# editors
+.idea/
+.vscode/
+*.swp
