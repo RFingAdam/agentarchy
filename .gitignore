@@ -11,6 +11,10 @@ release/
 *.age
 !docs/examples/**/*.age.example
 .claude/settings.local.json
+# Claude Code session scratch: worktrees it creates for isolated work. They are full checkouts, so
+# leaving one behind fails the branding gate (which scans the filesystem, not the index) and doubles
+# every secret scan.
+.claude/worktrees/
 
 # editors
 .idea/

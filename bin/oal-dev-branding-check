@@ -11,9 +11,9 @@ root="$(oal_dev_root)" || exit 1; cd "$root"
 pattern='omarchy'
 # Path-prefix allowlist. --exclude-dir matches basenames only, so test/fixtures (a nested dir)
 # cannot be excluded that way; filter matched paths against this regex instead.
-allow_re='^\./(upstream|docs|tasks|test/fixtures|test/unit|\.github|\.sync|\.superpowers)/|^\./(NOTICE|LICENSE|README\.md|CLAUDE\.md|AGENTS\.md)$'
+allow_re='^\./(upstream|docs|tasks|test/fixtures|test/unit|\.github|\.sync|\.superpowers|\.claude)/|^\./(NOTICE|LICENSE|README\.md|CLAUDE\.md|AGENTS\.md)$'
 # Same prefixes, without the leading ./, for filtering `git ls-files` output (no ./ prefix there).
-allow_re_paths='^(upstream|docs|tasks|test/fixtures|test/unit|\.github|\.sync|\.superpowers)/'
+allow_re_paths='^(upstream|docs|tasks|test/fixtures|test/unit|\.github|\.sync|\.superpowers|\.claude)/'
 
 rc=0
 
