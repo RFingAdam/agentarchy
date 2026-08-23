@@ -35,10 +35,19 @@ wireplumber
 # --- hardware
 bluez
 bluez-utils
+power-profiles-daemon
+# Printing, with the discovery stack: cups alone finds nothing on a LAN. install/config/
+# enable-services.sh (vendored) enables cups-browsed and avahi-daemon, so the packages that own
+# those units have to be here.
 cups
+cups-browsed
+avahi
 
 # --- filesystem and boot
 btrfs-progs
+# install/config/locate.sh tunes locate's prune rules and install/post-install/localdb.sh runs
+# updatedb, so the locate implementation has to be installed.
+plocate
 snapper
 plymouth
 

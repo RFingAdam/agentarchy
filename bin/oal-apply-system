@@ -88,6 +88,12 @@ export PATH="$OAL_PATH/bin:$PATH"
 source "$OAL_INSTALL/helpers/logging.sh"
 start_install_log
 
+# Install the desktop before anything configures it. Upstream's own flow can assume the packages
+# are already there, because its ISO pacstraps them before this script ever runs; Agentarchy's
+# bootstrap installs them here instead, and several config steps below edit files that only exist
+# once the packages are unpacked (install/config/increase-lockout-limit.sh needs sddm's PAM stack).
+source "$OAL_INSTALL/desktop/all.sh"
+
 source "$OAL_INSTALL/config/all.sh"
 
 if (( defer_provisioning )); then

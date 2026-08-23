@@ -1,0 +1,30 @@
+--- a/bin/oal-provision-user
++++ b/bin/oal-provision-user
+@@ -109,8 +109,25 @@
+ source "$OAL_INSTALL/user/all.sh"
+ 
+ oal-refresh-applications
+-env -u BROWSER xdg-settings set default-web-browser chromium.desktop
+-xdg-mime default HEY.desktop x-scheme-handler/mailto
++
++# Claim the default browser and mail handler only for applications that are actually installed.
++# Which browser Agentarchy ships is its own decision and neither Chromium nor the HEY web app is
++# in install/agentarchy-*.packages today, so xdg-settings would fail on a desktop that is
++# otherwise perfectly good. Provisioning a user must not hard-fail over an absent optional app.
++set_default_app() {
++  local desktop="$1"; shift
++  local dir
++  for dir in "$HOME/.local/share/applications" /usr/local/share/applications /usr/share/applications; do
++    if [[ -f "$dir/$desktop" ]]; then
++      "$@"
++      return 0
++    fi
++  done
++  echo "skipping default-application setup for $desktop: not installed"
++}
++
++set_default_app chromium.desktop env -u BROWSER xdg-settings set default-web-browser chromium.desktop
++set_default_app HEY.desktop xdg-mime default HEY.desktop x-scheme-handler/mailto
+ 
+ if (( first_install )); then
+   mkdir -p "$state_dir/migrations"
