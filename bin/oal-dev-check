@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# oal:summary=Run every local quality gate (what CI runs)
+set -euo pipefail
+export LC_ALL=C
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+root="$(oal_dev_root)" || exit 1; cd "$root"
+fail=0
+gate() { local name="$1"; shift; if "$@"; then echo "PASS $name"; else echo "FAIL $name"; fail=1; fi; }
+
+# Native shell scripts = scripts under bin/ and install/ that are not vendored. Vendored scripts
+# are upstream's responsibility and must never be hand-edited, so they are reported (INFO) but
+# never gate the build.
+mapfile -t all_scripts < <(find bin install -type f -exec grep -lE '^#!.*(ba)?sh' {} + 2>/dev/null | sort)
+mapfile -t native < <(comm -23 <(printf '%s\n' "${all_scripts[@]}") <(sort upstream/VENDORED-FILES.txt 2>/dev/null))
+mapfile -t vendored < <(comm -12 <(printf '%s\n' "${all_scripts[@]}") <(sort upstream/VENDORED-FILES.txt 2>/dev/null))
+gate shellcheck bash -c '[[ $# -eq 0 ]] || shellcheck -S warning -x "$@"' _ "${native[@]}"
+if [[ ${#vendored[@]} -gt 0 ]]; then
+  n="$(shellcheck -S warning -f gcc "${vendored[@]}" 2>/dev/null | wc -l || true)"
+  echo "INFO shellcheck(vendored): $n warnings in ${#vendored[@]} vendored scripts (non-blocking)"
+fi
+
+gate bats         bats test/unit
+gate branding     bin/oal-dev-branding-check
+gate notice       bin/oal-dev-notice-check
+gate gitleaks     gitleaks detect --no-banner --redact --source . -c .gitleaks.toml
+gate vendor-drift bin/oal-dev-sync-upstream --check
+exit $fail

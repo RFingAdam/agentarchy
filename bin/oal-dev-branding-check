@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# oal:summary=Fail if the word omarchy appears outside the documented allowlist (content or file names)
+set -euo pipefail
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+root="$(oal_dev_root)" || exit 1; cd "$root"
+
+# Kept out of the codebase as a literal by routing it through this single-quoted variable; this
+# script is itself excluded from the content grep below (--exclude=oal-dev-branding-check) so its
+# own use of the word never trips the gate it implements.
+pattern='omarchy'
+# Path-prefix allowlist. --exclude-dir matches basenames only, so test/fixtures (a nested dir)
+# cannot be excluded that way; filter matched paths against this regex instead.
+allow_re='^\./(upstream|docs|tasks|test/fixtures|test/unit|\.github|\.sync|\.superpowers)/|^\./(NOTICE|LICENSE|README\.md|CLAUDE\.md|AGENTS\.md)$'
+# Same prefixes, without the leading ./, for filtering `git ls-files` output (no ./ prefix there).
+allow_re_paths='^(upstream|docs|tasks|test/fixtures|test/unit|\.github|\.sync|\.superpowers)/'
+
+rc=0
+
+hits="$(grep -rIil --exclude-dir=.git --exclude=oal-dev-branding-check "$pattern" . 2>/dev/null | grep -Ev "$allow_re" || true)"
+if [[ -n "$hits" ]]; then
+  echo "branding: '$pattern' found outside allowlist:"
+  echo "$hits"
+  rc=1
+fi
+
+# Content greps cannot see the word in a path itself; check tracked file names separately.
+name_hits="$(git ls-files 2>/dev/null | grep -i "$pattern" | grep -Ev "$allow_re_paths" || true)"
+if [[ -n "$name_hits" ]]; then
+  echo "branding: '$pattern' found in tracked file names outside allowlist:"
+  echo "$name_hits"
+  rc=1
+fi
+
+[[ $rc -eq 0 ]] && oal_dev_log "branding ok"
+exit $rc

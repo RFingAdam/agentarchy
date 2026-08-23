@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# oal:summary=Ensure every themes/*/backgrounds file is listed in NOTICE (with --strict: audited)
+# Usage: oal-dev-notice-check [--update] [--strict]
+set -euo pipefail
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+update=0; strict=0
+for a in "$@"; do case "$a" in --update) update=1 ;; --strict) strict=1 ;; *) oal_dev_die "unknown arg $a" ;; esac; done
+root="$(oal_dev_root)" || exit 1; cd "$root"
+
+mapfile -t files < <(find themes -type f -path '*/backgrounds/*' 2>/dev/null | sort)
+begin='<!-- BEGIN BACKGROUNDS -->'; end='<!-- END BACKGROUNDS -->'
+grep -q "$begin" NOTICE && grep -q "$end" NOTICE || oal_dev_die "NOTICE lacks the BACKGROUNDS markers"
+
+if [[ $update -eq 1 ]]; then
+  # Preserve existing audited lines; add UNAUDITED lines for new files; drop lines for removed files.
+  declare -A existing
+  while IFS= read -r line; do
+    [[ "$line" == themes/* ]] || continue
+    existing["${line%% |*}"]="$line"
+  done < <(sed -n "/$begin/,/$end/p" NOTICE)
+  {
+    sed "/$begin/q" NOTICE
+    for f in "${files[@]}"; do echo "${existing[$f]:-$f | UNAUDITED}"; done
+    sed -n "/$end/,\$p" NOTICE
+  } > NOTICE.new && mv NOTICE.new NOTICE
+fi
+
+rc=0
+for f in "${files[@]}"; do
+  line="$(grep -F "$f |" NOTICE || true)"
+  if [[ -z "$line" ]]; then echo "NOTICE missing: $f"; rc=1
+  elif [[ $strict -eq 1 && "$line" == *"| UNAUDITED"* ]]; then echo "UNAUDITED: $f"; rc=1; fi
+done
+[[ $rc -eq 0 ]] && oal_dev_log "notice ok (${#files[@]} backgrounds)"
+exit $rc

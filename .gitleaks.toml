@@ -1,0 +1,14 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Agentarchy allowlist"
+paths = [
+  '''test/fixtures/.*''',
+  '''themes/.*/backgrounds/.*''',
+  # bin/oal-install-chromium-google-account: the OAuth2 client id/secret here is the public pair
+  # Chromium's own open-source project publishes to enable "Sign in to Chromium" (used unmodified
+  # by many distro chromium packages, e.g. Arch's); it is not a real secret. The file is vendored
+  # (see upstream/VENDORED-FILES.txt) and must not be hand-edited, so it is allowlisted here.
+  '''bin/oal-install-chromium-google-account''',
+]
