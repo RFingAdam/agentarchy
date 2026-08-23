@@ -122,6 +122,36 @@ VM_VNC=127.0.0.1:1 test/vm/vm-up --fresh   # then: vncviewer 127.0.0.1:5901
 `.vm/serial.log` is the boot console and is usually the faster answer; `vm-up` prints its tail
 automatically when a boot never reaches ssh.
 
+## Opening the result in virt-manager
+
+The harness drives qemu directly (`-display none`, ssh + QMP), so nothing it boots appears in
+virt-manager. To click around in a finished install instead of scripting it, hand the disk to
+libvirt once:
+
+```bash
+# 1. Flatten it. .vm/disk.qcow2 is a copy-on-write overlay on the cached cloud image, so copying it
+#    alone produces an unbootable file.
+sudo qemu-img convert -O qcow2 .vm/disk.qcow2 /var/lib/libvirt/images/agentarchy.qcow2
+sudo chown libvirt-qemu:kvm /var/lib/libvirt/images/agentarchy.qcow2
+
+# 2. Give the guest a password first (the harness logs in by key, and the installed desktop
+#    autologins, but a lock screen with no password is a locked machine):
+#    test/vm/vm-ssh 'echo "oal:<password>" | sudo chpasswd; sudo touch /etc/cloud/cloud-init.disabled'
+
+# 3. Import. --boot uefi picks a Secure Boot firmware whose keys reject the cloud image's
+#    unsigned GRUB ("Access Denied -- rejected probably by Secure Boot"), so name the plain OVMF
+#    pair explicitly and reuse the harness's own variable store, which already has the boot entry.
+virt-install --connect qemu:///system --name agentarchy \
+  --memory 8192 --vcpus 4 --cpu host-passthrough \
+  --import --disk path=/var/lib/libvirt/images/agentarchy.qcow2,bus=virtio,format=qcow2 \
+  --os-variant archlinux --video virtio --graphics spice,listen=none \
+  --network network=default,model=virtio --noautoconsole \
+  --boot loader=/usr/share/OVMF/OVMF_CODE_4M.fd,loader.readonly=yes,loader.type=pflash,nvram=/var/lib/libvirt/qemu/nvram/agentarchy_VARS.fd
+sudo install -o libvirt-qemu -g kvm -m 600 .vm/vars.fd /var/lib/libvirt/qemu/nvram/agentarchy_VARS.fd
+```
+
+The libvirt copy is independent of `.vm/disk.qcow2`, which `--fresh` throws away on the next run.
+
 ## Housekeeping
 
 * `.vm/` and `.vm-cache/` are git-ignored. `.vm/id_vm` is a throwaway key for a throwaway VM and
