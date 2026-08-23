@@ -488,7 +488,6 @@ etc/nsswitch.conf
 etc/plymouth/plymouthd.conf
 etc/profile.d/oal.sh
 etc/sddm.conf.d/10-theme.conf
-etc/sddm.conf.d/10-wayland.conf
 etc/security/faillock.conf
 etc/sudoers.d/oal-asdcontrol
 etc/sudoers.d/oal-dns

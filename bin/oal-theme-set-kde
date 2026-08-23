@@ -1,0 +1,182 @@
+#!/bin/bash
+
+# oal:summary=Apply an Agentarchy theme to KDE Plasma (colour scheme, Konsole, wallpaper)
+# oal:args=<theme-name> [--dry-run] [--out <dir>]
+# oal:examples=oal-theme-set-kde tokyo-night | oal-theme-set-kde "Tokyo Night" --dry-run --out /tmp/t
+
+# A theme is one colors.toml. KDE wants two files generated from it -- a Plasma colour scheme and a
+# Konsole scheme -- and then three commands run against a live session. Generating and applying are
+# split so the generation can be tested offline (--dry-run) and so a missing Plasma tool degrades to
+# a warning instead of a failure: the files are still correct on disk, and the next login reads them.
+#
+# This is Phase 1's minimum. The full engine (templates for all 22 themes, SDDM and lock screen,
+# icons, light/dark switching) is Phase 2's; keep this one honest and small until then.
+
+set -euo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+
+dry_run=0
+out_dir="${XDG_DATA_HOME:-$HOME/.local/share}"
+theme_arg=""
+
+usage() {
+  echo "Usage: oal-theme-set-kde <theme-name> [--dry-run] [--out <dir>]" >&2
+}
+
+while (( $# > 0 )); do
+  case "$1" in
+    --dry-run) dry_run=1 ;;
+    --out) out_dir="${2:-}"; shift ;;
+    -h | --help) usage; exit 0 ;;
+    -*) echo "oal-theme-set-kde: unknown option $1" >&2; usage; exit 1 ;;
+    *) theme_arg="$1" ;;
+  esac
+  shift
+done
+
+[[ -n $theme_arg ]] || { usage; exit 1; }
+
+# Same normalisation oal-theme-set uses, so "Tokyo Night", "tokyo-night" and a menu label that
+# carries markup all name the same directory.
+slug="$(echo "$theme_arg" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')"
+
+theme_dir=""
+for candidate in "$HOME/.config/oal/themes/$slug" "$OAL_PATH/themes/$slug"; do
+  [[ -d $candidate ]] && { theme_dir="$candidate"; break; }
+done
+[[ -n $theme_dir ]] || { echo "oal-theme-set-kde: theme '$slug' does not exist" >&2; exit 1; }
+
+colors_file="$theme_dir/colors.toml"
+[[ -f $colors_file ]] || { echo "oal-theme-set-kde: theme '$slug' has no colors.toml" >&2; exit 1; }
+
+# Title-case the slug: tokyo-night -> Tokyo Night. The scheme is called "OAL <Name>" so it sorts
+# with the other Agentarchy entries in the Plasma colour KCM and cannot collide with a Breeze one.
+title="$(echo "$slug" | tr '-' ' ' | sed -E 's/(^| )([a-z])/\1\u\2/g')"
+scheme_name="OAL $title"
+
+# The palette, resolved by the shared parser every other colors.toml consumer uses (aliases, legacy
+# colorN names, derived shades and the light/dark mode detection all live there, not here).
+declare -A C
+while IFS=$'\t' read -r key value; do
+  C[$key]="$value"
+done < <("$bin_dir/oal-theme-color" --file "$colors_file" --all)
+
+rgb() {
+  local key="$1" fallback="${2:-}" hex
+  hex="${C[$key]:-${C[$fallback]:-}}"
+  [[ -n $hex ]] || { echo "oal-theme-set-kde: theme '$slug' defines neither $key nor $fallback" >&2; exit 1; }
+  hex="${hex#\#}"
+  printf '%d,%d,%d' "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
+}
+
+# One colour block, in the key order every Breeze section uses.
+colors_section() {
+  local section="$1" background="$2" alternate="$3"
+  cat <<SECTION
+[$section]
+BackgroundNormal=$background
+BackgroundAlternate=$alternate
+DecorationFocus=$(rgb accent)
+DecorationHover=$(rgb accent)
+ForegroundNormal=$(rgb foreground)
+ForegroundInactive=$(rgb muted dark_foreground)
+ForegroundActive=$(rgb accent)
+ForegroundLink=$(rgb blue accent)
+ForegroundVisited=$(rgb magenta accent)
+ForegroundNegative=$(rgb red)
+ForegroundNeutral=$(rgb yellow)
+ForegroundPositive=$(rgb green)
+
+SECTION
+}
+
+scheme_dir="$out_dir/color-schemes"
+konsole_dir="$out_dir/konsole"
+scheme_file="$scheme_dir/$scheme_name.colors"
+konsole_file="$konsole_dir/$scheme_name.colorscheme"
+mkdir -p "$scheme_dir" "$konsole_dir"
+
+{
+  colors_section "Colors:Button" "$(rgb lighter_background background)" "$(rgb background)"
+  colors_section "Colors:Complementary" "$(rgb dark_background background)" "$(rgb darker_background background)"
+  colors_section "Colors:Header" "$(rgb lighter_background background)" "$(rgb background)"
+  colors_section "Colors:Selection" "$(rgb selection accent)" "$(rgb selection accent)"
+  colors_section "Colors:Tooltip" "$(rgb lighter_background background)" "$(rgb background)"
+  colors_section "Colors:View" "$(rgb background)" "$(rgb dark_background background)"
+  colors_section "Colors:Window" "$(rgb background)" "$(rgb dark_background background)"
+  cat <<GENERAL
+[General]
+ColorScheme=$scheme_name
+Name=$scheme_name
+accentColorFromWallpaper=false
+shadeSortColumn=true
+
+[KDE]
+contrast=4
+
+[WM]
+activeBackground=$(rgb accent)
+activeForeground=$(rgb background)
+activeBlend=$(rgb accent)
+inactiveBackground=$(rgb background)
+inactiveForeground=$(rgb muted dark_foreground)
+inactiveBlend=$(rgb background)
+GENERAL
+} >"$scheme_file"
+
+# Konsole reads the same sixteen ANSI colours the terminal templates do: ColorN is colorN and
+# ColorNIntense is color(N+8), which is what oal-theme-color already resolves for every theme.
+{
+  printf '[Background]\nColor=%s\n\n' "$(rgb background)"
+  printf '[BackgroundIntense]\nColor=%s\n\n' "$(rgb dark_background background)"
+  printf '[Foreground]\nColor=%s\n\n' "$(rgb foreground)"
+  printf '[ForegroundIntense]\nColor=%s\n\n' "$(rgb bright_foreground foreground)"
+  for i in 0 1 2 3 4 5 6 7; do
+    printf '[Color%d]\nColor=%s\n\n' "$i" "$(rgb "color$i")"
+    printf '[Color%dIntense]\nColor=%s\n\n' "$i" "$(rgb "color$((i + 8))" "color$i")"
+  done
+  printf '[General]\nBlur=false\nColorRandomization=false\nDescription=%s\nOpacity=1\nWallpaper=\n' "$scheme_name"
+} >"$konsole_file"
+
+echo "wrote $scheme_file"
+echo "wrote $konsole_file"
+
+(( dry_run )) && exit 0
+
+# From here on we are talking to a live Plasma session. Every step is optional: a missing tool means
+# this box is not running Plasma (a chroot, the ISO build, a server), and the generated files are
+# still the right answer for whenever it does.
+apply() {
+  local tool="$1"; shift
+  if ! command -v "$tool" >/dev/null; then
+    echo "skipping $tool: not installed"
+    return 0
+  fi
+  "$tool" "$@" || echo "warning: $tool failed"
+}
+
+apply plasma-apply-colorscheme "$scheme_name"
+
+background="$(find -L "$theme_dir/backgrounds" -maxdepth 1 -type f \
+  \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) 2>/dev/null | sort | head -1)"
+if [[ -n $background ]]; then
+  apply plasma-apply-wallpaperimage "$background"
+else
+  echo "skipping wallpaper: theme '$slug' ships no background"
+fi
+
+# Konsole picks its scheme up from the profile, not from the colour scheme, so point the default
+# profile at ours. A box with no Konsole profile yet gets one with just this key, which Konsole
+# fills in with its defaults on first run.
+if command -v kwriteconfig6 >/dev/null; then
+  profile="${XDG_DATA_HOME:-$HOME/.local/share}/konsole/Agentarchy.profile"
+  mkdir -p "$(dirname "$profile")"
+  kwriteconfig6 --file "$profile" --group Appearance --key ColorScheme "$scheme_name"
+  kwriteconfig6 --file "$profile" --group General --key Name "Agentarchy"
+  kwriteconfig6 --file "$profile" --group General --key Parent "FALLBACK/"
+  kwriteconfig6 --file konsolerc --group "Desktop Entry" --key DefaultProfile "Agentarchy.profile"
+else
+  echo "skipping konsole profile: kwriteconfig6 not installed"
+fi

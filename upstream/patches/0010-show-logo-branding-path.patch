@@ -1,0 +1,18 @@
+--- a/bin/oal-show-logo
++++ b/bin/oal-show-logo
+@@ -2,8 +2,14 @@
+ 
+ # oal:summary=Display the Agentarchy logo in the terminal using green color.
+ 
++logo="$OAL_PATH/default/branding/logo.txt"
++
++# The wordmark lives with the other branding assets rather than at the tree root, so the ASCII and
++# the PNG that SDDM and Plymouth draw are replaced together. A tree without it still runs.
++[[ -f $logo ]] || exit 0
++
+ clear
+ echo -e "\033[32m"
+-cat <$OAL_PATH/logo.txt
++cat "$logo"
+ echo -e "\033[0m"
+ echo

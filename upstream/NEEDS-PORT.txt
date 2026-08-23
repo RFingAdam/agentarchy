@@ -72,7 +72,6 @@ default/systemd/user/oal-crash-watch.service
 default/systemd/user/oal-fcitx5.service
 default/systemd/user/oal-migrate-notify.service
 default/systemd/user/oal-recover-internal-monitor.service
-etc/sddm.conf.d/10-wayland.conf
 etc/systemd/oomd.conf.d/10-oal.conf
 install/hardware/nvidia.sh
 install/user/first-run/enable-user-units.sh

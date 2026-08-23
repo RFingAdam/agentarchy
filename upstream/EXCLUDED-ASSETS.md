@@ -10,17 +10,28 @@ Agentarchy replacement; until then the referencing code path is broken by design
 
 | Referencing file | Missing asset | Effect today | Replaced in |
 |---|---|---|---|
-| `default/sddm/oal/Main.qml:39` | `logo.png` (same dir) | SDDM greeter shows an empty `Image` | Phase 1 — text/placeholder logo |
-| `default/plymouth/oal.script:6` | `logo.png` (same dir) | boot splash draws no logo sprite | Phase 1 — placeholder boot logo |
-| `bin/oal-plymouth-current:10` | `default/plymouth/logo.png` | `cmp` fails, never reports `default` | Phase 1 |
 | `bin/oal-plymouth-current:16`, `bin/oal-plymouth-set-by-theme:53` | `themes/*/unlock.png` | per-theme boot/lock logo missing; `oal plymouth set-by-theme` cannot resolve a logo | Phase 2 — Agentarchy wordmark per palette |
 | `bin/oal-plymouth-list:10`, `bin/oal-plymouth-switcher:13` | `themes/*/preview-unlock.png` | the unlock-screen switcher lists no themes | Phase 2 — regenerated previews |
-| `bin/oal-plymouth-switcher:10` | `default/plymouth/preview-unlock.png` | the switcher's `default` entry is a broken symlink | Phase 1 |
 | `bin/oal-theme-switcher:25` | `themes/*/preview.png` | theme menu falls back to no preview image | Phase 3 — Plasma screenshots |
-| `bin/oal-show-logo:7` | `$OAL_PATH/logo.txt` | prints nothing (upstream's root `logo.txt` was never in the manifest) | Phase 1 — ASCII text logo |
-| `default/chromium/extensions/copy-url/manifest.json:10-12` | `icon.png` (same dir) | extension loads with Chromium's default icon | Phase 1 |
-| `default/chromium/extensions/yt-dlp/manifest.json:9-11` | `icon.png` (same dir) | extension loads with Chromium's default icon | Phase 1 |
-| `etc/sddm.conf.d/10-wayland.conf:5` | `/usr/share/sddm/hyprland.lua` (from the never-vendored `default/sddm/hyprland.lua`) | greeter cannot start: it asks for a Hyprland session | Phase 1 — Plasma greeter session |
+
+## Supplied in Phase 1 (2026-08-23)
+
+Placeholders now exist for every Phase 1 row that used to be in the table above; the generator
+commands are in `default/branding/README.md`, and Phase 2 replaces the artwork.
+
+- `default/branding/logo.txt` — terminal wordmark. `bin/oal-show-logo` reads it there instead of the
+  tree root (`upstream/patches/0010`), so the ASCII and the PNGs are replaced together.
+- `default/branding/logo.png`, copied byte-for-byte to `default/plymouth/logo.png` and
+  `default/sddm/oal/logo.png` — the greeter's `Image` and the boot splash sprite. Copies rather than
+  symlinks: Plymouth's theme directory is copied into the initramfs, where a symlink pointing out of
+  it would dangle. This also un-breaks `bin/oal-plymouth-current`, whose `cmp` had nothing to compare.
+- `default/plymouth/preview-unlock.png` — the wordmark on the splash background, so
+  `bin/oal-plymouth-switcher`'s `default` entry resolves.
+- `default/chromium/extensions/{copy-url,yt-dlp}/icon.png` — generic rounded-square glyphs.
+
+`etc/sddm.conf.d/10-wayland.conf` was not replaced but **dropped from vendoring**: it exists only to
+point SDDM's Wayland greeter at the never-vendored `hyprland.lua`, and `install/desktop/plasma.sh`
+decided the other way (X11 greeter, autologin skips it). See the manifest comment.
 
 Also dropped with no vendored referent, listed so a PIN bump does not quietly re-add them:
 
