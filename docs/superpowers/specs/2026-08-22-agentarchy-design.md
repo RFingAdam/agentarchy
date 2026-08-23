@@ -27,7 +27,7 @@ Two read-only research passes (7 agents + an Opus critic) established the load-b
 - **Theme system**: `themes/<name>/colors.toml` is a flat schema (`mode`, `accent`, `selection`, `muted`,
   `background`/`dark_`/`darker_`/`lighter_background`, `foreground`/`dark_`/`light_`/`bright_foreground`, `red
   yellow orange green cyan blue magenta brown`, `bright_*`). `omarchy-theme-set` renders `default/themed/*.tpl`
-  (18 templates; 16 agnostic — ghostty/alacritty/foot/kitty/btop/neovim/vscode/obsidian/chromium/claude/pi/helix/
+  (18 templates; 14 agnostic — ghostty/alacritty/foot/kitty/btop/neovim/vscode/obsidian/chromium/claude/pi/helix/
   tmux…; only `hyprland.lua.tpl`, `hyprland-preview-share-picker.css.tpl`, `shell.toml.tpl` are compositor-bound),
   atomically swaps `~/.local/state/omarchy/current/theme`, then pushes colors to the shell over IPC.
 - **Hyprland can't be a stacking desktop** without fighting it; a real DE is the honest answer. **KDE Plasma 6.7**
@@ -98,6 +98,7 @@ agentarchy/
 ├── applications/                 # .desktop overrides + hidden/
 ├── migrations/                   # empty at start; <epoch>.sh; markers in ~/.local/state/oal/migrations
 ├── agents/skills/                # vendored + OAL skills
+├── etc/  # vendored system config (sysctl, sudoers.d, mkinitcpio, tmpfiles, profile.d)
 ├── agent/                        # public agent layer templates (CLAUDE.md, hooks, settings.json, security hook)
 ├── plugins/                      # oal-plugin-* + compat notes (Phase 7)
 ├── upstream/PIN  upstream/VENDOR-MANIFEST  upstream/RENAME-MAP  NOTICE
@@ -133,7 +134,7 @@ btop, lazygit, lazydocker, docker, chromium, nautilus→**dolphin**, fonts (`ttf
 
 ### Theme engine (`bin/oal-theme-*`, `default/themed/`)
 
-Vendored `oal-theme-set` + `oal-theme-set-templates` + 16 agnostic `.tpl` files keep working unchanged (paths
+Vendored `oal-theme-set` + `oal-theme-set-templates` + 14 agnostic `.tpl` files keep working unchanged (paths
 renamed). Replace the Quickshell IPC block with `oal-theme-set-kde`:
 
 | Output | Mechanism |

@@ -3,14 +3,14 @@
 Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 
 ## Phases
-- [ ] Phase 0 — Bootstrap (plan: docs/superpowers/plans/2026-08-22-phase-0-bootstrap.md)
-  - [ ] Task 1 scaffolding
-  - [ ] Task 2 upstream fetch
-  - [ ] Task 3 vendor manifest + rename map + sync
-  - [ ] Task 4 patch workflow
-  - [ ] Task 5 first real vendoring run
-  - [ ] Task 6 hygiene gates + oal-dev-check
-  - [ ] Task 7 GitHub Actions CI
+- [x] Phase 0 — Bootstrap (plan: docs/superpowers/plans/2026-08-22-phase-0-bootstrap.md)
+  - [x] Task 1 scaffolding
+  - [x] Task 2 upstream fetch
+  - [x] Task 3 vendor manifest + rename map + sync
+  - [x] Task 4 patch workflow
+  - [x] Task 5 first real vendoring run
+  - [x] Task 6 hygiene gates + oal-dev-check
+  - [x] Task 7 GitHub Actions CI
 - [ ] Phase 1 — Package + bootstrap + VM golden path
 - [ ] Phase 2 — Theme engine, all 22 themes (+ wallpaper licence audit)
 - [ ] Phase 3 — Layouts, shortcut parity, OAL Menu
@@ -31,6 +31,22 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
       (Phase 6). Blocked on you: infrastructure and cost decision.
 - [ ] Eyeball the two layouts from the Phase 3 VM screenshots and say which tweaks you want. Blocked on you: taste.
 - [ ] Confirm the tagline "Omarchy's taste. Your mouse. Your agents." and whether a text logo is fine for v0.1.
+- [ ] Confirm the git author identity you want on this public repo (commits currently use your global
+      gitconfig email). Blocked on you: it is your identity.
 
 ## Review log
 (appended at the end of each phase)
+
+### Phase 0 — 2026-08-23
+- vendored: 851 files, excluded 121 bin scripts, 92 need porting (upstream/NEEDS-PORT.txt)
+- gates: oal-dev-check PASS x6 (paste)
+  ```
+  PASS shellcheck
+  INFO shellcheck(vendored): 51 warnings in 303 vendored scripts (non-blocking)
+  PASS bats
+  PASS branding
+  PASS notice
+  PASS gitleaks
+  PASS vendor-drift
+  ```
+- open: owner-actions above (GitHub repos not created yet; CI runs once pushed)
