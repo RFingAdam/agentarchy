@@ -3,13 +3,13 @@
 Read this when the user wants to report an Agentarchy bug, suggest a feature, or
 contribute a fix upstream.
 
-Agentarchy lives at https://github.com/basecamp/oal. Route requests to the
+Agentarchy lives at https://github.com/RFingAdam/agentarchy. Route requests to the
 right place:
 
 - **Verified bugs** -> GitHub issues. Issues are for validated bugs only, not
   support requests.
 - **Feature ideas and suggestions** ->
-  https://github.com/basecamp/oal/discussions/categories/suggestions
+  https://github.com/RFingAdam/agentarchy/discussions/categories/suggestions
 - **Support and "is this a bug?" questions** -> the Discord community at
   https://github.com/RFingAdam/agentarchy Start here when the problem isn't clearly a bug
   in Agentarchy itself.
@@ -26,7 +26,7 @@ oal version
 oal debug --no-sudo --print
 
 # Interactive variant: `oal debug` offers to upload the log to
-# logs.oal.org (expires after 24h) and prints a shareable URL to
+# logs.agentarchy.invalid (expires after 24h) and prints a shareable URL to
 # include in the issue.
 ```
 
@@ -43,7 +43,7 @@ For screen-recording failures specifically, rerun with
 File the issue with `gh` when available:
 
 ```bash
-gh issue create --repo basecamp/oal --title "..." --body "..."
+gh issue create --repo RFingAdam/agentarchy --title "..." --body "..."
 ```
 
 Include: what happened, what was expected, steps to reproduce, system details,
@@ -54,7 +54,7 @@ the debug log URL (or attached log), and the capture.
 Never develop against `/usr/share/agentarchy`. Clone a working copy instead:
 
 ```bash
-gh repo fork basecamp/oal --clone
+gh repo fork RFingAdam/agentarchy --clone
 cd oal
 ```
 

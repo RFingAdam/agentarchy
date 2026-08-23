@@ -1,9 +1,20 @@
 # Content rewrites applied to vendored text files by bin/oal-dev-sync-upstream (sed -E).
 # Order matters: URL rules first, then paths, then words, then prose.
 
-# upstream URLs (must precede the word rules, which would otherwise produce oal.org)
+# upstream URLs (must precede the word rules, which would otherwise rewrite the host itself)
 s#https?://(www\.)?omarchy\.org[^ )"'\`>]*#https://github.com/RFingAdam/agentarchy#g
 s#https?://(learn\.omacom\.io|manuals\.omamix\.org)[^ )"'\`>]*#https://github.com/RFingAdam/agentarchy/tree/main/docs#g
+
+# Subdomain hosts (pkgs./logs./mirror./stable-mirror./rc-mirror.omarchy.org) are not matched by the
+# rule above, and the bare-word rule below would forge a real, resolvable host under the same
+# .org domain, which someone could register.
+# Retarget them at the reserved .invalid TLD: it can never resolve and reads as a placeholder.
+# Sits after the two rules above so plain omarchy.org / www.omarchy.org keep mapping to the repo.
+s#([a-z0-9-]+\.)+omarchy\.org#\1agentarchy.invalid#g
+
+# upstream repo slug: clone/fork/issue targets must point at ours, not a fabricated
+# basecamp/<newname> that does not exist
+s#basecamp/omarchy#RFingAdam/agentarchy#g
 
 # paths
 s#/usr/share/omarchy#/usr/share/agentarchy#g

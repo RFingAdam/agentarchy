@@ -11,3 +11,21 @@ omarchy-system-lock
 omarchy-system-logout
 omarchy-system-reboot
 omarchy-system-shutdown
+
+# The `omarchy` dispatcher itself: one GROUP_DESCRIPTIONS[hyprland] line trips the regex.
+omarchy
+
+# R19: installers whose only compositor tie is a trailing `uwsm-app`/`oal-launch-*` launch line.
+# The package selection and setup above it is desktop-agnostic; the launch line is the port job.
+omarchy-install-ai-chatgpt
+omarchy-install-editor-emacs
+omarchy-install-editor-vscode
+omarchy-install-editor-zed
+omarchy-install-gaming-heroic
+omarchy-install-gaming-steam
+omarchy-install-service-1password
+omarchy-install-service-signal
+omarchy-install-service-spotify
+omarchy-install-gaming-geforce-now
+omarchy-install-gaming-battlenet
+omarchy-migrate-notify

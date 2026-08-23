@@ -2,19 +2,19 @@
 
 # oal:summary=Print the active Agentarchy mirror and package channel
 
-if grep -q "https://stable-mirror.oal.org/" /etc/pacman.d/mirrorlist; then
+if grep -q "https://stable-mirror.agentarchy.invalid/" /etc/pacman.d/mirrorlist; then
   mirror="stable"
-elif grep -q "https://rc-mirror.oal.org/" /etc/pacman.d/mirrorlist; then
+elif grep -q "https://rc-mirror.agentarchy.invalid/" /etc/pacman.d/mirrorlist; then
   mirror="rc"
-elif grep -q "https://mirror.oal.org/" /etc/pacman.d/mirrorlist; then
+elif grep -q "https://mirror.agentarchy.invalid/" /etc/pacman.d/mirrorlist; then
   mirror="edge"
 else
   mirror="unknown"
 fi
 
-if grep -q "https://pkgs.oal.org/stable/" /etc/pacman.conf; then
+if grep -q "https://pkgs.agentarchy.invalid/stable/" /etc/pacman.conf; then
   pkgs="stable"
-elif grep -q "https://pkgs.oal.org/edge/" /etc/pacman.conf; then
+elif grep -q "https://pkgs.agentarchy.invalid/edge/" /etc/pacman.conf; then
   pkgs="edge"
 else
   pkgs="unknown"

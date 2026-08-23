@@ -2,8 +2,15 @@
 
 setup() {
   SRC="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  REPO="$BATS_TEST_TMPDIR/repo"; mkdir -p "$REPO"
-  cp -a "$SRC/bin" "$SRC/upstream" "$SRC/test" "$REPO/"
+  REPO="$BATS_TEST_TMPDIR/repo"
+  # Work on a throwaway copy so --apply cannot touch the real tree. Only the dev tooling is
+  # copied: the repo's own vendored bin/oal-* scripts would otherwise sit in the fixture repo
+  # looking like output of the mini fixture's sync, and quietly satisfy assertions.
+  mkdir -p "$REPO/bin"
+  cp -a "$SRC"/bin/oal-dev-* "$REPO/bin/"
+  cp -a "$SRC/upstream" "$SRC/test" "$REPO/"
+  rm -f "$REPO/upstream/VENDORED-FILES.txt" "$REPO/upstream/EXCLUDED-BIN.txt" \
+        "$REPO/upstream/NEEDS-PORT.txt" "$REPO/upstream/DANGLING.txt"
   export OAL_DEV_CACHE="$BATS_TEST_TMPDIR/cache"
   export OAL_UPSTREAM_TARBALL="$BATS_TEST_TMPDIR/upstream.tar.gz"
   "$REPO/test/fixtures/build-upstream-mini-tarball.sh" "$OAL_UPSTREAM_TARBALL"

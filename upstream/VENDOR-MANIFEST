@@ -2,14 +2,17 @@
 # Later lines win. Everything not included is ignored.
 
 include bin/omarchy-*
+include bin/omarchy
 include install/**
 include default/**
 include config/**
 include themes/**
 include applications/**
 include agents/**
+include etc/**
 
 # --- never vendor: compositor/shell-bound, docs, branding, tests, upstream migrations
+exclude bin/omarchy-dev-*
 exclude shell/**
 exclude config/hypr/**
 exclude config/hyprland-preview-share-picker/**
@@ -25,11 +28,16 @@ exclude default/themed/hyprland.lua.tpl
 exclude default/themed/hyprland-preview-share-picker.css.tpl
 exclude default/themed/shell.toml.tpl
 exclude themes/*/shell.lock.toml
-exclude default/sddm/**/*.png
+exclude default/sddm/*/logo.png
+exclude default/sddm/hyprland.lua
 # Agent skill for developing the Quickshell desktop under shell/, which we never vendor. It is
 # the one vendored file that keeps a literal 'omarchy' (the shell-injected QML property
 # omarchyPath); renaming that would invent an upstream API name, so drop the file instead.
 exclude agents/skills/shell-dev.md
+# icon-font.md targets default/fonts/oal/oal.ttf (default/fonts/** excluded above);
+# acceptance-tests.md targets test/acceptance.d/, which is not vendored at all.
+exclude agents/skills/icon-font.md
+exclude agents/skills/acceptance-tests.md
 
 # --- symlinks are never vendored in Phase 0 (the sync refuses them); this one points at the
 # upstream root icon.png (branding, itself never vendored)

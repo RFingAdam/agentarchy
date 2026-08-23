@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# oal:summary=Install Emacs with Agentarchy theme and font integration via the oal-emacs AUR package
+
+echo "Installing Emacs..."
+oal-pkg-aur-add oal-emacs && oal-install-emacs
+
+# emacsclient opens a frame on the running daemon, not a second Emacs
+setsid uwsm-app -- gtk-launch emacsclient >/dev/null 2>&1 &

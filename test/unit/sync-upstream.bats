@@ -2,21 +2,15 @@
 
 setup() {
   SRC="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  # Work on a throwaway copy of the repo so --apply cannot touch the real tree.
   REPO="$BATS_TEST_TMPDIR/repo"
-  mkdir -p "$REPO"
-  cp -a "$SRC/bin" "$SRC/upstream" "$SRC/test" "$REPO/"
-  # The copy has to start pristine. The real repo now carries a vendored tree, so its
-  # bin/oal-* scripts and its reports would otherwise sit in the throwaway repo looking
-  # like output of the mini fixture's sync. VENDORED-FILES.txt is the authoritative list
-  # of what the sync owns, so replay it to strip exactly those files.
-  if [[ -f "$REPO/upstream/VENDORED-FILES.txt" ]]; then
-    while IFS= read -r vendored; do
-      if [[ -n "$vendored" ]]; then rm -f "$REPO/$vendored"; fi
-    done < "$REPO/upstream/VENDORED-FILES.txt"
-  fi
+  # Work on a throwaway copy so --apply cannot touch the real tree. Only the dev tooling is
+  # copied: the repo's own vendored bin/oal-* scripts would otherwise sit in the fixture repo
+  # looking like output of the mini fixture's sync, and quietly satisfy assertions.
+  mkdir -p "$REPO/bin"
+  cp -a "$SRC"/bin/oal-dev-* "$REPO/bin/"
+  cp -a "$SRC/upstream" "$SRC/test" "$REPO/"
   rm -f "$REPO/upstream/VENDORED-FILES.txt" "$REPO/upstream/EXCLUDED-BIN.txt" \
-        "$REPO/upstream/NEEDS-PORT.txt"
+        "$REPO/upstream/NEEDS-PORT.txt" "$REPO/upstream/DANGLING.txt"
   export OAL_DEV_CACHE="$BATS_TEST_TMPDIR/cache"
   export OAL_UPSTREAM_TARBALL="$BATS_TEST_TMPDIR/upstream.tar.gz"
   "$REPO/test/fixtures/build-upstream-mini-tarball.sh" "$OAL_UPSTREAM_TARBALL"
@@ -35,11 +29,18 @@ setup() {
   [[ "$output" == *'oal-restart-terminal'* ]]
   [[ "$output" == *'# Agentarchy theme setter'* ]]
   [[ "$output" != *omarchy* ]]
-  # Upstream URLs are rewritten before the bare-word rules (which would yield oal.org).
+  # Upstream URLs are rewritten before the bare-word rules, which would rewrite the host itself.
   run cat default/bash/aliases
   [[ "$output" == *'https://github.com/RFingAdam/agentarchy/tree/main/docs'* ]]
   [[ "$output" == *'echo "see https://github.com/RFingAdam/agentarchy"'* ]]
   [[ "$output" != *'https://github.com/RFingAdam/agentarchy/install'* ]]
+  # Subdomain hosts keep the subdomain but move to the reserved .invalid TLD, so the rename can
+  # never forge a resolvable look-alike host. No .org host may survive the rename at all.
+  [[ "$output" == *'https://pkgs.agentarchy.invalid/stable'* ]]
+  [[ "$output" != *.org* ]]
+  # Repo slugs point at ours, not at a fabricated slug under the upstream owner.
+  [[ "$output" == *'gh repo fork RFingAdam/agentarchy --clone'* ]]
+  [[ "$output" != *'basecamp/'* ]]
   [[ "$output" != *omarchy* ]]
 }
 
@@ -150,4 +151,31 @@ setup() {
   [ -f bin/oal-dev-sync-upstream ]
   [ -f bin/oal-dev-lib.sh ]
   [ -f upstream/VENDOR-MANIFEST ]
+}
+
+@test "the bare omarchy dispatcher is vendored as bin/oal and flagged for porting" {
+  oal-dev-sync-upstream --apply
+  [ -f bin/oal ]
+  [ -x bin/oal ]
+  grep -q '^bin/oal$' upstream/VENDORED-FILES.txt
+  grep -q '^bin/oal$' upstream/NEEDS-PORT.txt
+  ! grep -q 'omarchy' bin/oal
+}
+
+@test "DANGLING.txt records vendored files that still call an excluded script" {
+  oal-dev-sync-upstream --apply
+  grep -qxF 'default/oal/oal-menu.jsonc -> oal-hyprland-focus' upstream/DANGLING.txt
+  # a script that is vendored is not a dangling reference
+  ! grep -q 'oal-system-lock' upstream/DANGLING.txt
+  ! grep -q '^bin/oal-hyprland-focus$' upstream/VENDORED-FILES.txt
+  run oal-dev-sync-upstream --check
+  [ "$status" -eq 0 ]
+}
+
+@test "check flags drift in DANGLING.txt like the other reports" {
+  oal-dev-sync-upstream --apply
+  echo 'bogus/path -> oal-launch-webapp' >> upstream/DANGLING.txt
+  run oal-dev-sync-upstream --check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"upstream/DANGLING.txt"* ]]
 }

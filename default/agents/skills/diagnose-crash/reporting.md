@@ -40,8 +40,8 @@ useful; filing there yourself is not part of this.
 A duplicate issue costs a maintainer more time than no report at all.
 
 ```bash
-gh search issues --repo basecamp/oal "<program> crash"
-gh issue list --repo basecamp/oal --state all --search "<signal> <program>"
+gh search issues --repo RFingAdam/agentarchy "<program> crash"
+gh issue list --repo RFingAdam/agentarchy --state all --search "<signal> <program>"
 ```
 
 Search on the crashing program, the signal, and distinctive symbols from the
@@ -59,7 +59,7 @@ more than another duplicate.
 If a plausible match comes back, read it properly first:
 
 ```bash
-gh issue view <number> --repo basecamp/oal --comments
+gh issue view <number> --repo RFingAdam/agentarchy --comments
 ```
 
 Confirm it is genuinely the same failure. The same program crashing is not the
@@ -74,7 +74,7 @@ A comment that only says the bug happens to you too is noise. If that is all you
 have, tell the user so and file nothing.
 
 ```bash
-gh issue comment <number> --repo basecamp/oal --body "..."
+gh issue comment <number> --repo RFingAdam/agentarchy --body "..."
 ```
 
 ## Filing a new issue
@@ -82,7 +82,7 @@ gh issue comment <number> --repo basecamp/oal --body "..."
 Only when the search turns up nothing that matches:
 
 ```bash
-gh issue create --repo basecamp/oal --title "..." --body "..."
+gh issue create --repo RFingAdam/agentarchy --title "..." --body "..."
 ```
 
 Include what happened, what was expected, steps to reproduce, system details from

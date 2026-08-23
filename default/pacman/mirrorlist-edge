@@ -1,1 +1,1 @@
-Server = https://mirror.oal.org/$repo/os/$arch
+Server = https://mirror.agentarchy.invalid/$repo/os/$arch

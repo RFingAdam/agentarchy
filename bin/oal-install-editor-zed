@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# oal:summary=Install Zed Editor and configure it with the current Agentarchy theme
+
+echo "Installing Zed Editor..."
+oal-pkg-add zed omazed
+
+# Apply Agentarchy theme to Zed
+omazed setup
+
+setsid uwsm-app -- gtk-launch dev.zed.Zed >/dev/null 2>&1 &
