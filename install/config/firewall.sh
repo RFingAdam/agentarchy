@@ -35,6 +35,16 @@ ufw_rule allow 53317/tcp
 ufw_rule allow in proto udp from 172.16.0.0/12 to 172.17.0.1 port 53 comment 'allow-docker-dns'
 ufw_rule allow in proto udp from 192.168.0.0/16 to 172.17.0.1 port 53 comment 'allow-docker-dns'
 
+# Do not lock the machine out of its own SSH. Denying everything inbound is the right default for
+# a desktop, and Agentarchy does not enable sshd -- but if this particular system has deliberately
+# enabled it (a VM, a server, or someone bootstrapping a remote box over SSH right now), then
+# closing 22 cuts the only way back in, and they find out after the reboot. Open it only when sshd
+# is actually enabled, so the desktop default stays closed.
+if systemctl is-enabled sshd.service >/dev/null 2>&1; then
+  echo "sshd is enabled here; allowing 22/tcp so this install cannot lock you out"
+  ufw_rule allow 22/tcp
+fi
+
 # Turn on Docker protections. ufw-docker refuses to install its after.rules
 # block unless UFW is already active, but during ISO finalization the target
 # chroot shares the live installer's kernel firewall. Keep the live firewall
