@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# oal:summary=Capture local edits to vendored files as a numbered patch under upstream/patches
+# Usage: oal-dev-upstream-patch <name> <vendored-file>...
+set -euo pipefail
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+[[ $# -ge 2 ]] || { sed -n '2,3p' "$0"; exit 2; }
+name="$1"; shift
+[[ "$name" =~ ^[a-z0-9][a-z0-9-]*$ ]] || oal_dev_die "name must be kebab-case"
+root="$(oal_dev_root)" || exit 1
+cd "$root"
+mkdir -p upstream/patches
+
+# Pristine stage = upstream renamed + existing patches, without touching the repo.
+# --check exits 1 once it finds drift (the hand edit(s) we are about to capture); that is expected
+# here, we only need the stage it built along the way.
+stage="$root/.sync/pristine"
+"$here/oal-dev-sync-upstream" --check --stage "$stage" >/dev/null 2>&1 || true
+
+is_vendored() {
+  local f="$1"
+  if [[ -f upstream/VENDORED-FILES.txt ]]; then
+    grep -qxF -- "$f" upstream/VENDORED-FILES.txt
+  else
+    [[ -f "$stage/$f" ]]
+  fi
+}
+
+# Validate every argument before writing anything, so a rejected file never leaves a stray
+# (empty or partial) patch on disk.
+for f in "$@"; do
+  [[ -f "$f" ]] || oal_dev_die "not a file: $f"
+  is_vendored "$f" || oal_dev_die "$f is not a vendored file"
+done
+
+n=0
+while IFS= read -r base; do
+  num="${base%%-*}"
+  val=$((10#$num))
+  if ((val > n)); then n=$val; fi
+done < <(find upstream/patches -maxdepth 1 -name '[0-9][0-9][0-9][0-9]-*.patch' -printf '%f\n')
+num="$(printf '%04d' $((n + 1)))"
+out="upstream/patches/$num-$name.patch"
+
+tmp="$(mktemp "upstream/patches/.tmp.XXXXXX")"
+trap 'rm -f "$tmp"' EXIT
+for f in "$@"; do
+  # diff exits 1 when files differ; that is the expected case.
+  diff -u --label "a/$f" --label "b/$f" "$stage/$f" "$f" >> "$tmp" || true
+done
+[[ -s "$tmp" ]] || oal_dev_die "no differences found for: $*"
+
+mv "$tmp" "$out"
+chmod 644 "$out"
+trap - EXIT
+
+oal_dev_log "wrote $out"
+"$here/oal-dev-sync-upstream" --check
