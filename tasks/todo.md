@@ -42,7 +42,7 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
         are still Hyprland-shaped, some are in `upstream/NEEDS-PORT.txt` — so **Phase 4** (system
         tooling port) should walk the tree and decide. Nothing on the golden path needs them today.
 - [ ] Phase 2 — Theme engine, all 22 themes (+ wallpaper licence audit)
-- [ ] Phase 3 — Layouts, shortcut parity, OAL Menu
+- [ ] Phase 3 — Layouts, shortcut parity, OAL Menu (default = `ubuntu` top bar + dock, decided 2026-08-23)
 - [ ] Phase 4 — System tooling port
 - [ ] Phase 5 — Agent layer + overlay contract
 - [ ] Phase 6 — ISO
@@ -61,9 +61,11 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
       Blocked on you: it will hold your secrets and homelab config.
 - [ ] Decide ISO artifact hosting (GitHub Releases vs homelab) and whether to run a self-hosted Actions runner on Proxmox
       (Phase 6). Blocked on you: infrastructure and cost decision.
-- [ ] Look at `.vm/artifacts/<latest>/desktop-guest.png` (the Phase 1 golden-path screenshot: Plasma 6
-      Wayland, tokyo-night, bottom panel) and say whether that is the first impression you want.
-      Blocked on you: taste. Re-shoot any time with `test/vm/golden-path`.
+- [x] ~~Look at the Phase 1 golden-path screenshot and say whether that is the first impression you want~~
+      Answered 2026-08-23: the stock bottom taskbar read as Windows, so a top-bar-plus-dock arrangement was
+      spiked in the VM and Adam picked it. **Phase 3 default layout = `ubuntu` (thin top panel for launcher,
+      tray and clock; floating dock of launchers at the bottom); `mint` (the bottom taskbar) stays as the
+      second preset.** Spike, and what it does not yet answer: `docs/superpowers/spikes/2026-08-23-plasma-layout-b.js`.
 - [ ] Confirm **tokyo-night** as Agentarchy's default theme, or name another. It is what a fresh
       install lands on today (`OAL_DEFAULT_THEME` in `oal-bootstrap.sh`). Blocked on you: taste.
 - [ ] Eyeball the two layouts from the Phase 3 VM screenshots and say which tweaks you want. Blocked on you: taste.
