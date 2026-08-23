@@ -29,7 +29,8 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 - [ ] Phase 8 — Public release hygiene, v0.1.0
 
 ## Owner-actions (only Adam can do these)
-- [ ] Create GitHub repos `RFingAdam/agentarchy` and `RFingAdam/agentarchy-iso` and decide visibility
+- [~] Create GitHub repos `RFingAdam/agentarchy` and `RFingAdam/agentarchy-iso` and decide visibility
+      Status 2026-08-23: `RFingAdam/agentarchy` created **private** and `main` pushed (d9c2190). Still yours: `agentarchy-iso` repo, and flipping to public only after the Phase 2 wallpaper/icon audit.
       (private until v0.1.0 is the safe default). Blocked on you: repo ownership/visibility is your call.
       **Keep it private until the Phase 2 wallpaper + application-icon audit is finished** (see NOTICE):
       git history is permanent, so an unlicensed asset pushed once is pushed forever.
