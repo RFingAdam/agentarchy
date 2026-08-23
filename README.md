@@ -28,17 +28,26 @@ independent project, not affiliated with or endorsed by Basecamp or DHH. See `NO
 | `bin/` | `oal-*` commands (vendored + native) |
 | `install/` | system/user install steps run by `oal-apply-system` / `oal-provision-user` |
 | `default/`, `config/` | system-wide and per-user defaults |
+| `etc/` | files installed under `/etc` (systemd, sddm, plymouth, sudoers.d, ...) |
+| `agents/` | agent skills shipped with the distro |
+| `applications/` | `.desktop` launchers and their icons |
 | `themes/` | colour themes (`colors.toml` + assets) |
-| `upstream/` | upstream pin, vendor manifest, rename map, patches |
+| `upstream/` | upstream pin, vendor manifest, rename rules, patches, reports — see `upstream/README.md` |
 | `test/` | bats unit tests and the VM golden path |
 | `docs/superpowers/` | design spec and per-phase implementation plans |
 
 ## Developing
 
 ```
-bin/oal-dev-check          # shellcheck + bats + hygiene gates (what CI runs)
-bin/oal-dev-sync-upstream  # re-vendor from upstream/PIN, show diff
+bin/oal-dev-check                   # seven gates: shellcheck, bats, branding, notice,
+                                    # gitleaks (history + worktree), vendor drift (what CI runs)
+bin/oal-dev-sync-upstream --check   # verify the vendored tree matches upstream/PIN + patches (read-only)
+bin/oal-dev-sync-upstream --apply   # re-vendor (writes into the tree)
 ```
+
+Files listed in `upstream/VENDORED-FILES.txt` are owned by the sync and must not be hand-edited;
+capture changes with `bin/oal-dev-upstream-patch`. `upstream/README.md` documents the whole
+contract, including the runbook for bumping `upstream/PIN`.
 
 ## Licence
 

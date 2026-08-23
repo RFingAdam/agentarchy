@@ -19,7 +19,7 @@
 - No secrets, IPs, hostnames, or personal identifiers in tracked files (gitleaks gate).
 - All shell scripts: `#!/usr/bin/env bash`, `set -euo pipefail`, pass `shellcheck -S warning`.
 - Commit messages: conventional (`feat:`, `chore:`, `test:`, `ci:`, `docs:`), no AI co-author trailers.
-- Working directory for every task: `/home/swamp/projects/github/agentarchy`.
+- Working directory for every task: `<repo>`.
 
 ---
 
@@ -279,7 +279,7 @@ Format: `## YYYY-MM-DD — <short title>` then **Mistake**, **Why**, **Rule**.
 
 - [ ] **Step 6: Verify and commit**
 
-Run: `cd /home/swamp/projects/github/agentarchy && ls -la && grep -ril omarchy --exclude-dir=.git --exclude-dir=docs --exclude-dir=tasks --exclude=NOTICE . ; echo "exit=$?"`
+Run: `cd <repo> && ls -la && grep -ril omarchy --exclude-dir=.git --exclude-dir=docs --exclude-dir=tasks --exclude=NOTICE . ; echo "exit=$?"`
 Expected: files listed; grep finds only `README.md` and `CLAUDE.md`/`AGENTS.md` — those are allowed prose mentions in this task; they will be covered by the branding gate's allowlist in Task 6 (README and CLAUDE.md/AGENTS.md are added to the allowlist there because they explain the relationship).
 
 ```bash
@@ -422,7 +422,7 @@ setup() {
 
 - [ ] **Step 3: Run test to verify it fails**
 
-Run: `cd /home/swamp/projects/github/agentarchy && bats test/unit/upstream-fetch.bats`
+Run: `cd <repo> && bats test/unit/upstream-fetch.bats`
 Expected: 3 failures, "oal-dev-upstream-fetch: command not found".
 
 - [ ] **Step 4: Write upstream/PIN, bin/oal-dev-lib.sh and bin/oal-dev-upstream-fetch**
