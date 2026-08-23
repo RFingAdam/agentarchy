@@ -11,7 +11,7 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
   - [x] Task 5 first real vendoring run
   - [x] Task 6 hygiene gates + oal-dev-check
   - [x] Task 7 GitHub Actions CI
-- [ ] Phase 1 — Package + bootstrap + VM golden path (plan: docs/superpowers/plans/2026-08-23-phase-1-vm-bootable.md)
+- [x] Phase 1 — Package + bootstrap + VM golden path (plan: docs/superpowers/plans/2026-08-23-phase-1-vm-bootable.md)
   - [x] Task 1 VM harness (`test/vm/`)
   - [x] Task 2 native package lists + Plasma desktop step
   - [x] ~~Replace the six `default/pacman/*` files~~ — resolved by **dropping** them instead: they are
@@ -29,8 +29,18 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
         both `/usr/bin` and `/usr/share`.
   - [x] Task 3 PKGBUILD + `oal-bootstrap.sh` (vanilla Arch to installed Agentarchy in ~3 min, idempotent)
   - [x] Task 4 boot into Plasma (patches 0003-0009; reboots into a Plasma 6 Wayland session as `oal`)
-  - [ ] Supply the Phase 1 replacements listed in `upstream/EXCLUDED-ASSETS.md` (SDDM/Plymouth logo,
-        `logo.txt`, Chromium extension icons, the Plasma greeter session in `etc/sddm.conf.d/`).
+  - [x] ~~Supply the Phase 1 replacements listed in `upstream/EXCLUDED-ASSETS.md`~~ — done in Task 5
+        (`126765b`): placeholders in `default/branding/`, copies at the Plymouth and SDDM paths, both
+        Chromium extension icons. The greeter row was answered by dropping `etc/sddm.conf.d/10-wayland.conf`
+        from vendoring instead: it only pointed SDDM's Wayland greeter at a Hyprland compositor we
+        never ship, and `install/desktop/plasma.sh` already chose the X11 greeter behind autologin.
+  - [x] Task 5 minimal KDE theme apply (`bin/oal-theme-set-kde`) + placeholder branding
+  - [x] Task 6 `test/vm/golden-path` + `test/vm/assertions.sh` (21 assertions, 261 s, artefacts)
+  - [ ] Only `etc/profile.d/oal.sh` is installed to `/etc`; the other 17 subtrees under `etc/` ship to
+        `/usr/share/agentarchy/etc` and are installed nowhere (units, `sudoers.d`, `sysctl.d`,
+        `security/`, `tmpfiles.d`, NetworkManager, plymouth, ...). Each is a per-file decision — some
+        are still Hyprland-shaped, some are in `upstream/NEEDS-PORT.txt` — so **Phase 4** (system
+        tooling port) should walk the tree and decide. Nothing on the golden path needs them today.
 - [ ] Phase 2 — Theme engine, all 22 themes (+ wallpaper licence audit)
 - [ ] Phase 3 — Layouts, shortcut parity, OAL Menu
 - [ ] Phase 4 — System tooling port
@@ -51,6 +61,11 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
       Blocked on you: it will hold your secrets and homelab config.
 - [ ] Decide ISO artifact hosting (GitHub Releases vs homelab) and whether to run a self-hosted Actions runner on Proxmox
       (Phase 6). Blocked on you: infrastructure and cost decision.
+- [ ] Look at `.vm/artifacts/<latest>/desktop-guest.png` (the Phase 1 golden-path screenshot: Plasma 6
+      Wayland, tokyo-night, bottom panel) and say whether that is the first impression you want.
+      Blocked on you: taste. Re-shoot any time with `test/vm/golden-path`.
+- [ ] Confirm **tokyo-night** as Agentarchy's default theme, or name another. It is what a fresh
+      install lands on today (`OAL_DEFAULT_THEME` in `oal-bootstrap.sh`). Blocked on you: taste.
 - [ ] Eyeball the two layouts from the Phase 3 VM screenshots and say which tweaks you want. Blocked on you: taste.
 - [ ] Confirm the tagline "Omarchy's taste. Your mouse. Your agents." and whether a text logo is fine for v0.1.
 - [ ] Confirm the git author identity you want on this public repo (commits currently use your global
@@ -77,3 +92,26 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
   ```
 - tests: 30 bats cases in test/unit
 - open: owner-actions above (GitHub repos not created yet; CI runs once pushed)
+
+### Phase 1 — 2026-08-23
+`test/vm/golden-path` is green: a pristine Arch cloud image becomes an installed Agentarchy that
+reboots into a themed KDE Plasma 6 Wayland session, autologged in as the install user, in **261
+seconds** (boot 53, sync 2, bootstrap 149, reboot 48, session 0, assert 1, theme 0, shots 8).
+Artefacts, including both screenshots, are in `.vm/artifacts/20260823-163008/`.
+
+All 21 assertions pass: session wayland/user/active, wayland socket, kwin_wayland, plasmashell,
+`plasma-plasmashell.service`, sddm active + enabled, `graphical.target`, package installed,
+`oal-version`, 300 `oal-*` commands on PATH, no `oal-dev-*` installed, `OAL_PATH` in a login shell,
+the logo renders, the colour scheme is ours *and* kdeglobals carries its colours, no `.invalid` host
+in pacman's config, `pacman -Syy`, and ufw still allows SSH where sshd is enabled.
+
+Shipped: `PKGBUILD` + `oal-bootstrap.sh`, native package lists (55 base / 33 desktop / 4 AUR),
+`bin/oal-theme-set-kde`, placeholder branding, `test/vm/` harness + golden path, 11 upstream patches,
+62 bats tests, 7 gates. Bugs the VM found and fixed on the way: the desktop step ordering, services
+we do not install, ufw against a replaced kernel, the mise steps, default-application claims for
+uninstalled apps, **ufw closing SSH on the reboot**, the missing `/etc/profile.d/oal.sh`,
+`oal-version` asking for the wrong package, and a colour scheme that was named but never applied.
+
+Deferred out of Phase 1 on purpose: the package channel cluster (inert until Agentarchy has repos),
+the rest of the `etc/` tree (Phase 4), the SDDM theme and greeter (Phase 3), everything about themes
+beyond one colour scheme (Phase 2).
