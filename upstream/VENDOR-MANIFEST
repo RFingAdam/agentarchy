@@ -55,7 +55,14 @@ exclude default/chromium/extensions/copy-url/icon.png
 # live here as a path exclude. themes/*/unlock.png is the upstream wordmark in each theme's colours
 # (checked 2026-08-23: gruvbox spells it out, tokyo-night/vantablack/white are the logo mark), and
 # default/plymouth/preview-unlock.png is a screenshot of the boot splash showing that wordmark.
-exclude themes/*/backgrounds/*omarchy*
+# --- wallpapers are no longer vendored at all (2026-08-23).
+# docs/asset-audit-findings.md: upstream solicited these images in issue #617 with rules about
+# resolution, file size and taste, and never asked contributors where they came from. Not one of the
+# 68 carries a licence, two point at where they were copied from, and one still has stock-library
+# EXIF. A fork that re-publishes them under a different name cannot inherit rights upstream never
+# established, so the whole class is excluded rather than audited file by file. Each theme ships a
+# wallpaper generated from its own palette instead (bin/oal-dev-make-wallpapers).
+exclude themes/*/backgrounds/**
 exclude themes/*/preview.png
 exclude themes/*/preview-unlock.png
 exclude themes/*/unlock.png
@@ -70,9 +77,6 @@ exclude themes/*/hyprland.lua
 # project, so no name-based rule could reach them. Caught by looking at the pixels (runbook step (a)
 # in upstream/README.md), which is the only thing that can find this class of file. Listed as path
 # literals because there is no pattern here to generalise.
-exclude themes/lumon/backgrounds/02-opinions-equally.webp
-exclude themes/tokyo-night/backgrounds/5-oma-cityscape.jpg
-exclude themes/tokyo-night/backgrounds/6-oma.webp
 
 # --- distro-defining files: these are Agentarchy's decisions, not upstream's.
 # The package lists name a different desktop (KDE Plasma, not Hyprland/Quickshell) and upstream's

@@ -6,9 +6,9 @@
 # this file come from, and did anyone ever say we may ship it.
 #
 # Two things make this harder than `git log`:
-#   * upstream re-encoded every wallpaper to webp in one commit (#7477), which git sees as an unrelated
-#     add and a delete, so --follow stops there. Each add is chased back through same-stem deletions in
-#     the same commit until nothing precedes it.
+#   * upstream re-encoded every wallpaper to webp in one commit, which git sees as an unrelated add and
+#     a delete, so --follow stops there. Each add is chased back through same-stem deletions in the
+#     same commit until nothing precedes it.
 #   * the answer usually lives in the pull request, not the commit subject, so PR bodies are fetched
 #     (once each, cached) and searched for a source URL or a licence.
 #
@@ -87,8 +87,10 @@ SOURCE_RE='https?://|unsplash|pexels|wallhaven|flickr|creative commons|CC0|CC-BY
 # without this filter every file comes back SOURCED on the strength of the screenshot the author
 # pasted or the ISO download link in an unrelated paragraph. These three account for nearly every
 # false positive in the first run: GitHub's own attachment CDN (the PR screenshot), upstream's ISO
-# host, and links back into upstream's own issues and pull requests.
-NOISE_RE='github\.com/user-attachments|iso\.omarchy\.org|github\.com/basecamp/omarchy/(pull|issues)'
+# site (any host under it), and links back into upstream's own issues and pull requests. Built from upstream/REPO rather
+# than spelled out, so the branding gate keeps its no-exceptions rule.
+upstream_name="${repo##*/}"
+NOISE_RE="github\.com/user-attachments|([a-z0-9-]+\.)?${upstream_name}\.org|github\.com/${repo//\//\\/}/(pull|issues)"
 
 rows=0 sourced=0 nosource=0 ours=0
 tmp="$(mktemp)"

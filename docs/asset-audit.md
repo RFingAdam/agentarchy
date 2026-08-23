@@ -13,96 +13,50 @@ with no provenance cannot ship from a public repository, whatever it looks like.
 
 | file | first added | commit | verdict | evidence |
 |---|---|---|---|---|
-| `themes/catppuccin-latte/backgrounds/1-color-fade.webp` | 2025-07-18 | 786b0b22 | NO-SOURCE | nothing in the commit or PR |
-| `themes/catppuccin/backgrounds/1-totoro.webp` | 2025-07-17 | e2c8e3cc | NO-SOURCE | nothing in the commit or PR |
-| `themes/catppuccin/backgrounds/2-waves.webp` | 2025-08-23 | cc807821 (#1008) | NO-SOURCE | nothing in the commit or PR |
-| `themes/catppuccin/backgrounds/3-blue-eye.webp` | 2025-08-23 | cc807821 (#1008) | NO-SOURCE | nothing in the commit or PR |
-| `themes/ethereal/backgrounds/1-cosmic.webp` | 2025-11-20 | cd2a4e41 (#3464) | SOURCED | https://marketplace.visualstudio.com/items?itemName=Bjarne.ethereal-omarchy |
-| `themes/ethereal/backgrounds/2-meadow.webp` | 2025-12-08 | 20fde4d7 | NO-SOURCE | nothing in the commit or PR |
-| `themes/everforest/backgrounds/1-tree-tops.webp` | 2025-07-17 | e2c8e3cc | NO-SOURCE | nothing in the commit or PR |
-| `themes/flexoki-light/backgrounds/1-orb.webp` | 2025-10-12 | 0df4dc1a | NO-SOURCE | nothing in the commit or PR |
-| `themes/gruvbox/backgrounds/1-the-backwater.jpg` | 2025-07-17 | e2c8e3cc | NO-SOURCE | nothing in the commit or PR |
-| `themes/gruvbox/backgrounds/2-flower-basket.webp` | 2026-03-25 | e921ea3c | NO-SOURCE | nothing in the commit or PR |
-| `themes/gruvbox/backgrounds/3-village-square.jpg` | 2026-03-25 | e921ea3c | NO-SOURCE | nothing in the commit or PR |
-| `themes/gruvbox/backgrounds/4-idyllic-procession.jpg` | 2026-03-25 | e921ea3c | NO-SOURCE | nothing in the commit or PR |
-| `themes/gruvbox/backgrounds/5-leaves.jpg` | 2025-12-24 | fd952c23 | NO-SOURCE | nothing in the commit or PR |
-| `themes/hackerman/backgrounds/1-synth-scape.jpg` | 2025-11-20 | a1b1eb59 (#3317) | NO-SOURCE | nothing in the commit or PR |
-| `themes/hackerman/backgrounds/2-geometric.webp` | 2025-11-20 | a1b1eb59 (#3317) | NO-SOURCE | nothing in the commit or PR |
-| `themes/kanagawa/backgrounds/1-kanagawa.jpg` | 2025-07-17 | e2c8e3cc | NO-SOURCE | nothing in the commit or PR |
-| `themes/last-horizon/backgrounds/1-eyes-wide.webp` | 2026-05-09 | b2fb2384 | NO-SOURCE | nothing in the commit or PR |
-| `themes/last-horizon/backgrounds/2-blink.webp` | 2026-05-09 | b2fb2384 | NO-SOURCE | nothing in the commit or PR |
-| `themes/last-horizon/backgrounds/3-bokeh.webp` | 2026-05-09 | b2fb2384 | NO-SOURCE | nothing in the commit or PR |
-| `themes/last-horizon/backgrounds/4-new-horizons.jpg` | 2026-05-09 | b2fb2384 | NO-SOURCE | nothing in the commit or PR |
-| `themes/lumon/backgrounds/01-united-in-severance.webp` | 2026-03-18 | e24a9f22 | NO-SOURCE | nothing in the commit or PR |
-| `themes/lupine/backgrounds/01-cherry-blossom-bokeh.webp` | 2026-05-24 | 4a2a228d | NO-SOURCE | nothing in the commit or PR |
-| `themes/lupine/backgrounds/02-cherry-blossom-white.webp` | 2026-05-24 | 4a2a228d | NO-SOURCE | nothing in the commit or PR |
-| `themes/lupine/backgrounds/03-pastel-clouds.webp` | 2026-05-24 | c8281490 | NO-SOURCE | nothing in the commit or PR |
-| `themes/lupine/backgrounds/04-elegant-blue-wave.webp` | 2026-05-24 | 1008776d | NO-SOURCE | nothing in the commit or PR |
-| `themes/lupine/backgrounds/05-abstract-wave.webp` | 2026-05-24 | 1008776d | NO-SOURCE | nothing in the commit or PR |
-| `themes/matte-black/backgrounds/0-ship-at-sea.jpg` | 2025-09-08 | e5a1b994 | NO-SOURCE | nothing in the commit or PR |
-| `themes/matte-black/backgrounds/1-dark-waters.webp` | 2025-07-17 | e2c8e3cc | NO-SOURCE | nothing in the commit or PR |
-| `themes/matte-black/backgrounds/2-dot-hands.webp` | 2025-10-10 | 6b3fc343 (#2288) | NO-SOURCE | nothing in the commit or PR |
-| `themes/miasma/backgrounds/01-nature-of-fear.webp` | 2026-01-29 | 55231e97 | NO-SOURCE | nothing in the commit or PR |
-| `themes/miasma/backgrounds/02-crowned.webp` | 2026-01-29 | 55231e97 | NO-SOURCE | nothing in the commit or PR |
-| `themes/nord/backgrounds/0-black-moon.jpg` | 2026-02-18 | 73051524 | NO-SOURCE | nothing in the commit or PR |
-| `themes/nord/backgrounds/1-city-view.webp` | 2025-07-17 | e2c8e3cc | NO-SOURCE | nothing in the commit or PR |
-| `themes/nord/backgrounds/2-night-hawks.webp` | 2025-08-12 | 8a9b841e (#707) | NO-SOURCE | nothing in the commit or PR |
-| `themes/osaka-jade/backgrounds/1-glowing-city.webp` | 2025-08-06 | 1d29c32f (#514) | NO-SOURCE | nothing in the commit or PR |
-| `themes/osaka-jade/backgrounds/2-shaded-entrance.webp` | 2025-08-10 | 38bf472d (#589) | SOURCED | https://raw.githubusercontent.com/Justikun/omarchy-osaka-jade-theme/refs/heads/main/backgrounds/osaka-jade-bg-2.jpg |
-| `themes/osaka-jade/backgrounds/3-mountain-moon.webp` | 2025-08-10 | af00a902 | NO-SOURCE | nothing in the commit or PR |
-| `themes/retro-82/backgrounds/1-in-the-groove.webp` | 2026-03-26 | a68f2ae0 (#5110) | NO-SOURCE | nothing in the commit or PR |
-| `themes/retro-82/backgrounds/2-dusk-guardian.webp` | 2026-03-26 | a68f2ae0 (#5110) | NO-SOURCE | nothing in the commit or PR |
-| `themes/retro-82/backgrounds/3-glassy-lines.webp` | 2026-03-26 | a68f2ae0 (#5110) | NO-SOURCE | nothing in the commit or PR |
-| `themes/retro-82/backgrounds/4-gateway.webp` | 2026-03-26 | a68f2ae0 (#5110) | NO-SOURCE | nothing in the commit or PR |
-| `themes/retro-82/backgrounds/5-zen-boat.webp` | 2026-03-26 | a68f2ae0 (#5110) | NO-SOURCE | nothing in the commit or PR |
-| `themes/retro-82/backgrounds/6-abstract-pyramids.webp` | 2026-03-26 | a68f2ae0 (#5110) | NO-SOURCE | nothing in the commit or PR |
-| `themes/retro-82/backgrounds/7-the-journey.webp` | 2026-03-26 | a68f2ae0 (#5110) | NO-SOURCE | nothing in the commit or PR |
-| `themes/retro-82/backgrounds/8-glitter-glass.webp` | 2026-03-26 | a68f2ae0 (#5110) | NO-SOURCE | nothing in the commit or PR |
-| `themes/ristretto/backgrounds/0-launch.webp` | 2026-05-02 | f0a43a43 | NO-SOURCE | nothing in the commit or PR |
-| `themes/ristretto/backgrounds/1-color-curves.webp` | 2025-07-28 | 51fe5bf6 (#384) | NO-SOURCE | nothing in the commit or PR |
-| `themes/ristretto/backgrounds/2-coffee-beans.jpg` | 2025-08-22 | 7c4156fc (#761) | NO-SOURCE | nothing in the commit or PR |
-| `themes/ristretto/backgrounds/3-industrial-moon.webp` | 2025-08-22 | 7c4156fc (#761) | NO-SOURCE | nothing in the commit or PR |
-| `themes/rose-pine/backgrounds/1-funky-shapes.webp` | 2025-07-16 | 2235332c | NO-SOURCE | nothing in the commit or PR |
-| `themes/rose-pine/backgrounds/2-dot-map.webp` | 2025-08-24 | 1f4723ae (#1023) | NO-SOURCE | nothing in the commit or PR |
-| `themes/solitude/backgrounds/1-on-pole.webp` | 2026-05-09 | 47a53a18 | NO-SOURCE | nothing in the commit or PR |
-| `themes/solitude/backgrounds/2-wreakage.webp` | 2026-05-09 | 47a53a18 | NO-SOURCE | nothing in the commit or PR |
-| `themes/solitude/backgrounds/3-climb.jpg` | 2026-05-09 | 47a53a18 | NO-SOURCE | nothing in the commit or PR |
-| `themes/solitude/backgrounds/4-ether.webp` | 2026-05-09 | 47a53a18 | NO-SOURCE | nothing in the commit or PR |
-| `themes/solitude/backgrounds/5-eyed.jpg` | 2026-05-09 | 47a53a18 | NO-SOURCE | nothing in the commit or PR |
-| `themes/tokyo-night/backgrounds/0-winding-road.webp` | 2026-08-13 | 9c9e0829 | NO-SOURCE | nothing in the commit or PR |
-| `themes/tokyo-night/backgrounds/1-quattro.webp` | 2026-08-12 | 3da9eaf6 | NO-SOURCE | nothing in the commit or PR |
-| `themes/tokyo-night/backgrounds/2-swirl-buck.webp` | 2026-01-12 | 281f0b86 | NO-SOURCE | nothing in the commit or PR |
-| `themes/tokyo-night/backgrounds/3-sunset-lake.webp` | 2025-07-17 | 49efa1c3 | NO-SOURCE | nothing in the commit or PR |
-| `themes/tokyo-night/backgrounds/4-omakub.webp` | 2026-08-06 | 45194516 | NO-SOURCE | nothing in the commit or PR |
-| `themes/vantablack/backgrounds/0-dot-hands.webp` | 2025-10-10 | 6b3fc343 (#2288) | NO-SOURCE | nothing in the commit or PR |
-| `themes/vantablack/backgrounds/1-twisted-stairs.webp` | 2026-02-07 | c289cd07 (#4533) | NO-SOURCE | nothing in the commit or PR |
-| `themes/vantablack/backgrounds/2-layers-deep.webp` | 2026-02-07 | c289cd07 (#4533) | NO-SOURCE | nothing in the commit or PR |
-| `themes/vantablack/backgrounds/3-layers-stacked.webp` | 2026-02-07 | c289cd07 (#4533) | NO-SOURCE | nothing in the commit or PR |
-| `themes/white/backgrounds/1-white.webp` | 2026-02-21 | 94d668bc | NO-SOURCE | nothing in the commit or PR |
-| `themes/white/backgrounds/2-white.webp` | 2026-02-21 | 94d668bc | NO-SOURCE | nothing in the commit or PR |
-| `themes/white/backgrounds/3-white.webp` | 2026-02-21 | 94d668bc | NO-SOURCE | nothing in the commit or PR |
+| `themes/catppuccin-latte/backgrounds/00-catppuccin-latte.webp` | — | — | OURS | not in upstream history |
+| `themes/catppuccin/backgrounds/00-catppuccin.webp` | — | — | OURS | not in upstream history |
+| `themes/ethereal/backgrounds/00-ethereal.webp` | — | — | OURS | not in upstream history |
+| `themes/everforest/backgrounds/00-everforest.webp` | — | — | OURS | not in upstream history |
+| `themes/flexoki-light/backgrounds/00-flexoki-light.webp` | — | — | OURS | not in upstream history |
+| `themes/gruvbox/backgrounds/00-gruvbox.webp` | — | — | OURS | not in upstream history |
+| `themes/hackerman/backgrounds/00-hackerman.webp` | — | — | OURS | not in upstream history |
+| `themes/kanagawa/backgrounds/00-kanagawa.webp` | — | — | OURS | not in upstream history |
+| `themes/last-horizon/backgrounds/00-last-horizon.webp` | — | — | OURS | not in upstream history |
+| `themes/lumon/backgrounds/00-lumon.webp` | — | — | OURS | not in upstream history |
+| `themes/lupine/backgrounds/00-lupine.webp` | — | — | OURS | not in upstream history |
+| `themes/matte-black/backgrounds/00-matte-black.webp` | — | — | OURS | not in upstream history |
+| `themes/miasma/backgrounds/00-miasma.webp` | — | — | OURS | not in upstream history |
+| `themes/nord/backgrounds/00-nord.webp` | — | — | OURS | not in upstream history |
+| `themes/osaka-jade/backgrounds/00-osaka-jade.webp` | — | — | OURS | not in upstream history |
+| `themes/retro-82/backgrounds/00-retro-82.webp` | — | — | OURS | not in upstream history |
+| `themes/ristretto/backgrounds/00-ristretto.webp` | — | — | OURS | not in upstream history |
+| `themes/rose-pine/backgrounds/00-rose-pine.webp` | — | — | OURS | not in upstream history |
+| `themes/solitude/backgrounds/00-solitude.webp` | — | — | OURS | not in upstream history |
+| `themes/tokyo-night/backgrounds/00-tokyo-night.webp` | — | — | OURS | not in upstream history |
+| `themes/vantablack/backgrounds/00-vantablack.webp` | — | — | OURS | not in upstream history |
+| `themes/white/backgrounds/00-white.webp` | — | — | OURS | not in upstream history |
 | `applications/icons/Basecamp.png` | 2025-06-25 | e7c032c8 | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/Battle.net.png` | 2026-05-19 | b59a8d0b | NO-SOURCE | nothing in the commit or PR |
-| `applications/icons/ChatGPT.png` | 2025-09-13 | cfbc71c1 (#1621) | SOURCED | https://omarchy.org/install |
-| `applications/icons/Disk Usage.png` | 2025-09-13 | cfbc71c1 (#1621) | SOURCED | https://omarchy.org/install |
+| `applications/icons/ChatGPT.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
+| `applications/icons/Disk Usage.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/Docker.png` | 2025-06-25 | 8b989ad6 | NO-SOURCE | nothing in the commit or PR |
-| `applications/icons/Google Contacts.png` | 2025-09-13 | cfbc71c1 (#1621) | SOURCED | https://omarchy.org/install |
+| `applications/icons/Google Contacts.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/Google Maps.png` | 2025-12-31 | 7fbc139c (#4028) | NO-SOURCE | nothing in the commit or PR |
-| `applications/icons/Google Messages.png` | 2025-09-13 | cfbc71c1 (#1621) | SOURCED | https://omarchy.org/install |
-| `applications/icons/Google Photos.png` | 2025-09-13 | cfbc71c1 (#1621) | SOURCED | https://omarchy.org/install |
+| `applications/icons/Google Messages.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
+| `applications/icons/Google Photos.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/HEY.png` | 2025-06-25 | e7c032c8 | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/Retro Gaming.png` | 2026-05-11 | 57385833 (#5753) | NO-SOURCE | nothing in the commit or PR |
-| `applications/icons/WhatsApp.png` | 2025-09-13 | cfbc71c1 (#1621) | SOURCED | https://omarchy.org/install |
-| `applications/icons/X.png` | 2025-09-13 | cfbc71c1 (#1621) | SOURCED | https://omarchy.org/install |
-| `applications/icons/YouTube.png` | 2025-09-13 | cfbc71c1 (#1621) | SOURCED | https://omarchy.org/install |
-| `applications/icons/Zoom.png` | 2025-09-13 | cfbc71c1 (#1621) | SOURCED | https://omarchy.org/install |
+| `applications/icons/WhatsApp.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
+| `applications/icons/X.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
+| `applications/icons/YouTube.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
+| `applications/icons/Zoom.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/imv.png` | 2025-06-25 | 8464d587 | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/oal-discord.png` | — | — | OURS | not in upstream history |
 | `applications/icons/windows.png` | 2025-10-17 | ccde2126 (#2462) | NO-SOURCE | nothing in the commit or PR |
 
 ## Summary
 
-* 86 files audited
-* 11 SOURCED (a human must confirm each)
-* 74 NO-SOURCE
-* 1 not in upstream history
+* 40 files audited
+* 0 SOURCED (a human must confirm each)
+* 17 NO-SOURCE
+* 23 not in upstream history

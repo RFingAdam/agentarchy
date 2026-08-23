@@ -65,6 +65,11 @@ for theme_dir in themes/*/; do
     blob_alpha=22; band_a=0.34; band_b=0.22; hair=0.60
   fi
 
+  # Just enough grain to dither the gradients (8-bit banding across 4K is real), and no more: noise
+  # is what a lossy encoder cannot predict, and at 0.18 it took a 4K frame from a few hundred KB to
+  # 3 MB. That is the whole reason the vendored wallpapers were 51 MB.
+  grain=0.04
+
   seed="$(seed_of "$theme")"
   # Four numbers out of one seed: which corner the colour field sits in, and where the bands cross.
   bx=$(( width  * (15 + seed % 40) / 100 ))
@@ -91,8 +96,8 @@ for theme_dir in themes/*/; do
       -draw "polygon 0,$height $width,$second_horizon $width,$height" \
     -stroke "rgba($(magick "xc:$accent" -format '%[fx:int(255*r)],%[fx:int(255*g)],%[fx:int(255*b)]' info:),$hair)" \
       -strokewidth 1 -draw "line 0,$height $width,$horizon" -stroke none \
-    -attenuate 0.18 +noise Gaussian \
-    -quality 88 "$target"
+    -attenuate "$grain" +noise Gaussian \
+    -quality 96 -define webp:method=5 -define webp:near-lossless=60 "$target"
 
   echo "oal-dev: $target ($(stat -c %s -- "$target") bytes, $mode)"
 done
