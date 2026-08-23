@@ -30,13 +30,15 @@ if [[ -z "$tarball" ]]; then
   repo="${OAL_UPSTREAM_REPO:-$(tr -d '[:space:]' < "$repo_file")}"
   [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || oal_dev_die "upstream/REPO must be owner/name, got '$repo'"
   tarball="$tmp/src.tar.gz"
-  oal_dev_log "downloading https://github.com/$repo/archive/$sha.tar.gz"
-  curl -fsSL --retry 3 -o "$tarball" "https://github.com/$repo/archive/$sha.tar.gz"
+  url="https://github.com/$repo/archive/$sha.tar.gz"
+  oal_dev_log "downloading $url"
+  curl -fsSL --retry 3 -o "$tarball" "$url" || oal_dev_die "download failed: $url"
 fi
 
 tar -xzf "$tarball" -C "$tmp"
 # GitHub tarballs contain exactly one top-level directory.
-top="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d ! -name 'src*' | head -n1)"
-[[ -n "$top" ]] || oal_dev_die "tarball has no top-level directory"
+mapfile -t tops < <(find "$tmp" -mindepth 1 -maxdepth 1 -type d)
+[[ ${#tops[@]} -eq 1 ]] || oal_dev_die "expected exactly one top-level directory in the tarball, found ${#tops[@]}"
+top="${tops[0]}"
 mv "$top" "$dest"
 echo "$dest"
