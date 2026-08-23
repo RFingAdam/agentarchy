@@ -6,7 +6,7 @@
 #   3. branding           the upstream project name outside its allowlist (content and file names)
 #   4. notice             every themes/*/backgrounds file is listed in NOTICE
 #   5. gitleaks           secrets in the committed history
-#   6. gitleaks-worktree  secrets in files that are not committed yet
+#   6. gitleaks-worktree  secrets in files that are not committed yet (staged copy, see that script)
 #   7. vendor-drift       the vendored tree still matches upstream/PIN + upstream/patches
 set -euo pipefail
 export LC_ALL=C
@@ -38,13 +38,9 @@ gate branding     bin/oal-dev-branding-check
 gate notice       bin/oal-dev-notice-check --strict
 gate gitleaks     gitleaks detect --no-banner --redact --source . -c .gitleaks.toml
 # The history scan only sees committed blobs; this one reads the files on disk, so a secret is
-# caught before it is committed rather than after (a secret in git history is permanent).
-# --max-target-megabytes is not a tuning knob, it is what keeps this gate from killing the machine:
-# gitleaks reads a target into memory, and the path allowlist below only suppresses findings, it does
-# not stop the read (.gitleaks.toml lists them). With the VM harness scratch present (.vm-cache holds a 531 M cloud image and a
-# 3.1 G spike disk) this gate ballooned past 7 G RSS and was OOM-killed -- twice, taking the session
-# with it. Nothing in this repo hides a secret in a file bigger than 25 MB; the biggest committed
-# files are theme backgrounds, a few MB each, and they are still scanned.
-gate gitleaks-worktree gitleaks detect --no-git --no-banner --redact --source . -c .gitleaks.toml --max-target-megabytes 25
+# caught before it is committed rather than after (a secret in git history is permanent). It stages
+# the committable file set rather than walking the filesystem -- see the header of the script for
+# why that is not a refinement but the thing that stops the gate OOM-killing the machine.
+gate gitleaks-worktree bin/oal-dev-gitleaks-worktree
 gate vendor-drift bin/oal-dev-sync-upstream --check
 exit $fail

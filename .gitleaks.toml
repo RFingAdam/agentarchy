@@ -4,20 +4,11 @@ useDefault = true
 [allowlist]
 description = "Agentarchy allowlist"
 paths = [
-  # The gitleaks-worktree gate scans the filesystem (--no-git), which does not honour .gitignore.
-  # Both directories below are gitignored scratch -- the sync stage, and the per-phase session and
-  # review artifacts -- so nothing in them can reach a commit; the git-history gate covers
-  # everything that can. Without this, the stage rescans every vendored file and the review diffs
-  # re-report findings already allowlisted at their real path.
-  '''^\.sync/''',
-  '''^\.superpowers/''',
-  # Same reasoning for the VM harness scratch (test/vm/README.md): both are gitignored, so nothing
-  # in them can reach a commit. Note this suppresses their *findings* only -- gitleaks still reads
-  # each file into memory before consulting this list, so it is bin/oal-dev-check's
-  # --max-target-megabytes, not these two entries, that keeps a multi-gigabyte qcow2 from
-  # OOM-killing the worktree gate.
-  '''^\.vm/''',
-  '''^\.vm-cache/''',
+  # Both gates now see only files that can reach a commit -- the history gate reads committed
+  # blobs, and bin/oal-dev-gitleaks-worktree stages `git ls-files --cached --others
+  # --exclude-standard`. Gitignored scratch (.sync/, .superpowers/, .vm/, .vm-cache/,
+  # .claude/worktrees/) therefore needs no entry here, which is the point: a path allowlist only
+  # suppresses findings, so it never stopped the multi-gigabyte reads that OOM-killed the gate.
   '''test/fixtures/.*''',
   '''themes/.*/backgrounds/.*''',
   # bin/oal-install-chromium-google-account: the OAuth2 client id/secret here is the public pair
