@@ -6,6 +6,9 @@
 # in the Phase 1 plan) rather than on every test run, because a unit suite must not need network.
 
 setup() {
+  # comm compares byte by byte; sort respects the locale. Without this the two disagree about order
+  # under any UTF-8 locale and comm refuses the input.
+  export LC_ALL=C
   SRC="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
   BASE="$SRC/install/agentarchy-base.packages"
   DESKTOP="$SRC/install/agentarchy-desktop.packages"

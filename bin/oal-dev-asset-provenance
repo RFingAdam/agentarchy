@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# oal:summary=Trace every shipped wallpaper and icon back to the commit that introduced it
+# oal:args=[--out <file>] [--clone <path>] [--no-pr]
+#
+# Repo tooling, not shipped. Answers the question NOTICE currently answers with UNAUDITED: where did
+# this file come from, and did anyone ever say we may ship it.
+#
+# Two things make this harder than `git log`:
+#   * upstream re-encoded every wallpaper to webp in one commit, which git sees as an unrelated add and
+#     a delete, so --follow stops there. Each add is chased back through same-stem deletions in the
+#     same commit until nothing precedes it.
+#   * the answer usually lives in the pull request, not the commit subject, so PR bodies are fetched
+#     (once each, cached) and searched for a source URL or a licence.
+#
+# The verdict column is a *filter*, not a judgement: SOURCED means a human should read the trail and
+# confirm, NO-SOURCE means there is nothing to read and the file cannot stay.
+set -euo pipefail
+export LC_ALL=C
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+root="$(oal_dev_root)" || exit 1
+cd "$root"
+
+clone="${OAL_UPSTREAM_GIT:-$HOME/.cache/agentarchy/upstream-git}"
+out="docs/asset-audit.md"
+fetch_prs=1
+
+while (($#)); do
+  case "$1" in
+    --out) out="${2:?--out wants a path}"; shift 2 ;;
+    --clone) clone="${2:?--clone wants a path}"; shift 2 ;;
+    --no-pr) fetch_prs=0; shift ;;
+    -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
+    *) echo "oal-dev: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+repo="$(cat upstream/REPO)"
+if [[ ! -d $clone/.git ]]; then
+  echo "oal-dev: cloning $repo (blobless) into $clone" >&2
+  mkdir -p -- "$(dirname -- "$clone")"
+  git clone --filter=blob:none --quiet "https://github.com/$repo.git" "$clone"
+fi
+git -C "$clone" fetch --quiet origin 2>/dev/null || echo "oal-dev: warning: could not refresh $clone" >&2
+
+pr_cache="$(mktemp -d)"
+trap 'rm -rf -- "$pr_cache"' EXIT
+
+# The commit that first introduced a path, chasing back through re-encodes. Prints "sha|date|subject",
+# or nothing when upstream never had the file.
+first_commit() {
+  local path="$1" seen=0 last="" sha line predecessor stem dir
+  while :; do
+    line="$(git -C "$clone" log --follow --diff-filter=A --format='%H|%ad|%s' --date=short -- "$path" 2>/dev/null | tail -n1)"
+    [[ -n $line ]] || { (( seen )) && printf '%s\n' "$last"; return 0; }
+    last="$line"
+    seen=1
+    sha="${line%%|*}"
+    # Did that commit also delete a file with the same stem in the same directory? Then it is a
+    # re-encode or a rename git could not match on content, and the real origin is older.
+    dir="$(dirname -- "$path")"
+    stem="$(basename -- "${path%.*}")"
+    predecessor="$(git -C "$clone" show --name-status --format= "$sha" 2>/dev/null \
+      | awk -v d="$dir" -v s="$stem" '$1 == "D" { p = $2; n = p; sub(/\.[^.\/]*$/, "", n)
+          if (n == d "/" s) { print p; exit } }')"
+    [[ -n $predecessor && $predecessor != "$path" ]] || { printf '%s\n' "$last"; return 0; }
+    path="$predecessor"
+  done
+}
+
+# A PR body, fetched once per number. Empty when there is no number or gh cannot answer.
+pr_body() {
+  local number="$1"
+  [[ -n $number ]] || return 0
+  (( fetch_prs )) || return 0
+  local cached="$pr_cache/$number"
+  if [[ ! -f $cached ]]; then
+    gh api "repos/$repo/pulls/$number" -q '.title + "\n" + (.body // "")' >"$cached" 2>/dev/null || : >"$cached"
+  fi
+  cat -- "$cached"
+}
+
+# What counts as provenance: a link to somewhere the file came from, or an explicit licence.
+SOURCE_RE='https?://|unsplash|pexels|wallhaven|flickr|creative commons|CC0|CC-BY|public domain|licen[cs]e|generated with|midjourney|dall-?e|stable diffusion'
+
+# ...and what looks like provenance but is not. A pull request almost always contains a link, so
+# without this filter every file comes back SOURCED on the strength of the screenshot the author
+# pasted or the ISO download link in an unrelated paragraph. These three account for nearly every
+# false positive in the first run: GitHub's own attachment CDN (the PR screenshot), upstream's ISO
+# site (any host under it), and links back into upstream's own issues and pull requests. Built from upstream/REPO rather
+# than spelled out, so the branding gate keeps its no-exceptions rule.
+upstream_name="${repo##*/}"
+NOISE_RE="github\.com/user-attachments|([a-z0-9-]+\.)?${upstream_name}\.org|github\.com/${repo//\//\\/}/(pull|issues)"
+
+rows=0 sourced=0 nosource=0 ours=0
+tmp="$(mktemp)"
+
+while IFS= read -r file; do
+  rows=$((rows + 1))
+  info="$(first_commit "$file")"
+  if [[ -z $info ]]; then
+    # Not in upstream history at all: either ours, or added under a name nothing links to.
+    ours=$((ours + 1))
+    printf '| `%s` | — | — | OURS | not in upstream history |\n' "$file" >>"$tmp"
+    continue
+  fi
+  sha="${info%%|*}"; rest="${info#*|}"; date="${rest%%|*}"; subject="${rest#*|}"
+  trail=""
+  number=""
+  [[ $subject =~ \(#([0-9]+)\) ]] && number="${BASH_REMATCH[1]}"
+  body="$(git -C "$clone" log -1 --format='%b' "$sha" 2>/dev/null)$(pr_body "$number")"
+  # Strip the noise before asking whether anything is left that could be a source.
+  trail="$(grep -oiE "(${SOURCE_RE})[^[:space:])]*" <<<"$subject$body" | grep -viE "$NOISE_RE" || true)"
+  if [[ -n $trail ]]; then
+    verdict=SOURCED; sourced=$((sourced + 1))
+    # Two snippets: a link is often on a different line from the licence it refers to.
+    evidence="$(sed 's/[[:space:]]*$//' <<<"$trail" | awk '!seen[$0]++' | head -n2 | paste -sd' ' -)"
+  else
+    verdict=NO-SOURCE; nosource=$((nosource + 1))
+    evidence="nothing in the commit or PR"
+  fi
+  ref="${sha:0:8}"
+  [[ -n $number ]] && ref="$ref (#$number)"
+  printf '| `%s` | %s | %s | %s | %s |\n' "$file" "$date" "$ref" "$verdict" "${evidence//|/\\|}" >>"$tmp"
+done < <(find themes -path '*/backgrounds/*' -type f | sort; find applications/icons -type f 2>/dev/null | sort)
+
+{
+  printf '# Asset audit\n\n'
+  printf 'Generated by `bin/oal-dev-asset-provenance` against `%s` at `%s`.\n' "$repo" "$(cat upstream/PIN)"
+  printf 'Re-run it after a PIN bump; do not hand-edit the table.\n\n'
+  printf 'Every wallpaper and application icon Agentarchy ships, traced to the commit that first\n'
+  printf 'introduced it upstream (through the webp re-encode, which `git log --follow` stops at).\n\n'
+  printf '**The verdict column is a filter, not a judgement.** `SOURCED` means the commit or its pull\n'
+  printf 'request says something about where the file came from and a human still has to read it and\n'
+  printf 'decide. `NO-SOURCE` means there is nothing to read: no link, no licence, no statement. A file\n'
+  printf 'with no provenance cannot ship from a public repository, whatever it looks like.\n\n'
+  printf '| file | first added | commit | verdict | evidence |\n|---|---|---|---|---|\n'
+  cat -- "$tmp"
+  printf '\n## Summary\n\n'
+  printf '* %d files audited\n' "$rows"
+  printf '* %d SOURCED (a human must confirm each)\n' "$sourced"
+  printf '* %d NO-SOURCE\n' "$nosource"
+  printf '* %d not in upstream history\n' "$ours"
+} >"$out"
+
+rm -f -- "$tmp"
+echo "oal-dev: wrote $out ($rows files: $sourced sourced, $nosource no-source, $ours ours)"

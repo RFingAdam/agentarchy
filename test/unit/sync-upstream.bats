@@ -77,9 +77,20 @@ setup() {
 }
 
 @test "binary assets are copied byte-for-byte (sed skipped)" {
+  # An application icon, not a wallpaper: wallpapers are no longer vendored at all
+  # (docs/asset-audit-findings.md). Any vendored binary proves the same thing -- the rename sed must
+  # never run over one -- and the wallpaper now proves the exclude instead, below.
   oal-dev-sync-upstream --apply
-  cmp themes/tokyo-night/backgrounds/1-quattro.webp \
-      "$OAL_DEV_CACHE/upstream/2c247e390e357ae0fee3f8565b0c816adb705e6a/themes/tokyo-night/backgrounds/1-quattro.webp"
+  cmp "applications/icons/Basecamp.png" \
+      "$OAL_DEV_CACHE/upstream/2c247e390e357ae0fee3f8565b0c816adb705e6a/applications/icons/Basecamp.png"
+}
+
+@test "wallpapers are never vendored, whatever upstream ships" {
+  # The manifest excludes themes/*/backgrounds/** outright. Upstream solicited those images without
+  # ever asking where they came from, so a PIN bump must not quietly re-add one.
+  oal-dev-sync-upstream --apply
+  [ ! -e themes/tokyo-night/backgrounds/1-quattro.webp ]
+  [ -z "$(find themes -path '*/backgrounds/*' -type f 2>/dev/null)" ]
 }
 
 @test "check passes right after apply and fails after a hand edit" {
