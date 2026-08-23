@@ -1,0 +1,6 @@
+#!/bin/bash
+# Omarchy theme setter
+THEME_DIR="$HOME/.config/omarchy/themes/$1"
+STATE="$HOME/.local/state/omarchy/current"
+echo "applying $1 from $OMARCHY_PATH/themes/$1 -> $STATE"
+omarchy-restart-terminal

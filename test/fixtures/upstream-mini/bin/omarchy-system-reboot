@@ -1,0 +1,3 @@
+#!/bin/bash
+omarchy-shell notify "Rebooting"
+systemctl reboot

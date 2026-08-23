@@ -1,0 +1,2 @@
+[shell]
+accent = "{{accent}}"

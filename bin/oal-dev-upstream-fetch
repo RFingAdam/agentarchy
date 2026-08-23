@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# oal:summary=Fetch the pinned upstream source tree into the local cache
+# Usage: oal-dev-upstream-fetch [--print]
+#   --print   print the extracted tree path (default behaviour; flag kept for readability)
+# Env: OAL_DEV_CACHE (default ~/.cache/agentarchy), OAL_UPSTREAM_TARBALL (use a local tarball, no network),
+#      OAL_PIN_FILE (default <repo>/upstream/PIN), OAL_UPSTREAM_REPO (default basecamp/omarchy)
+set -euo pipefail
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+
+root="$(oal_dev_root)" || exit 1
+pin_file="${OAL_PIN_FILE:-$root/upstream/PIN}"
+[[ -f "$pin_file" ]] || oal_dev_die "missing upstream/PIN ($pin_file)"
+sha="$(tr -d '[:space:]' < "$pin_file")"
+[[ "$sha" =~ ^[0-9a-f]{40}$ ]] || oal_dev_die "upstream/PIN must be a 40-char commit sha, got '$sha'"
+
+cache="${OAL_DEV_CACHE:-$HOME/.cache/agentarchy}/upstream"
+dest="$cache/$sha"
+if [[ -d "$dest" && -n "$(ls -A "$dest")" ]]; then
+  echo "$dest"; exit 0
+fi
+
+mkdir -p "$cache"
+tmp="$(mktemp -d "$cache/.extract.XXXXXX")"
+trap 'rm -rf "$tmp"' EXIT
+
+tarball="${OAL_UPSTREAM_TARBALL:-}"
+if [[ -z "$tarball" ]]; then
+  repo="${OAL_UPSTREAM_REPO:-basecamp/omarchy}"
+  tarball="$tmp/src.tar.gz"
+  oal_dev_log "downloading https://github.com/$repo/archive/$sha.tar.gz"
+  curl -fsSL --retry 3 -o "$tarball" "https://github.com/$repo/archive/$sha.tar.gz"
+fi
+
+tar -xzf "$tarball" -C "$tmp"
+# GitHub tarballs contain exactly one top-level directory.
+top="$(find "$tmp" -mindepth 1 -maxdepth 1 -type d ! -name 'src*' | head -n1)"
+[[ -n "$top" ]] || oal_dev_die "tarball has no top-level directory"
+mv "$top" "$dest"
+echo "$dest"
