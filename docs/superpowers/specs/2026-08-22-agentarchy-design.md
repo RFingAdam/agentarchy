@@ -27,7 +27,7 @@ Two read-only research passes (7 agents + an Opus critic) established the load-b
 - **Theme system**: `themes/<name>/colors.toml` is a flat schema (`mode`, `accent`, `selection`, `muted`,
   `background`/`dark_`/`darker_`/`lighter_background`, `foreground`/`dark_`/`light_`/`bright_foreground`, `red
   yellow orange green cyan blue magenta brown`, `bright_*`). `omarchy-theme-set` renders `default/themed/*.tpl`
-  (18 templates; 14 agnostic — ghostty/alacritty/foot/kitty/btop/neovim/vscode/obsidian/chromium/claude/pi/helix/
+  (17 templates; 14 agnostic — ghostty/alacritty/foot/kitty/btop/neovim/vscode/obsidian/chromium/claude/pi/helix/
   tmux…; only `hyprland.lua.tpl`, `hyprland-preview-share-picker.css.tpl`, `shell.toml.tpl` are compositor-bound),
   atomically swaps `~/.local/state/omarchy/current/theme`, then pushes colors to the shell over IPC.
 - **Hyprland can't be a stacking desktop** without fighting it; a real DE is the honest answer. **KDE Plasma 6.7**
@@ -86,7 +86,7 @@ agentarchy/
 │   ├── oal-other.packages        # ISO bootstrap set (kernel, limine, snapper, zram, pipewire, btrfs-progs, dkms…) vendored
 │   └── oal-agent.packages        # nodejs npm github-cli uv docker tailscale syncthing jq age ripgrep fd bat eza lazygit lazydocker tmux zsh git-delta
 ├── default/                      # system defaults (vendored agnostic dirs) + new:
-│   ├── themed/*.tpl              # vendored 16 agnostic templates + plasma.colors.tpl, konsole.colorscheme.tpl, sddm-theme.conf.user.tpl
+│   ├── themed/*.tpl              # vendored 14 agnostic templates + plasma.colors.tpl, konsole.colorscheme.tpl, sddm-theme.conf.user.tpl
 │   ├── oal/oal-menu.jsonc        # vendored omarchy-menu.jsonc with Hyprland actions swapped for KCMs / oal-* scripts
 │   ├── plasma/lookandfeel/org.oal.ubuntu/   # metadata.json, contents/defaults, contents/layouts/org.kde.plasma.desktop-layout.js
 │   ├── plasma/lookandfeel/org.oal.mint/

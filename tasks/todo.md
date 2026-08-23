@@ -39,7 +39,7 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 
 ### Phase 0 — 2026-08-23
 - vendored: 851 files, excluded 121 bin scripts, 92 need porting (upstream/NEEDS-PORT.txt)
-- gates: oal-dev-check PASS x6 (paste)
+- gates: oal-dev-check PASS x6
   ```
   PASS shellcheck
   INFO shellcheck(vendored): 51 warnings in 303 vendored scripts (non-blocking)
