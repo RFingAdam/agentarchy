@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# oal:summary=Render one wallpaper per theme from that theme's own palette
+# oal:args=[--out-dir <dir>] [--size WxH] [--theme <name>]
+#
+# Repo tooling, not shipped: the output is committed, so an installed system needs no ImageMagick.
+#
+# Why this exists: docs/asset-audit.md found that not one of the 68 vendored wallpapers carries a
+# licence, so they cannot ship from a public repository. A theme with no background is a broken
+# theme, so every palette gets one that is unambiguously ours -- built out of nothing but the
+# colours in its own colors.toml.
+#
+# The composition is the same everywhere (a soft colour field, two flat bands, one hairline) but its
+# geometry is seeded from the theme name, so the 22 wallpapers look like a family rather than
+# twenty-two copies. Same name, same picture, every time.
+set -euo pipefail
+export LC_ALL=C
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+root="$(oal_dev_root)" || exit 1
+cd "$root"
+
+out_dir=""
+size="2560x1440"
+only=""
+while (($#)); do
+  case "$1" in
+    --out-dir) out_dir="${2:?--out-dir wants a path}"; shift 2 ;;
+    --size) size="${2:?--size wants WxH}"; shift 2 ;;
+    --theme) only="${2:?--theme wants a name}"; shift 2 ;;
+    -h | --help) sed -n '2,3p' "$0"; exit 0 ;;
+    *) echo "oal-dev: unknown argument: $1" >&2; exit 2 ;;
+  esac
+done
+
+command -v magick >/dev/null || { echo "oal-dev: ImageMagick (magick) is required" >&2; exit 1; }
+
+width="${size%x*}"
+height="${size#*x}"
+
+# A stable integer per theme name, so re-running produces the same file rather than a new diff.
+seed_of() { cksum <<<"$1" | awk '{print $1}'; }
+
+for theme_dir in themes/*/; do
+  theme="$(basename -- "$theme_dir")"
+  [[ -z $only || $only == "$theme" ]] || continue
+  colors="$theme_dir/colors.toml"
+  [[ -f $colors ]] || { echo "oal-dev: $theme has no colors.toml, skipped" >&2; continue; }
+
+  declare -A C=()
+  while IFS=$'\t' read -r key value; do C[$key]="$value"; done < <(bin/oal-theme-color --file "$colors" --all)
+
+  mode="${C[mode]:-dark}"
+  ground="${C[background]}"
+  deep="${C[dark_background]:-$ground}"
+  accent="${C[accent]}"
+  second="${C[magenta]:-$accent}"
+  third="${C[cyan]:-${C[blue]:-$accent}}"
+  band="${C[lighter_background]:-$ground}"
+
+  # A light palette needs the opposite treatment: colour laid *on* a bright ground reads as haze
+  # rather than glow, so the bands go darker and every alpha comes down.
+  if [[ $mode == light ]]; then
+    blob_alpha=14; band_a=0.30; band_b=0.20; hair=0.55
+  else
+    blob_alpha=22; band_a=0.34; band_b=0.22; hair=0.60
+  fi
+
+  seed="$(seed_of "$theme")"
+  # Four numbers out of one seed: which corner the colour field sits in, and where the bands cross.
+  bx=$(( width  * (15 + seed % 40) / 100 ))
+  by=$(( height * (12 + (seed / 7) % 45) / 100 ))
+  horizon=$(( height * (28 + (seed / 13) % 34) / 100 ))
+  second_horizon=$(( height * (55 + (seed / 17) % 25) / 100 ))
+  radius=$(( height * 24 / 100 ))
+  blur=$(( height / 7 ))
+
+  out="${out_dir:-$theme_dir/backgrounds}"
+  mkdir -p -- "$out"
+  target="$out/00-$theme.webp"
+
+  magick -size "$size" "xc:$ground" \
+    \( -size "$size" "xc:$ground" \
+       -fill "$accent" -draw "circle $bx,$by $bx,$((by + radius))" \
+       -fill "$second" -draw "circle $((width - bx)),$((height - by)) $((width - bx)),$((height - by + radius))" \
+       -fill "$third"  -draw "circle $((width * 3 / 4)),$((height / 8)) $((width * 3 / 4)),$((height / 8 + radius * 2 / 3))" \
+       -blur "0x$blur" \) \
+    -compose blend -define "compose:args=$blob_alpha" -composite \
+    -fill "rgba($(magick "xc:$band" -format '%[fx:int(255*r)],%[fx:int(255*g)],%[fx:int(255*b)]' info:),$band_a)" \
+      -draw "polygon 0,$height $width,$horizon $width,$height" \
+    -fill "rgba($(magick "xc:$deep" -format '%[fx:int(255*r)],%[fx:int(255*g)],%[fx:int(255*b)]' info:),$band_b)" \
+      -draw "polygon 0,$height $width,$second_horizon $width,$height" \
+    -stroke "rgba($(magick "xc:$accent" -format '%[fx:int(255*r)],%[fx:int(255*g)],%[fx:int(255*b)]' info:),$hair)" \
+      -strokewidth 1 -draw "line 0,$height $width,$horizon" -stroke none \
+    -attenuate 0.18 +noise Gaussian \
+    -quality 88 "$target"
+
+  echo "oal-dev: $target ($(stat -c %s -- "$target") bytes, $mode)"
+done
