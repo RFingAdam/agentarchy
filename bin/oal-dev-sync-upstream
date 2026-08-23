@@ -44,19 +44,41 @@ for f in "$manifest" "$rename_map" "$rename_paths" "$exclude_file" "$needsport_f
 done
 exclude_re="$(cat "$exclude_file")"
 needsport_re="$(cat "$needsport_file")"
+validate_regex() { # grep exits 2 on a bad pattern; without this the batched greps would fail open
+  local re="$1" file="$2" status=0
+  [[ -n "$re" ]] || oal_dev_die "$file is empty; an empty pattern matches every file"
+  printf '' | grep -Eq -e "$re" || status=$?
+  [[ "$status" -le 1 ]] || oal_dev_die "invalid extended regular expression in $file"
+}
+validate_regex "$exclude_re" "$exclude_file"
+validate_regex "$needsport_re" "$needsport_file"
 
 src="$("$here/oal-dev-upstream-fetch" --print)"
 [[ -d "$src" ]] || oal_dev_die "upstream tree not found: $src"
 
+# The stage is wiped before every build, so it must never name a directory holding repo content.
 stage="${stage:-$root/.sync/stage}"
-[[ "$stage" == /* ]] || stage="$root/$stage"
-[[ "$stage" != "/" && "$stage" != "$root" ]] || oal_dev_die "refusing to use '$stage' as the stage directory"
+stage="$(realpath -m -- "$stage")"
+root_real="$(realpath -m -- "$root")"
+[[ "$stage" != "/" ]] || oal_dev_die "refusing to use '/' as the stage directory"
+[[ "$stage" != "$root_real" ]] || oal_dev_die "refusing to use the repo root as the stage directory"
+[[ "$root_real" != "$stage"/* ]] ||
+  oal_dev_die "refusing to use '$stage', an ancestor of the repo, as the stage directory"
+mapfile -t vendored_tops < <(awk '$1 == "include" { sub(/\/.*/, "", $2); print $2 }' "$manifest" | sort -u)
+for top in "${vendored_tops[@]}"; do
+  [[ "$stage" != "$root_real/$top" ]] ||
+    oal_dev_die "refusing to use the vendored directory '$root_real/$top' as the stage directory"
+done
 rm -rf "$stage"
 mkdir -p "$stage"
 
 # ---- 1. select files per manifest (later lines win) -------------------------------------------
 mapfile -t all_files < <(cd "$src" && find . -mindepth 1 -type f -printf '%P\n' | sort)
 [[ ${#all_files[@]} -gt 0 ]] || oal_dev_die "upstream tree is empty: $src"
+# Symlinks are never vendored. The manifest decides whether that is a harmless skip (the path is not
+# included) or a file that would vanish without anyone noticing (included -> fatal).
+mapfile -t all_links < <(cd "$src" && find . -mindepth 1 -type l -printf '%P\n' | sort)
+candidates=("${all_files[@]}" "${all_links[@]}")
 
 glob_to_re() { # manifest glob -> ERE anchored on the whole path; ** spans /, * stays in one segment
   local g="$1" seg='[^/]*'
@@ -79,10 +101,18 @@ while read -r kind glob; do
   [[ "$glob" =~ ^[A-Za-z0-9._/*-]+$ ]] ||
     oal_dev_die "$manifest: glob '$glob' uses characters outside [A-Za-z0-9._/*-]; only * and ** are supported"
   re="$(glob_to_re "$glob")"
-  for f in "${all_files[@]}"; do
+  for f in "${candidates[@]}"; do
     if [[ "$f" =~ $re ]]; then verdict["$f"]="$kind"; fi
   done
 done < "$manifest"
+
+linked=()
+for f in "${all_links[@]}"; do
+  if [[ "${verdict[$f]:-}" == include ]]; then linked+=("$f"); fi
+done
+if ((${#linked[@]})); then
+  oal_dev_die "symlinks are not supported in vendored paths; exclude them in $manifest: ${linked[*]}"
+fi
 
 included=()
 for f in "${all_files[@]}"; do
@@ -231,11 +261,29 @@ if [[ "$mode" == apply ]]; then
   oal_dev_log "vendored ${#new_list[@]} files; excluded ${#excluded_bin[@]} bin scripts; $(wc -l < upstream/NEEDS-PORT.txt) need porting"
 else
   drift=0
+  # --apply manages modes (chmod --reference / cp -p), so --check has to compare them too.
+  present=()
+  for p in "${new_list[@]}"; do
+    if [[ -f "$root/$p" ]]; then present+=("$p"); fi
+  done
+  declare -A stage_mode=() repo_mode=()
+  if ((${#present[@]})); then
+    mapfile -t stage_modes < <(cd "$stage" && printf '%s\0' "${present[@]}" | xargs -0 stat -c %a --)
+    mapfile -t repo_modes < <(cd "$root" && printf '%s\0' "${present[@]}" | xargs -0 stat -c %a --)
+    [[ ${#stage_modes[@]} -eq ${#present[@]} && ${#repo_modes[@]} -eq ${#present[@]} ]] ||
+      oal_dev_die "stat(1) returned ${#stage_modes[@]}/${#repo_modes[@]} modes for ${#present[@]} files"
+    for i in "${!present[@]}"; do
+      stage_mode["${present[$i]}"]="${stage_modes[$i]}"
+      repo_mode["${present[$i]}"]="${repo_modes[$i]}"
+    done
+  fi
   for p in "${new_list[@]}"; do
     if [[ ! -f "$root/$p" ]]; then
       echo "drift: $p (missing from the repo)"; drift=1
     elif ! cmp -s "$stage/$p" "$root/$p"; then
       echo "drift: $p"; drift=1
+    elif [[ "${stage_mode[$p]}" != "${repo_mode[$p]}" ]]; then
+      echo "drift: $p (mode)"; drift=1
     fi
   done
   for p in "${old_list[@]}"; do

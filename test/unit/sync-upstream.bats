@@ -35,13 +35,13 @@ setup() {
 @test "apply excludes compositor-bound bin scripts and records them" {
   oal-dev-sync-upstream --apply
   [ ! -e bin/oal-hyprland-focus ]
-  grep -q '^bin/omarchy-hyprland-focus' upstream/EXCLUDED-BIN.txt
+  grep -q '^bin/omarchy-hyprland-focus$' upstream/EXCLUDED-BIN.txt
 }
 
 @test "apply keeps soft-dependent scripts but lists them in NEEDS-PORT" {
   oal-dev-sync-upstream --apply
   [ -f bin/oal-system-reboot ]
-  grep -q '^bin/oal-system-reboot' upstream/NEEDS-PORT.txt
+  grep -q '^bin/oal-system-reboot$' upstream/NEEDS-PORT.txt
 }
 
 @test "apply honours path excludes and renames directories" {
@@ -99,4 +99,44 @@ setup() {
   [ -f bin/oal-hyprland-focus ]
   grep -q '^bin/oal-hyprland-focus$' upstream/NEEDS-PORT.txt
   ! grep -q 'omarchy-hyprland-focus' upstream/EXCLUDED-BIN.txt
+}
+
+@test "a malformed EXCLUDE-BIN.regex fails loudly instead of vendoring everything" {
+  printf 'bad((\n' > upstream/EXCLUDE-BIN.regex
+  run oal-dev-sync-upstream --apply
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"EXCLUDE-BIN.regex"* ]]
+  [ ! -e bin/oal-theme-set ]
+}
+
+@test "a symlink the manifest would vendor is refused, not silently dropped" {
+  work="$BATS_TEST_TMPDIR/withlink"
+  mkdir -p "$work"
+  tar -xzf "$OAL_UPSTREAM_TARBALL" -C "$work"
+  top="$(find "$work" -mindepth 1 -maxdepth 1 -type d)"
+  ln -s colors.toml "$top/themes/tokyo-night/link.toml"
+  tar -C "$work" -czf "$BATS_TEST_TMPDIR/withlink.tar.gz" "$(basename "$top")"
+  run env OAL_UPSTREAM_TARBALL="$BATS_TEST_TMPDIR/withlink.tar.gz" \
+          OAL_DEV_CACHE="$BATS_TEST_TMPDIR/cache-link" oal-dev-sync-upstream --apply
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"link.toml"* ]]
+  [ ! -e themes/tokyo-night/colors.toml ]
+}
+
+@test "check flags a mode change on a vendored file" {
+  oal-dev-sync-upstream --apply
+  chmod -x bin/oal-theme-set
+  run oal-dev-sync-upstream --check
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"drift: bin/oal-theme-set (mode)"* ]]
+}
+
+@test "--stage refuses directories that hold repo content" {
+  run oal-dev-sync-upstream --apply --stage "$REPO/"
+  [ "$status" -ne 0 ]
+  run oal-dev-sync-upstream --apply --stage "$REPO/bin"
+  [ "$status" -ne 0 ]
+  [ -f bin/oal-dev-sync-upstream ]
+  [ -f bin/oal-dev-lib.sh ]
+  [ -f upstream/VENDOR-MANIFEST ]
 }
