@@ -4,6 +4,13 @@ useDefault = true
 [allowlist]
 description = "Agentarchy allowlist"
 paths = [
+  # The gitleaks-worktree gate scans the filesystem (--no-git), which does not honour .gitignore.
+  # Both directories below are gitignored scratch -- the sync stage, and the per-phase session and
+  # review artifacts -- so nothing in them can reach a commit; the git-history gate covers
+  # everything that can. Without this, the stage rescans every vendored file and the review diffs
+  # re-report findings already allowlisted at their real path.
+  '''^\.sync/''',
+  '''^\.superpowers/''',
   '''test/fixtures/.*''',
   '''themes/.*/backgrounds/.*''',
   # bin/oal-install-chromium-google-account: the OAuth2 client id/secret here is the public pair

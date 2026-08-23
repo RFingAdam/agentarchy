@@ -209,7 +209,10 @@ done
 if compgen -G "upstream/patches/*.patch" >/dev/null; then
   for p in upstream/patches/*.patch; do
     oal_dev_log "applying $p"
-    patch -p1 -d "$stage" --no-backup-if-mismatch -s < "$p" || oal_dev_die "patch failed: $p"
+    # -F0: no fuzz. A patch that only lands by ignoring context is a patch whose context has
+    # drifted under it, which is exactly the PIN bump we want to hear about.
+    patch -p1 -F0 -d "$stage" --no-backup-if-mismatch -s < "$p" ||
+      oal_dev_die "patch failed (context drift?): $p — regenerate it with oal-dev-upstream-patch"
   done
 fi
 
@@ -253,8 +256,9 @@ fi
 
 old_list=()
 if [[ -f upstream/VENDORED-FILES.txt ]]; then mapfile -t old_list < upstream/VENDORED-FILES.txt; fi
-declare -A in_new=()
+declare -A in_new=() owned=()
 for p in "${new_list[@]}"; do in_new["$p"]=1; done
+for p in "${old_list[@]}"; do if [[ -n "$p" ]]; then owned["$p"]=1; fi; done
 
 # ---- 10. apply or check -------------------------------------------------------------------------
 prune_empty_dirs() { # drop now-empty parents of a removed file, stopping before the top-level dir
@@ -266,6 +270,15 @@ prune_empty_dirs() { # drop now-empty parents of a removed file, stopping before
 }
 
 if [[ "$mode" == apply ]]; then
+  # A repo file the sync does not already own is a native file: overwriting it would silently
+  # replace hand-written code with upstream's. (On an empty repo old_list is empty and nothing
+  # exists yet, so the first --apply is unaffected.)
+  native=()
+  for p in "${new_list[@]}"; do
+    if [[ -e "$root/$p" && -z "${owned[$p]:-}" ]]; then native+=("$p"); fi
+  done
+  ((${#native[@]} == 0)) ||
+    oal_dev_die "refusing to overwrite native files with vendored ones (rename the native file or exclude the upstream path): ${native[*]}"
   if ((${#new_list[@]})); then
     (cd "$stage" && printf '%s\0' "${new_list[@]}" | xargs -0 cp -p --parents -t "$root" --)
   fi

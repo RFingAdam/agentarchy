@@ -1,1 +1,1 @@
-{ "system": [ { "label": "Lock", "action": "omarchy-system-lock" }, { "label": "Focus", "action": "omarchy-hyprland-focus" } ] }
+{ "system": [ { "label": "Lock", "action": "omarchy-system-lock" }, { "label": "Focus", "action": "omarchy-hyprland-focus" }, { "label": "Theme", "action": "omarchy-theme-set" } ] }

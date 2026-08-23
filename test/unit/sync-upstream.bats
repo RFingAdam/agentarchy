@@ -165,8 +165,12 @@ setup() {
 @test "DANGLING.txt records vendored files that still call an excluded script" {
   oal-dev-sync-upstream --apply
   grep -qxF 'default/oal/oal-menu.jsonc -> oal-hyprland-focus' upstream/DANGLING.txt
-  # a script that is vendored is not a dangling reference
-  ! grep -q 'oal-system-lock' upstream/DANGLING.txt
+  # A script that is vendored is not a dangling reference. The same menu file names oal-theme-set,
+  # so this only holds because the report filters on the excluded-bin list; assert the reference
+  # really is there, otherwise the line below passes for the wrong reason.
+  grep -q 'oal-theme-set' default/oal/oal-menu.jsonc
+  [ -f bin/oal-theme-set ]
+  ! grep -q -- '-> oal-theme-set$' upstream/DANGLING.txt
   ! grep -q '^bin/oal-hyprland-focus$' upstream/VENDORED-FILES.txt
   run oal-dev-sync-upstream --check
   [ "$status" -eq 0 ]
@@ -178,4 +182,36 @@ setup() {
   run oal-dev-sync-upstream --check
   [ "$status" -eq 1 ]
   [[ "$output" == *"upstream/DANGLING.txt"* ]]
+}
+
+@test "apply refuses to overwrite a native file that shares a vendored path" {
+  oal-dev-sync-upstream --apply
+  # Simulate a native file that happens to sit where the sync wants to write: drop the path from
+  # the ownership list, so the next --apply sees a repo file it does not own.
+  grep -vxF 'bin/oal-theme-set' upstream/VENDORED-FILES.txt > vf.tmp
+  mv vf.tmp upstream/VENDORED-FILES.txt
+  before="$(cat bin/oal-theme-set)"
+  run oal-dev-sync-upstream --apply
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"refusing to overwrite native files"* ]]
+  [[ "$output" == *"bin/oal-theme-set"* ]]
+  [ "$(cat bin/oal-theme-set)" = "$before" ]
+}
+
+@test "a patch that only applies with fuzz is refused" {
+  cat > upstream/patches/0001-fuzz.patch <<'PATCH'
+--- a/install/oal-base.packages
++++ b/install/oal-base.packages
+@@ -1,5 +1,5 @@
+ hyprland
+ quickshell
+-sddm
++sddm-git
+ ghostty
+ context-that-drifted
+PATCH
+  run oal-dev-sync-upstream --apply
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"0001-fuzz.patch"* ]]
+  [ ! -e install/oal-base.packages ]
 }

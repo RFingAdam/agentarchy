@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 # oal:summary=Run every local quality gate (what CI runs)
+# Seven gates, all of which must print PASS:
+#   1. shellcheck         native scripts under bin/ and install/ (vendored ones are INFO only)
+#   2. bats               test/unit
+#   3. branding           the upstream project name outside its allowlist (content and file names)
+#   4. notice             every themes/*/backgrounds file is listed in NOTICE
+#   5. gitleaks           secrets in the committed history
+#   6. gitleaks-worktree  secrets in files that are not committed yet
+#   7. vendor-drift       the vendored tree still matches upstream/PIN + upstream/patches
 set -euo pipefail
 export LC_ALL=C
 # shellcheck source=bin/oal-dev-lib.sh
@@ -24,5 +32,8 @@ gate bats         bats test/unit
 gate branding     bin/oal-dev-branding-check
 gate notice       bin/oal-dev-notice-check
 gate gitleaks     gitleaks detect --no-banner --redact --source . -c .gitleaks.toml
+# The history scan only sees committed blobs; this one reads the files on disk, so a secret is
+# caught before it is committed rather than after (a secret in git history is permanent).
+gate gitleaks-worktree gitleaks detect --no-git --no-banner --redact --source . -c .gitleaks.toml
 gate vendor-drift bin/oal-dev-sync-upstream --check
 exit $fail
