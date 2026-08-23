@@ -1,0 +1,80 @@
+# Agentarchy base packages — the headless layer: CLI, services, no GUI.
+#
+# Native to Agentarchy, not vendored: upstream's lists name a Hyprland/Quickshell desktop and carry
+# AUR-only and nonexistent packages. Everything here is in core/extra, so a default install never
+# needs the AUR (see install/agentarchy-aur.packages for the opt-in extras).
+#
+# Format: one package per line, '#' comments and blank lines ignored. Consumed by
+#   sed -e 's/#.*//' -e '/^[[:space:]]*$/d' <list> | pacman -S --needed --noconfirm -
+# Every line is verified against the archlinux.org JSON API by test/unit/packages.bats.
+
+# --- toolchain and shell basics
+base-devel
+git
+jq
+gum
+bash-completion
+openssh
+sudo
+man-db
+less
+wget
+curl
+unzip
+
+# --- networking and services
+networkmanager
+tailscale
+syncthing
+
+# --- audio (the desktop list adds the KDE front-ends)
+pipewire
+pipewire-pulse
+wireplumber
+
+# --- hardware
+bluez
+bluez-utils
+cups
+
+# --- filesystem and boot
+btrfs-progs
+snapper
+plymouth
+
+# --- security
+ufw
+age
+
+# --- terminal tooling
+ripgrep
+fd
+bat
+eza
+fzf
+zoxide
+starship
+tmux
+lazygit
+lazydocker
+htop
+btop
+
+# --- containers
+docker
+docker-compose
+
+# --- language runtimes the vendored scripts already assume
+github-cli
+nodejs
+npm
+python
+uv
+rustup
+go
+
+# --- fonts (ttf-ia-writer is AUR-only and lives in the AUR list)
+noto-fonts
+noto-fonts-emoji
+noto-fonts-cjk
+ttf-jetbrains-mono-nerd

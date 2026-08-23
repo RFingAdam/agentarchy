@@ -11,6 +11,10 @@ setup() {
   cp -a "$SRC/upstream" "$SRC/test" "$REPO/"
   rm -f "$REPO/upstream/VENDORED-FILES.txt" "$REPO/upstream/EXCLUDED-BIN.txt" \
         "$REPO/upstream/NEEDS-PORT.txt" "$REPO/upstream/DANGLING.txt"
+  # Same reasoning for the patches: the real repo's patches target real vendored files, none of
+  # which exist in this mini fixture, so carrying them in would fail every apply on a patch the
+  # test never asked for. The patch tests below create the ones they need.
+  rm -f "$REPO/upstream/patches"/*.patch
   export OAL_DEV_CACHE="$BATS_TEST_TMPDIR/cache"
   export OAL_UPSTREAM_TARBALL="$BATS_TEST_TMPDIR/upstream.tar.gz"
   "$REPO/test/fixtures/build-upstream-mini-tarball.sh" "$OAL_UPSTREAM_TARBALL"
@@ -64,7 +68,10 @@ setup() {
   [ -f default/themed/ghostty.conf.tpl ]
   [ -f default/oal/oal-menu.jsonc ]
   [ ! -e default/omarchy ]
-  [ -f install/oal-base.packages ]
+  # Upstream package lists are excluded on purpose: what a distro installs is Agentarchy's
+  # decision, and install/agentarchy-*.packages replaces them.
+  [ ! -e install/oal-base.packages ]
+  [ -f default/bash/aliases ]
   run cat install/config/all.sh
   [[ "$output" == *'$OAL_INSTALL/config/theme-system.sh'* ]]
 }
@@ -200,18 +207,18 @@ setup() {
 
 @test "a patch that only applies with fuzz is refused" {
   cat > upstream/patches/0001-fuzz.patch <<'PATCH'
---- a/install/oal-base.packages
-+++ b/install/oal-base.packages
-@@ -1,5 +1,5 @@
- hyprland
- quickshell
--sddm
-+sddm-git
- ghostty
+--- a/default/bash/aliases
++++ b/default/bash/aliases
+@@ -1,4 +1,4 @@
+ alias oal-docs='xdg-open https://github.com/RFingAdam/agentarchy/tree/main/docs'
+ echo "see https://github.com/RFingAdam/agentarchy"
+-echo "mirror https://pkgs.agentarchy.invalid/stable"
++echo "mirror https://pkgs.agentarchy.invalid/edge"
  context-that-drifted
 PATCH
   run oal-dev-sync-upstream --apply
   [ "$status" -ne 0 ]
   [[ "$output" == *"0001-fuzz.patch"* ]]
-  [ ! -e install/oal-base.packages ]
+  # apply stages before it promotes, so a refused patch leaves no vendored files behind at all
+  [ ! -e default/bash/aliases ]
 }

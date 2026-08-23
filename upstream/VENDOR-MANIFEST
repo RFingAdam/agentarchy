@@ -66,3 +66,14 @@ exclude themes/*/hyprland.lua
 exclude themes/lumon/backgrounds/02-opinions-equally.webp
 exclude themes/tokyo-night/backgrounds/5-oma-cityscape.jpg
 exclude themes/tokyo-night/backgrounds/6-oma.webp
+
+# --- distro-defining files: these are Agentarchy's decisions, not upstream's.
+# The package lists name a different desktop (KDE Plasma, not Hyprland/Quickshell) and upstream's
+# carry 22 AUR-only and ~21 nonexistent packages; default/pacman/* points every repo at
+# *.agentarchy.invalid stubs, and install/post-install/pacman.sh copies those stubs over
+# /etc/pacman.conf and the mirrorlist, which ends any install with a dead pacman. Native
+# replacements live in install/agentarchy-{base,desktop,aur}.packages.
+exclude install/omarchy-base.packages
+exclude install/omarchy-other.packages
+exclude default/pacman/**
+exclude install/post-install/pacman.sh

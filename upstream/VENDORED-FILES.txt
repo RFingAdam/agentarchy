@@ -424,12 +424,6 @@ default/nautilus-python/extensions/localsend.py
 default/nautilus-python/extensions/transcode.py
 default/oal/launcher.hides
 default/oal/oal-menu.jsonc
-default/pacman/mirrorlist-edge
-default/pacman/mirrorlist-rc
-default/pacman/mirrorlist-stable
-default/pacman/pacman-edge.conf
-default/pacman/pacman-rc.conf
-default/pacman/pacman-stable.conf
 default/plymouth/bullet.png
 default/plymouth/entry.png
 default/plymouth/lock.png
@@ -566,11 +560,8 @@ install/hardware/vulkan.sh
 install/helpers/logging.sh
 install/login/all.sh
 install/login/sddm.sh
-install/oal-base.packages
-install/oal-other.packages
 install/post-install/all.sh
 install/post-install/localdb.sh
-install/post-install/pacman.sh
 install/post-install/udev.sh
 install/provisioning/oal-provision-owner.service
 install/provisioning/oal-system-factory-reset-finish.service
