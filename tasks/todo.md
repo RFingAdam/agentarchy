@@ -30,7 +30,7 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 
 ## Owner-actions (only Adam can do these)
 - [~] Create GitHub repos `RFingAdam/agentarchy` and `RFingAdam/agentarchy-iso` and decide visibility
-      Status 2026-08-23: `RFingAdam/agentarchy` created **private** and `main` pushed (d9c2190). Still yours: `agentarchy-iso` repo, and flipping to public only after the Phase 2 wallpaper/icon audit.
+      Status 2026-08-23: `RFingAdam/agentarchy` created and made **public** the same day (Adam's decision; wallpaper/icon provenance audit remains a Phase 2 gate before v0.1.0). Still yours: `agentarchy-iso` repo.
       (private until v0.1.0 is the safe default). Blocked on you: repo ownership/visibility is your call.
       **Keep it private until the Phase 2 wallpaper + application-icon audit is finished** (see NOTICE):
       git history is permanent, so an unlicensed asset pushed once is pushed forever.
@@ -45,12 +45,7 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 - [ ] Confirm the git author identity you want on this public repo (commits currently use your global
       gitconfig email). Blocked on you: it is your identity.
 
-- [ ] Fix GitHub Actions billing for this private repo: the first two `check` runs did not start ("recent account
-      payments have failed or your spending limit needs to be increased" — Settings → Billing & plans). Private repos
-      bill Actions minutes; making the repo public removes the charge but only after the Phase 2 asset audit.
-      Blocked on you: it is your GitHub account/payment method. Until then run `bin/oal-dev-check` locally (it is
-      exactly what CI runs).
-
+- [x] ~~Fix GitHub Actions billing for the private repo~~ — resolved 2026-08-23 by making the repo public (free Actions minutes); private-repo minutes were exhausted by other work.
 ## Review log
 (appended at the end of each phase)
 

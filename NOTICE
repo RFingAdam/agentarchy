@@ -25,7 +25,7 @@ public push, and any icon whose terms do not permit redistribution is replaced
 with a generic one.
 
 ## Wallpapers (themes/*/backgrounds)
-Every file below must carry a source and licence **before the first public push**
+Every file below must carry a source and licence **before v0.1.0 (the repository was made public on 2026-08-23 with this audit pending)**
 (git history is permanent: a wallpaper removed in a later commit is still in the
 clone).
 Status UNAUDITED means the file is vendored from upstream and its provenance
