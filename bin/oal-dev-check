@@ -16,10 +16,12 @@ root="$(oal_dev_root)" || exit 1; cd "$root"
 fail=0
 gate() { local name="$1"; shift; if "$@"; then echo "PASS $name"; else echo "FAIL $name"; fail=1; fi; }
 
-# Native shell scripts = scripts under bin/, install/ and test/vm/ that are not vendored. Vendored
-# scripts are upstream's responsibility and must never be hand-edited, so they are reported (INFO)
-# but never gate the build. test/fixtures is deliberately absent: those files are inert test data.
-mapfile -t all_scripts < <(find bin install test/vm -type f -exec grep -lE '^#!.*(ba)?sh' {} + 2>/dev/null | sort)
+# Native shell scripts = scripts under bin/, install/ and test/vm/, plus the root-level bootstrap,
+# that are not vendored. Vendored scripts are upstream's responsibility and must never be
+# hand-edited, so they are reported (INFO) but never gate the build. test/fixtures is deliberately
+# absent: those files are inert test data. PKGBUILD is bash but not a script -- makepkg supplies
+# srcdir/pkgdir/startdir, so shellcheck can only report false positives about them.
+mapfile -t all_scripts < <({ find bin install test/vm -type f -exec grep -lE '^#!.*(ba)?sh' {} + 2>/dev/null; ls oal-bootstrap.sh 2>/dev/null; } | sort -u)
 mapfile -t native < <(comm -23 <(printf '%s\n' "${all_scripts[@]}") <(sort upstream/VENDORED-FILES.txt 2>/dev/null))
 mapfile -t vendored < <(comm -12 <(printf '%s\n' "${all_scripts[@]}") <(sort upstream/VENDORED-FILES.txt 2>/dev/null))
 gate shellcheck bash -c '[[ $# -eq 0 ]] || shellcheck -S warning -x "$@"' _ "${native[@]}"
