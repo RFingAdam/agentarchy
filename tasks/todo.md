@@ -23,8 +23,12 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
         switching against the `default/pacman/*` files that no longer exist, so `oal-refresh-pacman` fails
         at its first `cp`. Decide per command: port to a real Agentarchy repo, or exclude from vendoring.
         Not urgent — nothing on the golden path calls them (`oal-reinstall-pkgs` was patched off it).
-  - [ ] PKGBUILD must not link `bin/oal-dev-*` or `bin/oal-dev-lib.sh` into `/usr/bin` — they are repo
-        tooling (they look for `upstream/PIN` above themselves) and have no meaning on an installed system.
+  - [x] ~~PKGBUILD must not link `bin/oal-dev-*` or `bin/oal-dev-lib.sh` into `/usr/bin`~~ — done in
+        Task 3 (`76730f4`): the package installs the tree to `/usr/share/agentarchy`, symlinks 300
+        `oal-*` commands onto PATH and drops `oal-dev-*` entirely. Verified on the guest: absent from
+        both `/usr/bin` and `/usr/share`.
+  - [x] Task 3 PKGBUILD + `oal-bootstrap.sh` (vanilla Arch to installed Agentarchy in ~3 min, idempotent)
+  - [x] Task 4 boot into Plasma (patches 0003-0009; reboots into a Plasma 6 Wayland session as `oal`)
   - [ ] Supply the Phase 1 replacements listed in `upstream/EXCLUDED-ASSETS.md` (SDDM/Plymouth logo,
         `logo.txt`, Chromium extension icons, the Plasma greeter session in `etc/sddm.conf.d/`).
 - [ ] Phase 2 — Theme engine, all 22 themes (+ wallpaper licence audit)
