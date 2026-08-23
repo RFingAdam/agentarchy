@@ -1,0 +1,28 @@
+# Paths (globs relative to upstream root) vendored by bin/oal-dev-sync-upstream.
+# Later lines win. Everything not included is ignored.
+
+include bin/omarchy-*
+include install/**
+include default/**
+include config/**
+include themes/**
+include applications/**
+include agents/**
+
+# --- never vendor: compositor/shell-bound, docs, branding, tests, upstream migrations
+exclude shell/**
+exclude config/hypr/**
+exclude config/hyprland-preview-share-picker/**
+exclude config/omarchy/shell.json
+exclude default/hypr/**
+exclude default/uwsm/**
+exclude default/wayland-sessions/**
+exclude default/xdg-terminal-exec/**
+exclude default/libalpm/hooks/*hyprland*
+exclude default/fonts/**
+exclude default/voxtype/**
+exclude default/themed/hyprland.lua.tpl
+exclude default/themed/hyprland-preview-share-picker.css.tpl
+exclude default/themed/shell.toml.tpl
+exclude themes/*/shell.lock.toml
+exclude default/sddm/**/*.png

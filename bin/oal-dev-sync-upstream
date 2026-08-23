@@ -1,0 +1,255 @@
+#!/usr/bin/env bash
+# oal:summary=Re-vendor upstream (pinned in upstream/PIN) under the oal-* naming
+# Usage: oal-dev-sync-upstream [--apply|--check] [--stage DIR]
+#   --apply  (default) rebuild the stage and write the vendored paths into the repo
+#   --check  rebuild the stage and compare it against the repo; exit 1 on drift (CI gate)
+#   --stage  build into DIR instead of <repo>/.sync/stage (the stage is left in place)
+#
+# Data files (upstream/): VENDOR-MANIFEST (what to vendor), RENAME-PATHS.sed (path renames),
+# RENAME-MAP.sed (text content rewrites), EXCLUDE-BIN.regex + FORCE-INCLUDE-BIN (bin/ triage),
+# NEEDS-PORT.regex (flag work for later phases), patches/*.patch (local edits).
+# Reports written by --apply: VENDORED-FILES.txt (the paths this tool owns), EXCLUDED-BIN.txt,
+# NEEDS-PORT.txt.
+set -euo pipefail
+export LC_ALL=C
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+mode=apply
+stage=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --apply) mode=apply ;;
+    --check) mode=check ;;
+    --stage) [[ $# -ge 2 ]] || oal_dev_die "--stage needs a directory"; stage="$2"; shift ;;
+    -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
+    *) oal_dev_die "unknown argument: $1" ;;
+  esac
+  shift
+done
+
+root="$(oal_dev_root)" || exit 1
+cd "$root"
+
+manifest="upstream/VENDOR-MANIFEST"
+rename_map="upstream/RENAME-MAP.sed"
+rename_paths="upstream/RENAME-PATHS.sed"
+exclude_file="upstream/EXCLUDE-BIN.regex"
+needsport_file="upstream/NEEDS-PORT.regex"
+force_file="upstream/FORCE-INCLUDE-BIN"
+for f in "$manifest" "$rename_map" "$rename_paths" "$exclude_file" "$needsport_file"; do
+  [[ -f "$f" ]] || oal_dev_die "missing $f"
+done
+exclude_re="$(cat "$exclude_file")"
+needsport_re="$(cat "$needsport_file")"
+
+src="$("$here/oal-dev-upstream-fetch" --print)"
+[[ -d "$src" ]] || oal_dev_die "upstream tree not found: $src"
+
+stage="${stage:-$root/.sync/stage}"
+[[ "$stage" == /* ]] || stage="$root/$stage"
+[[ "$stage" != "/" && "$stage" != "$root" ]] || oal_dev_die "refusing to use '$stage' as the stage directory"
+rm -rf "$stage"
+mkdir -p "$stage"
+
+# ---- 1. select files per manifest (later lines win) -------------------------------------------
+mapfile -t all_files < <(cd "$src" && find . -mindepth 1 -type f -printf '%P\n' | sort)
+[[ ${#all_files[@]} -gt 0 ]] || oal_dev_die "upstream tree is empty: $src"
+
+glob_to_re() { # manifest glob -> ERE anchored on the whole path; ** spans /, * stays in one segment
+  local g="$1" seg='[^/]*'
+  g="${g//./\\.}"
+  g="${g//\*\*/$'\001'}"
+  g="${g//\*/$seg}"
+  g="${g//$'\001'/.*}"
+  printf '%s' "^${g}\$"
+}
+
+declare -A verdict=()
+while read -r kind glob; do
+  if [[ -z "$kind" || "$kind" == \#* ]]; then continue; fi
+  case "$kind" in
+    include|exclude) ;;
+    *) oal_dev_die "$manifest: expected 'include <glob>' or 'exclude <glob>', got '$kind $glob'" ;;
+  esac
+  [[ -n "$glob" ]] || oal_dev_die "$manifest: '$kind' without a glob"
+  # glob_to_re only escapes '.', so refuse anything else that means something in an ERE.
+  [[ "$glob" =~ ^[A-Za-z0-9._/*-]+$ ]] ||
+    oal_dev_die "$manifest: glob '$glob' uses characters outside [A-Za-z0-9._/*-]; only * and ** are supported"
+  re="$(glob_to_re "$glob")"
+  for f in "${all_files[@]}"; do
+    if [[ "$f" =~ $re ]]; then verdict["$f"]="$kind"; fi
+  done
+done < "$manifest"
+
+included=()
+for f in "${all_files[@]}"; do
+  if [[ "${verdict[$f]:-}" == include ]]; then included+=("$f"); fi
+done
+[[ ${#included[@]} -gt 0 ]] || oal_dev_die "$manifest selected no files from $src"
+
+# ---- 2. rename every selected path in one pass -------------------------------------------------
+declare -A renamed=()
+mapfile -t renamed_list < <(printf '%s\n' "${included[@]}" | sed -E -f "$rename_paths")
+[[ ${#renamed_list[@]} -eq ${#included[@]} ]] ||
+  oal_dev_die "$rename_paths produced ${#renamed_list[@]} paths for ${#included[@]} inputs"
+for i in "${!included[@]}"; do renamed["${included[$i]}"]="${renamed_list[$i]}"; done
+
+# ---- 3. triage bin/ ----------------------------------------------------------------------------
+# FORCE-INCLUDE-BIN lists upstream basenames that are vendored even when EXCLUDE-BIN.regex matches;
+# they are always reported in NEEDS-PORT.txt.
+declare -A force_bin=()
+if [[ -f "$force_file" ]]; then
+  while read -r line; do
+    if [[ -z "$line" || "$line" == \#* ]]; then continue; fi
+    force_bin["$line"]=1
+  done < "$force_file"
+fi
+
+bin_files=()
+for f in "${included[@]}"; do
+  if [[ "$f" == bin/* && -z "${force_bin[${f##*/}]:-}" ]]; then bin_files+=("$f"); fi
+done
+declare -A excluded=()
+if ((${#bin_files[@]})); then
+  while IFS= read -r -d '' f; do excluded["$f"]=1; done < <(
+    cd "$src" && printf '%s\0' "${bin_files[@]}" | xargs -0 grep -lZaE -e "$exclude_re" -- || true
+  )
+fi
+
+vendor=()
+excluded_bin=()
+for f in "${included[@]}"; do
+  if [[ -n "${excluded[$f]:-}" ]]; then excluded_bin+=("$f"); else vendor+=("$f"); fi
+done
+[[ ${#vendor[@]} -gt 0 ]] || oal_dev_die "nothing left to vendor after applying $exclude_file"
+
+# ---- 4. split text vs binary (one file(1) pass; -b keeps output line-per-input) -----------------
+declare -A is_binary=()
+mapfile -t mimes < <(cd "$src" && printf '%s\0' "${vendor[@]}" | xargs -0 file -b --mime --)
+[[ ${#mimes[@]} -eq ${#vendor[@]} ]] ||
+  oal_dev_die "file(1) returned ${#mimes[@]} lines for ${#vendor[@]} files"
+text_files=()
+for i in "${!vendor[@]}"; do
+  if [[ "${mimes[$i]}" == *charset=binary* ]]; then
+    is_binary["${vendor[$i]}"]=1
+  else
+    text_files+=("${vendor[$i]}")
+  fi
+done
+
+# ---- 5. flag files that still need porting (upstream content, renamed path) --------------------
+declare -A needs_port=()
+if ((${#text_files[@]})); then
+  while IFS= read -r -d '' f; do needs_port["$f"]=1; done < <(
+    cd "$src" && printf '%s\0' "${text_files[@]}" | xargs -0 grep -lZE -e "$needsport_re" -- || true
+  )
+fi
+for f in "${vendor[@]}"; do
+  if [[ "$f" == bin/* && -n "${force_bin[${f##*/}]:-}" ]]; then needs_port["$f"]=1; fi
+done
+
+# ---- 6. build the stage ------------------------------------------------------------------------
+# Two upstream paths renaming onto one destination would silently drop a file; refuse instead.
+collisions="$(for f in "${vendor[@]}"; do printf '%s\n' "${renamed[$f]}"; done | sort | uniq -d)"
+[[ -z "$collisions" ]] || oal_dev_die "$rename_paths maps several upstream paths onto: $collisions"
+
+stage_dirs=()
+for f in "${vendor[@]}"; do
+  d="${renamed[$f]%/*}"
+  if [[ "$d" != "${renamed[$f]}" ]]; then stage_dirs+=("$d"); fi
+done
+if ((${#stage_dirs[@]})); then
+  mapfile -t stage_dirs < <(printf '%s\n' "${stage_dirs[@]}" | sort -u)
+  (cd "$stage" && printf '%s\0' "${stage_dirs[@]}" | xargs -0 mkdir -p --)
+fi
+for f in "${vendor[@]}"; do
+  dst="$stage/${renamed[$f]}"
+  if [[ -n "${is_binary[$f]:-}" ]]; then
+    cp -p "$src/$f" "$dst"
+  else
+    sed -E -f "$rename_map" "$src/$f" > "$dst"
+    chmod --reference="$src/$f" "$dst"
+  fi
+done
+
+# ---- 7. local patches (upstream/patches/*.patch, applied in name order) -------------------------
+if compgen -G "upstream/patches/*.patch" >/dev/null; then
+  for p in upstream/patches/*.patch; do
+    oal_dev_log "applying $p"
+    patch -p1 -d "$stage" --no-backup-if-mismatch -s < "$p" || oal_dev_die "patch failed: $p"
+  done
+fi
+
+# ---- 8. reports --------------------------------------------------------------------------------
+: > "$stage/EXCLUDED-BIN.txt"
+if ((${#excluded_bin[@]})); then
+  printf '%s\n' "${excluded_bin[@]}" | sort -u > "$stage/EXCLUDED-BIN.txt"
+fi
+: > "$stage/NEEDS-PORT.txt"
+if ((${#needs_port[@]})); then
+  for f in "${!needs_port[@]}"; do printf '%s\n' "${renamed[$f]}"; done |
+    sort -u > "$stage/NEEDS-PORT.txt"
+fi
+
+# new_list = every staged file except the three reports; this is exactly what the sync owns.
+mapfile -t new_list < <(cd "$stage" && find . -mindepth 1 -type f -printf '%P\n' |
+  grep -vxF -e EXCLUDED-BIN.txt -e NEEDS-PORT.txt -e VENDORED-FILES.txt | sort)
+: > "$stage/VENDORED-FILES.txt"
+if ((${#new_list[@]})); then
+  printf '%s\n' "${new_list[@]}" > "$stage/VENDORED-FILES.txt"
+fi
+
+old_list=()
+if [[ -f upstream/VENDORED-FILES.txt ]]; then mapfile -t old_list < upstream/VENDORED-FILES.txt; fi
+declare -A in_new=()
+for p in "${new_list[@]}"; do in_new["$p"]=1; done
+
+# ---- 9. apply or check -------------------------------------------------------------------------
+prune_empty_dirs() { # drop now-empty parents of a removed file, stopping before the top-level dir
+  local d="$1"
+  while [[ "$d" == */* ]]; do
+    rmdir "$root/$d" 2>/dev/null || break
+    d="${d%/*}"
+  done
+}
+
+if [[ "$mode" == apply ]]; then
+  if ((${#new_list[@]})); then
+    (cd "$stage" && printf '%s\0' "${new_list[@]}" | xargs -0 cp -p --parents -t "$root" --)
+  fi
+  for p in "${old_list[@]}"; do
+    if [[ -z "$p" || -n "${in_new[$p]:-}" ]]; then continue; fi
+    rm -f "$root/$p"
+    prune_empty_dirs "${p%/*}"
+  done
+  for r in VENDORED-FILES.txt EXCLUDED-BIN.txt NEEDS-PORT.txt; do
+    cp "$stage/$r" "upstream/$r"
+  done
+  oal_dev_log "vendored ${#new_list[@]} files; excluded ${#excluded_bin[@]} bin scripts; $(wc -l < upstream/NEEDS-PORT.txt) need porting"
+else
+  drift=0
+  for p in "${new_list[@]}"; do
+    if [[ ! -f "$root/$p" ]]; then
+      echo "drift: $p (missing from the repo)"; drift=1
+    elif ! cmp -s "$stage/$p" "$root/$p"; then
+      echo "drift: $p"; drift=1
+    fi
+  done
+  for p in "${old_list[@]}"; do
+    if [[ -z "$p" || -n "${in_new[$p]:-}" ]]; then continue; fi
+    if [[ -e "$root/$p" ]]; then echo "stale vendored file: $p"; drift=1; fi
+  done
+  for r in VENDORED-FILES.txt EXCLUDED-BIN.txt NEEDS-PORT.txt; do
+    if ! cmp -s "$stage/$r" "upstream/$r"; then
+      echo "drift: upstream/$r differs from the regenerated report"; drift=1
+    fi
+  done
+  if [[ "$drift" -eq 0 ]]; then
+    oal_dev_log "no vendor drift"
+  else
+    oal_dev_die "vendor drift detected (run oal-dev-sync-upstream --apply, or capture your change as a patch with oal-dev-upstream-patch)"
+  fi
+fi

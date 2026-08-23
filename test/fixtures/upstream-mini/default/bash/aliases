@@ -1,0 +1,2 @@
+alias omarchy-docs='xdg-open https://learn.omacom.io/2/the-omarchy-manual'
+echo "see https://omarchy.org/install"

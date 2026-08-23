@@ -1,0 +1,1 @@
+# upstream bin basenames vendored even if EXCLUDE-BIN.regex matches; they are listed in NEEDS-PORT.txt
