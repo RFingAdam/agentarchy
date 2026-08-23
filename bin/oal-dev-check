@@ -36,6 +36,12 @@ gate notice       bin/oal-dev-notice-check
 gate gitleaks     gitleaks detect --no-banner --redact --source . -c .gitleaks.toml
 # The history scan only sees committed blobs; this one reads the files on disk, so a secret is
 # caught before it is committed rather than after (a secret in git history is permanent).
-gate gitleaks-worktree gitleaks detect --no-git --no-banner --redact --source . -c .gitleaks.toml
+# --max-target-megabytes is not a tuning knob, it is what keeps this gate from killing the machine:
+# gitleaks reads a target into memory, and the path allowlist below only suppresses findings, it does
+# not stop the read (.gitleaks.toml lists them). With the VM harness scratch present (.vm-cache holds a 531 M cloud image and a
+# 3.1 G spike disk) this gate ballooned past 7 G RSS and was OOM-killed -- twice, taking the session
+# with it. Nothing in this repo hides a secret in a file bigger than 25 MB; the biggest committed
+# files are theme backgrounds, a few MB each, and they are still scanned.
+gate gitleaks-worktree gitleaks detect --no-git --no-banner --redact --source . -c .gitleaks.toml --max-target-megabytes 25
 gate vendor-drift bin/oal-dev-sync-upstream --check
 exit $fail
