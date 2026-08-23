@@ -1,0 +1,11 @@
+# Agentarchy AUR packages — opt-in only, never required.
+#
+# Nothing installs this list automatically. Reaching a working Agentarchy desktop uses core/extra
+# only (see agentarchy-base.packages and agentarchy-desktop.packages); a later phase adds
+# oal-install-aur for people who want these. Building from the AUR means running upstream PKGBUILDs
+# as yourself, so each line says what it is and stays a deliberate choice.
+
+yay             # AUR helper; install this first, the rest need it
+cliamp          # Winamp-style terminal music player (bjarneo)
+ttf-ia-writer   # iA Writer Duo/Quattro/Mono fonts, used by the default theme's document styling
+ufw-docker      # teaches ufw about docker's iptables rules, which docker otherwise bypasses

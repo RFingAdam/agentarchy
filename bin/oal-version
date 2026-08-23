@@ -17,11 +17,10 @@ if [[ $oal_path != "/usr/share/agentarchy" ]]; then
   exit 0
 fi
 
-# The edge channel installs oal-dev instead of oal, so check both.
-for package in oal-dev oal; do
-  version=$(pacman -Q "$package" 2>/dev/null | awk '{ print $2 }')
-  [[ -n $version ]] && break
-done
+# The package is named after the project, not after the oal-* command prefix. Upstream checks its
+# stable/edge pair here; Agentarchy has neither, because the whole channel subsystem is inert until
+# a phase gives it real repositories (tasks/todo.md).
+version=$(pacman -Q agentarchy 2>/dev/null | awk '{ print $2 }')
 
 [[ -n $version ]] || exit 1
 

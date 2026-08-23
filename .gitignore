@@ -16,3 +16,11 @@ release/
 .idea/
 .vscode/
 *.swp
+
+# local VM test scratch (never committed)
+.vm/
+.vm-cache/
+
+# makepkg build output
+pkg/
+src/

@@ -1,0 +1,64 @@
+--- a/install/config/firewall.sh
++++ b/install/config/firewall.sh
+@@ -1,14 +1,39 @@
+ # Allow nothing in, everything out.
+-ufw default deny incoming
+-ufw default allow outgoing
++#
++# ufw only writes rule files here; ufw.service applies them at boot, which is where they were
++# always going to take effect (installs are followed by a reboot). But once UFW is marked enabled,
++# the ufw command also tries to load the rules into the running kernel -- and that fails outright
++# in the window this script runs in on an existing system: oal-bootstrap.sh has just run
++# `pacman -Syu`, so if that upgraded the kernel, the running kernel's modules are already gone from
++# /usr/lib/modules and nf_tables cannot load. The rules are still written correctly and are correct
++# after the reboot, so that specific case is a warning, not a failed install. Anything else is a
++# real error and still fails.
++running_kernel_modules_present() { [[ -d "/usr/lib/modules/$(uname -r)" ]]; }
++
++ufw_rule() {
++  if ufw "$@"; then
++    return 0
++  fi
++  if running_kernel_modules_present; then
++    echo "ufw $*: failed" >&2
++    return 1
++  fi
++  echo "warning: 'ufw $*' could not reach the running kernel's netfilter tables." >&2
++  echo "         The kernel was upgraded and its modules are no longer on disk; the rule is" >&2
++  echo "         written to /etc/ufw and takes effect after the reboot." >&2
++  return 0
++}
++
++ufw_rule default deny incoming
++ufw_rule default allow outgoing
+ 
+ # Allow ports for LocalSend.
+-ufw allow 53317/udp
+-ufw allow 53317/tcp
++ufw_rule allow 53317/udp
++ufw_rule allow 53317/tcp
+ 
+ # Allow Docker containers to use DNS on host.
+-ufw allow in proto udp from 172.16.0.0/12 to 172.17.0.1 port 53 comment 'allow-docker-dns'
+-ufw allow in proto udp from 192.168.0.0/16 to 172.17.0.1 port 53 comment 'allow-docker-dns'
++ufw_rule allow in proto udp from 172.16.0.0/12 to 172.17.0.1 port 53 comment 'allow-docker-dns'
++ufw_rule allow in proto udp from 192.168.0.0/16 to 172.17.0.1 port 53 comment 'allow-docker-dns'
+ 
+ # Turn on Docker protections. ufw-docker refuses to install its after.rules
+ # block unless UFW is already active, but during ISO finalization the target
+@@ -46,7 +71,14 @@
+   return "$status"
+ }
+ 
+-install_ufw_docker_rules
++# ufw-docker is AUR-only, and Agentarchy's default install never touches the AUR (it is listed in
++# install/agentarchy-aur.packages for people who opt in). Without it there is no shim to install,
++# and that is not a failure -- docker's iptables rules simply stay unmanaged by ufw.
++if command -v ufw-docker >/dev/null; then
++  install_ufw_docker_rules
++else
++  echo "skipping ufw-docker rules: ufw-docker is not installed (AUR-only, see install/agentarchy-aur.packages)"
++fi
+ 
+ # Installs are followed by reboot, so configure UFW to start on the installed
+ # system instead of mutating the live install session's firewall.

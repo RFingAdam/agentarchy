@@ -1,0 +1,6 @@
+--- a/install/post-install/all.sh
++++ b/install/post-install/all.sh
+@@ -1,3 +1,2 @@
+-run_logged "$OAL_INSTALL/post-install/pacman.sh"
+ run_logged "$OAL_INSTALL/post-install/udev.sh"
+ run_logged "$OAL_INSTALL/post-install/localdb.sh"

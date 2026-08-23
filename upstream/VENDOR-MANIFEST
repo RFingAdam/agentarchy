@@ -30,6 +30,13 @@ exclude default/themed/shell.toml.tpl
 exclude themes/*/shell.lock.toml
 exclude default/sddm/*/logo.png
 exclude default/sddm/hyprland.lua
+# The greeter drop-in exists only to point SDDM's Wayland greeter at that hyprland.lua. Agentarchy
+# decided the other way in install/desktop/plasma.sh: the greeter stays on SDDM's X11 default (the
+# Wayland greeter is experimental upstream) and autologin skips it entirely. Vendoring a config that
+# names a compositor we never ship would leave a file that breaks login the moment anyone installs
+# it, so drop it rather than port it. 10-theme.conf stays: Current=oal is still what we want once
+# oal-refresh-sddm has installed the theme.
+exclude etc/sddm.conf.d/10-wayland.conf
 # Agent skill for developing the Quickshell desktop under shell/, which we never vendor. It is
 # the one vendored file that keeps a literal 'omarchy' (the shell-injected QML property
 # omarchyPath); renaming that would invent an upstream API name, so drop the file instead.
@@ -66,3 +73,14 @@ exclude themes/*/hyprland.lua
 exclude themes/lumon/backgrounds/02-opinions-equally.webp
 exclude themes/tokyo-night/backgrounds/5-oma-cityscape.jpg
 exclude themes/tokyo-night/backgrounds/6-oma.webp
+
+# --- distro-defining files: these are Agentarchy's decisions, not upstream's.
+# The package lists name a different desktop (KDE Plasma, not Hyprland/Quickshell) and upstream's
+# carry 22 AUR-only and ~21 nonexistent packages; default/pacman/* points every repo at
+# *.agentarchy.invalid stubs, and install/post-install/pacman.sh copies those stubs over
+# /etc/pacman.conf and the mirrorlist, which ends any install with a dead pacman. Native
+# replacements live in install/agentarchy-{base,desktop,aur}.packages.
+exclude install/omarchy-base.packages
+exclude install/omarchy-other.packages
+exclude default/pacman/**
+exclude install/post-install/pacman.sh

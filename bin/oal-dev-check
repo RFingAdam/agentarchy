@@ -16,10 +16,12 @@ root="$(oal_dev_root)" || exit 1; cd "$root"
 fail=0
 gate() { local name="$1"; shift; if "$@"; then echo "PASS $name"; else echo "FAIL $name"; fail=1; fi; }
 
-# Native shell scripts = scripts under bin/ and install/ that are not vendored. Vendored scripts
-# are upstream's responsibility and must never be hand-edited, so they are reported (INFO) but
-# never gate the build.
-mapfile -t all_scripts < <(find bin install -type f -exec grep -lE '^#!.*(ba)?sh' {} + 2>/dev/null | sort)
+# Native shell scripts = scripts under bin/, install/ and test/vm/, plus the root-level bootstrap,
+# that are not vendored. Vendored scripts are upstream's responsibility and must never be
+# hand-edited, so they are reported (INFO) but never gate the build. test/fixtures is deliberately
+# absent: those files are inert test data. PKGBUILD is bash but not a script -- makepkg supplies
+# srcdir/pkgdir/startdir, so shellcheck can only report false positives about them.
+mapfile -t all_scripts < <({ find bin install test/vm -type f -exec grep -lE '^#!.*(ba)?sh' {} + 2>/dev/null; ls oal-bootstrap.sh 2>/dev/null; } | sort -u)
 mapfile -t native < <(comm -23 <(printf '%s\n' "${all_scripts[@]}") <(sort upstream/VENDORED-FILES.txt 2>/dev/null))
 mapfile -t vendored < <(comm -12 <(printf '%s\n' "${all_scripts[@]}") <(sort upstream/VENDORED-FILES.txt 2>/dev/null))
 gate shellcheck bash -c '[[ $# -eq 0 ]] || shellcheck -S warning -x "$@"' _ "${native[@]}"
@@ -34,6 +36,12 @@ gate notice       bin/oal-dev-notice-check
 gate gitleaks     gitleaks detect --no-banner --redact --source . -c .gitleaks.toml
 # The history scan only sees committed blobs; this one reads the files on disk, so a secret is
 # caught before it is committed rather than after (a secret in git history is permanent).
-gate gitleaks-worktree gitleaks detect --no-git --no-banner --redact --source . -c .gitleaks.toml
+# --max-target-megabytes is not a tuning knob, it is what keeps this gate from killing the machine:
+# gitleaks reads a target into memory, and the path allowlist below only suppresses findings, it does
+# not stop the read (.gitleaks.toml lists them). With the VM harness scratch present (.vm-cache holds a 531 M cloud image and a
+# 3.1 G spike disk) this gate ballooned past 7 G RSS and was OOM-killed -- twice, taking the session
+# with it. Nothing in this repo hides a secret in a file bigger than 25 MB; the biggest committed
+# files are theme backgrounds, a few MB each, and they are still scanned.
+gate gitleaks-worktree gitleaks detect --no-git --no-banner --redact --source . -c .gitleaks.toml --max-target-megabytes 25
 gate vendor-drift bin/oal-dev-sync-upstream --check
 exit $fail

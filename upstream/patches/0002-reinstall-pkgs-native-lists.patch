@@ -1,0 +1,41 @@
+--- a/bin/oal-reinstall-pkgs
++++ b/bin/oal-reinstall-pkgs
+@@ -1,18 +1,28 @@
+ #!/bin/bash
+ 
+-# oal:summary=Reinstall all default Agentarchy packages from the stable channel
++# oal:summary=Reinstall all default Agentarchy packages from the official Arch repositories
+ # oal:requires-sudo=true
+ 
+ set -e
+ 
+-# Reinstall all default Agentarchy packages from the stable channel and downgrade any packages that are too new.
++# Reinstall every package Agentarchy installs by default, so a box that has drifted -- packages
++# removed by hand, a half-finished upgrade -- is put back on the default set.
++#
++# Agentarchy installs from the official Arch repositories only, so there is no channel to switch to
++# and nothing to downgrade to: upstream's stable/rc/edge mirrors and the -Suu downgrade pass went
++# with default/pacman/*. The package set lives in two native lists, and the desktop one is absent on
++# a headless install, which is not an error.
++
++packages=()
++for list in agentarchy-base agentarchy-desktop; do
++  file="$OAL_PATH/install/$list.packages"
++  [[ -f $file ]] || continue
++  mapfile -t -O "${#packages[@]}" packages < <(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$file")
++done
++
++if (( ${#packages[@]} == 0 )); then
++  echo "Error: no package lists found under $OAL_PATH/install" >&2
++  exit 1
++fi
+ 
+-# Set the package repository to the stable mirrors
+-oal-refresh-pacman
+-
+-# Downgrade any packages to the stable setup
+-sudo env OAL_UPDATE_PACMAN=1 pacman -Suu --noconfirm
+-
+-# Ensure all packages are installed
+-mapfile -t packages < <(grep -v '^#' "$OAL_PATH/install/oal-base.packages" | grep -v '^$')
+ sudo env OAL_UPDATE_PACMAN=1 pacman -Syu --noconfirm --needed "${packages[@]}"

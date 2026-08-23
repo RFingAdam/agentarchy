@@ -1,0 +1,69 @@
+# Agentarchy desktop packages — KDE Plasma 6 on Wayland.
+#
+# Verified in a QEMU/virtio-gpu guest (spike, 2026-08-23): this set boots vanilla Arch to a Plasma
+# Wayland session with SDDM autologin in about 3m20s. Same format and consumer as
+# install/agentarchy-base.packages; the base list is installed first and is never repeated here.
+#
+# We deliberately do NOT install plasma-meta. What that group adds and why we leave it out:
+#   discover                    - a GUI app store over pacman/flatpak; Agentarchy manages packages
+#                                 through oal-* commands, and Discover invites AUR-less confusion
+#   plasma-welcome              - a first-run tour branded for stock Plasma
+#   plasma-vault                - encrypted folders; overlaps the age-based flow we already ship
+#   krdp, plasma-thunderbolt,   - remote desktop / niche hardware; opt-in, not default surface
+#   wacomtablet, plasma-disks
+#   plasma-firewall             - a GUI for firewalld/ufw; base already installs ufw and oal- owns it
+#   oxygen, oxygen-sounds       - the pre-Breeze theme; dead weight for a themed distro
+#   plasma-browser-integration  - needs a browser extension to do anything
+#   plasma-sdk                  - Plasma development tools, not a desktop need
+# Anything above can still be installed by hand; none of it is required to reach a working desktop.
+#
+# Several entries below are already transitive dependencies of plasma-desktop/plasma-workspace
+# (kwin, powerdevil, systemsettings, kde-cli-tools, kconfig, qt6-tools, xorg-xwayland). They stay
+# explicit on purpose: oal-* scripts call their binaries directly (kreadconfig6/kwriteconfig6 from
+# kconfig, qdbus6 from qt6-tools, plasma-apply-* from plasma-workspace), so a dependency change
+# upstream must not be able to silently take a tool we depend on out of the install.
+
+# --- session core
+plasma-desktop
+plasma-workspace
+kwin
+kscreen
+plasma-integration
+qt6-wayland
+xorg-xwayland
+
+# --- display manager (autologin straight into the Wayland session; greeter stays X11)
+sddm
+
+# --- theming: Breeze is the base every Agentarchy theme is applied on top of
+breeze
+breeze-gtk
+qqc2-breeze-style
+kde-gtk-config
+
+# --- hardware and system integration applets
+plasma-nm
+plasma-pa
+powerdevil
+bluedevil
+print-manager
+xdg-desktop-portal-kde
+kwallet-pam
+
+# --- tools oal-* drives directly
+kconfig
+qt6-tools
+kde-cli-tools
+systemsettings
+
+# --- desktop applications
+dolphin
+konsole
+ghostty
+kate
+spectacle
+ark
+gwenview
+okular
+plasma-systemmonitor
+kdeplasma-addons

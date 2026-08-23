@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# Screenshot the test VM.
+# Usage: vm-shot <out.png> [--guest]
+#
+# Default: a QMP screendump of the emulated framebuffer, which works at any point in the boot --
+# GRUB, a text console, the SDDM greeter -- because it does not need anything running in the guest.
+# --guest: run spectacle inside the logged-in Wayland session and copy the PNG out. Only works once
+# a desktop session exists, but it captures what the compositor actually renders.
+set -euo pipefail
+# shellcheck source=test/vm/lib.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
+
+guest=0
+out=""
+while (($#)); do
+  case "$1" in
+    --guest) guest=1; shift ;;
+    -h | --help) sed -n '2,9p' "$0"; exit 0 ;;
+    -*) vm_die "unknown argument: $1 (see --help)" ;;
+    *) [[ -z "$out" ]] || vm_die "one output path only"; out="$1"; shift ;;
+  esac
+done
+[[ -n "$out" ]] || { sed -n '2,3p' "$0" >&2; exit 2; }
+[[ "$out" == *.png ]] || vm_die "output path must end in .png"
+
+mkdir -p -- "$(dirname -- "$out")"
+outdir="$(cd -- "$(dirname -- "$out")" && pwd)"
+out="$outdir/$(basename -- "$out")"
+vm_assert_durable "screenshot directory" "$outdir"
+vm_running || vm_die "the VM is not running"
+
+if [[ $guest -eq 1 ]]; then
+  vm_need scp ssh
+  remote="/home/$VM_USER/.cache/vm-shot.png"
+  # ssh joins its arguments with spaces and the guest's login shell re-parses them, so a script
+  # passed as an argument would be shredded. Feed it on stdin instead and pass the path as $1.
+  # spectacle also needs the session's Wayland socket, which a non-interactive ssh does not set.
+  vm_ssh bash -s -- "$remote" <<'GUESTSCRIPT' || vm_die "in-guest screenshot failed (see above)"
+set -euo pipefail
+remote="$1"
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+sock="$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -name 'wayland-*' ! -name '*.lock' -printf '%f\n' 2>/dev/null | head -n1)"
+[[ -n "$sock" ]] || { echo "no wayland socket in $XDG_RUNTIME_DIR (is a desktop session running?)" >&2; exit 1; }
+export WAYLAND_DISPLAY="$sock"
+mkdir -p -- "$(dirname -- "$remote")"
+rm -f -- "$remote"
+spectacle -b -n -f -o "$remote" >/dev/null 2>&1 || true
+[[ -s "$remote" ]] || { echo "spectacle produced no file at $remote" >&2; exit 1; }
+GUESTSCRIPT
+  vm_scp_from "$remote" "$out"
+else
+  vm_need socat magick
+  # qemu writes the screendump itself, so the path must be one qemu can write and must not be on
+  # the host's small tmpfs -- a screendump onto a full filesystem is exactly the ENOSPC this checks.
+  ppm="$VM_DIR/screendump.$$.ppm"
+  rm -f -- "$ppm"
+  avail="$(vm_free_mb "$VM_DIR")"
+  [[ "$avail" -ge 64 ]] || vm_die "only ${avail} MB free on $VM_DIR; refusing to screendump onto a full disk"
+  # JSON string: the repo path is the only variable part, so escape backslashes and quotes.
+  esc="${ppm//\\/\\\\}"; esc="${esc//\"/\\\"}"
+  vm_qmp "{\"execute\":\"screendump\",\"arguments\":{\"filename\":\"$esc\"}}" >/dev/null
+  [[ -s "$ppm" ]] || vm_die "qemu reported success but $ppm is missing or empty"
+  magick "$ppm" "$out" || { rm -f -- "$ppm"; vm_die "converting $ppm to PNG failed"; }
+  rm -f -- "$ppm"
+fi
+
+[[ -s "$out" ]] || vm_die "no screenshot at $out"
+vm_log "wrote $out ($(stat -c %s -- "$out") bytes, $(magick identify -format '%wx%h' "$out" 2>/dev/null || echo '?'))"
