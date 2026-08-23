@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# oal:summary=Toggle bar visibility without killing the Agentarchy shell
+# oal:args=[toggle|on|off]
+# oal:examples=oal toggle bar | oal toggle bar off | oal toggle bar on
+
+oal-toggle bar-off "${1:-toggle}"

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# oal:summary=Reset shell.json to Agentarchy defaults
+# oal:examples=oal refresh shell
+
+set -euo pipefail
+
+oal-refresh-config oal/shell.json
+oal-bar defaults
+
+oal-restart-shell

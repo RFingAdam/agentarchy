@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# oal:summary=Install a theme from a git repository
+# oal:args=[git-repo-url]
+# oal:examples=oal theme install https://github.com/example/oal-example-theme.git
+# oal:examples=oal theme install git@github.com:example/oal-example-theme.git
+
+if [[ -z $1 ]]; then
+  echo -e "\e[32mSee https://github.com/RFingAdam/agentarchy\n\e[0m"
+  REPO_URL=$(gum input --placeholder="Git repo URL (https or git@host:org/repo.git)" --header="")
+else
+  REPO_URL="$1"
+fi
+
+if [[ -z $REPO_URL ]]; then
+  exit 1
+fi
+
+THEMES_DIR="$HOME/.config/oal/themes"
+
+# Strip user@host: prefix from scp-style SSH URLs so basename sees just the path
+REPO_PATH="$REPO_URL"
+[[ $REPO_PATH != *"://"* && $REPO_PATH == *:*/* ]] && REPO_PATH="${REPO_PATH#*:}"
+THEME_NAME=$(basename "$REPO_PATH" .git | sed -E 's/^oal-//; s/-theme$//' | tr '[:upper:]' '[:lower:]')
+THEME_PATH="$THEMES_DIR/$THEME_NAME"
+
+# Remove existing theme if present
+if [[ -d $THEME_PATH ]]; then
+  rm -rf "$THEME_PATH"
+fi
+
+# Clone the repo directly to ~/.config/oal/themes
+if ! git clone "$REPO_URL" "$THEME_PATH"; then
+  echo "Error: Failed to clone theme repo."
+  exit 1
+fi
+
+# Apply the new theme with oal-theme-set
+oal-theme-set $THEME_NAME

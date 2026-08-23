@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# oal:summary=Show the current battery status notification
+
+oal-notification-send -g 󰁹 -u low "$(oal-battery-status)"

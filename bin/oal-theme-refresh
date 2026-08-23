@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# oal:summary=Refresh the current theme from its templates.
+
+THEME_NAME_PATH="$HOME/.local/state/oal/current/theme.name"
+
+if [[ -f $THEME_NAME_PATH ]]; then
+  OAL_THEME_SKIP_BACKGROUND=1 oal-theme-set "$(cat $THEME_NAME_PATH)"
+fi

@@ -1,1 +1,13 @@
 # upstream bin basenames vendored even if EXCLUDE-BIN.regex matches; they are listed in NEEDS-PORT.txt
+omarchy-theme-set
+omarchy-theme-set-templates
+omarchy-theme-next
+omarchy-theme-menu
+omarchy-theme-install
+omarchy-theme-remove
+omarchy-restart-terminal
+omarchy-menu
+omarchy-system-lock
+omarchy-system-logout
+omarchy-system-reboot
+omarchy-system-shutdown

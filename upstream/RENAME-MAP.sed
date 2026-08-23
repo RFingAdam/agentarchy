@@ -17,6 +17,11 @@ s#/etc/omarchy#/etc/oal#g
 s#OMARCHY_#OAL_#g
 s#omarchy-#oal-#g
 
+# snake_case namespace: shell functions/vars (omarchy_log_line, _omarchy_complete) and the
+# on-disk artefacts the tree names after itself (omarchy_resume.conf, omarchy_speaker_tuning,
+# omarchy_linux.efi). '_' is a word character, so \bomarchy\b below never reaches these.
+s#omarchy_#oal_#g
+
 # bare command / package / namespace word
 s#\bomarchy\b#oal#g
 

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# oal:summary=Shut down after closing application windows
+# oal:examples=oal shutdown | oal system shutdown
+# oal:aliases=oal shutdown
+
+# Schedule the shutdown in the user manager so closing the terminal's systemd
+# scope cannot terminate it before it runs.
+systemd-run --user --collect --quiet --on-active="2s" --timer-property=AccuracySec=100ms systemctl poweroff --no-wall || exit 1
+
+oal-osd -i shutdown -m "Shutting down" -d 5000
+
+oal-state clear re*-required
+
+# Now close all windows
+oal-hyprland-window-close-all
+sleep 1 # Allow apps like Chrome to shutdown correctly

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# oal:summary=Update the active Agentarchy dev checkout
+
+set -euo pipefail
+
+[[ $OAL_PATH != "/usr/share/agentarchy" ]] || exit 0
+
+if ! git -C "$OAL_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "Error: OAL_PATH is not a git checkout: $OAL_PATH" >&2
+  exit 1
+fi
+
+upstream=$(git -C "$OAL_PATH" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null || true)
+if [[ -z $upstream ]]; then
+  echo -e "\e[33m\nSkip Agentarchy dev checkout update (current branch has no upstream)\e[0m"
+  exit 0
+fi
+
+echo -e "\e[32m\nUpdate Agentarchy dev checkout\e[0m"
+git -C "$OAL_PATH" pull --ff-only

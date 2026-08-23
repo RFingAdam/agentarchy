@@ -6,6 +6,17 @@ setup() {
   REPO="$BATS_TEST_TMPDIR/repo"
   mkdir -p "$REPO"
   cp -a "$SRC/bin" "$SRC/upstream" "$SRC/test" "$REPO/"
+  # The copy has to start pristine. The real repo now carries a vendored tree, so its
+  # bin/oal-* scripts and its reports would otherwise sit in the throwaway repo looking
+  # like output of the mini fixture's sync. VENDORED-FILES.txt is the authoritative list
+  # of what the sync owns, so replay it to strip exactly those files.
+  if [[ -f "$REPO/upstream/VENDORED-FILES.txt" ]]; then
+    while IFS= read -r vendored; do
+      if [[ -n "$vendored" ]]; then rm -f "$REPO/$vendored"; fi
+    done < "$REPO/upstream/VENDORED-FILES.txt"
+  fi
+  rm -f "$REPO/upstream/VENDORED-FILES.txt" "$REPO/upstream/EXCLUDED-BIN.txt" \
+        "$REPO/upstream/NEEDS-PORT.txt"
   export OAL_DEV_CACHE="$BATS_TEST_TMPDIR/cache"
   export OAL_UPSTREAM_TARBALL="$BATS_TEST_TMPDIR/upstream.tar.gz"
   "$REPO/test/fixtures/build-upstream-mini-tarball.sh" "$OAL_UPSTREAM_TARBALL"

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# oal:summary=Toggle the current weather panel
+
+oal-shell shell toggle oal.weather

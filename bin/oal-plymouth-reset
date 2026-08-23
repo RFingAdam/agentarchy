@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# oal:summary=Restore the default Agentarchy Plymouth boot theme and SDDM login screen
+# oal:requires-sudo=true
+
+oal-refresh-plymouth
+oal-refresh-sddm

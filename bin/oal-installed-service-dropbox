@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# oal:summary=Check whether Dropbox is installed and running
+# oal:hidden=true
+
+set -euo pipefail
+
+if oal-cmd-present dropbox-cli && dropbox-cli running >/dev/null 2>&1; then
+  exit 0
+fi
+
+pgrep -x dropbox >/dev/null 2>&1

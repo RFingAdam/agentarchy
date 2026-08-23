@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -e
+
+if oal-done ensure voxtype-install-invitation; then
+  oal-notification-send -u critical -g  "Install Dictation with Voxtype" \
+    "Click to install voice dictation for Agentarchy." \
+    --exec "oal-launch-floating-terminal-with-presentation oal-voxtype-install"
+fi

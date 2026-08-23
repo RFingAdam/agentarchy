@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# oal:summary=Toggle notification do-not-disturb mode
+
+state=$(oal-shell notifications toggleDnd 2>/dev/null || echo "")
+oal-shell -q oal.indicators refresh

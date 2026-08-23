@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# oal:summary=Print the installed Agentarchy version
+
+oal_path=${OAL_PATH:-/usr/share/agentarchy}
+oal_path=${oal_path%/}
+
+if [[ $oal_path != "/usr/share/agentarchy" ]]; then
+  hash=$(git -C "$oal_path" rev-parse --short HEAD 2>/dev/null || true)
+
+  if [[ -n $hash ]]; then
+    echo "dev ($hash)"
+  else
+    echo "dev"
+  fi
+
+  exit 0
+fi
+
+# The edge channel installs oal-dev instead of oal, so check both.
+for package in oal-dev oal; do
+  version=$(pacman -Q "$package" 2>/dev/null | awk '{ print $2 }')
+  [[ -n $version ]] && break
+done
+
+[[ -n $version ]] || exit 1
+
+echo "$version"

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# oal:summary=Open the Agentarchy background switcher
+# oal:group=theme
+# oal:name=bg-switcher
+# oal:aliases=oal background
+
+theme_name=$(cat "$HOME/.local/state/oal/current/theme.name" 2>/dev/null)
+current_background=$(readlink -f "$HOME/.local/state/oal/current/background" 2>/dev/null)
+
+oal-menu-images \
+  --selected "$current_background" \
+  "$HOME/.local/state/oal/current/theme/backgrounds" \
+  "$HOME/.config/oal/backgrounds/$theme_name"

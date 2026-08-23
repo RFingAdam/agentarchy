@@ -1,0 +1,6 @@
+#!/bin/bash
+# oal:summary=Launch the clipboard manager
+# oal:group=menu
+# oal:examples=oal menu clipboard
+
+oal-shell shell toggle oal.clipboard

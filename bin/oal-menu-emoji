@@ -1,0 +1,6 @@
+#!/bin/bash
+# oal:summary=Launch emojis
+# oal:group=menu
+# oal:examples=oal menu emoji
+
+oal-shell shell toggle oal.emojis

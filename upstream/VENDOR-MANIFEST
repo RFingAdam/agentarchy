@@ -26,3 +26,11 @@ exclude default/themed/hyprland-preview-share-picker.css.tpl
 exclude default/themed/shell.toml.tpl
 exclude themes/*/shell.lock.toml
 exclude default/sddm/**/*.png
+# Agent skill for developing the Quickshell desktop under shell/, which we never vendor. It is
+# the one vendored file that keeps a literal 'omarchy' (the shell-injected QML property
+# omarchyPath); renaming that would invent an upstream API name, so drop the file instead.
+exclude agents/skills/shell-dev.md
+
+# --- symlinks are never vendored in Phase 0 (the sync refuses them); this one points at the
+# upstream root icon.png (branding, itself never vendored)
+exclude default/chromium/extensions/copy-url/icon.png

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# oal:summary=Enable, disable, or toggle the touch functionality of the screen
+# oal:args=[on|off|toggle]
+
+exec oal-toggle-input-device touchscreen "${1:-toggle}"

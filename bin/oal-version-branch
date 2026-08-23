@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# oal:summary=Print the active Agentarchy dev-link git branch
+# oal:hidden=true
+
+oal_path=${OAL_PATH:-/usr/share/agentarchy}
+oal_path=${oal_path%/}
+
+[[ $oal_path != "/usr/share/agentarchy" ]] || exit 1
+
+branch=$(git -C "$oal_path" branch --show-current 2>/dev/null || true)
+if [[ -z $branch ]]; then
+  hash=$(git -C "$oal_path" rev-parse --short HEAD 2>/dev/null || true)
+  [[ -n $hash ]] || exit 1
+  branch="detached@$hash"
+fi
+
+echo "$branch"

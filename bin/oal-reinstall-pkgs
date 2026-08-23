@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# oal:summary=Reinstall all default Agentarchy packages from the stable channel
+# oal:requires-sudo=true
+
+set -e
+
+# Reinstall all default Agentarchy packages from the stable channel and downgrade any packages that are too new.
+
+# Set the package repository to the stable mirrors
+oal-refresh-pacman
+
+# Downgrade any packages to the stable setup
+sudo env OAL_UPDATE_PACMAN=1 pacman -Suu --noconfirm
+
+# Ensure all packages are installed
+mapfile -t packages < <(grep -v '^#' "$OAL_PATH/install/oal-base.packages" | grep -v '^$')
+sudo env OAL_UPDATE_PACMAN=1 pacman -Syu --noconfirm --needed "${packages[@]}"

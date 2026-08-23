@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# oal:summary=Overwrite the user tmux config with the Agentarchy default and reload tmux.
+
+oal-refresh-config tmux/tmux.conf
+oal-restart-tmux

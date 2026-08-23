@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# oal:summary=Show which theme is styling the Plymouth boot screen
+# oal:examples=oal plymouth current
+
+# oal-plymouth-set installs the theme's unlock.png as a byte-for-byte
+# copy of logo.png, so matching it back identifies the current theme.
+installed_logo=/usr/share/plymouth/themes/oal/logo.png
+
+if cmp -s "$OAL_PATH/default/plymouth/logo.png" "$installed_logo"; then
+  echo default
+  exit
+fi
+
+oal-plymouth-list | while read -r name; do
+  if cmp -s "$(oal-theme-dir "$name")/unlock.png" "$installed_logo"; then
+    echo "$name"
+    exit
+  fi
+done

@@ -1,0 +1,7 @@
+: "${OAL_PATH:=/usr/share/agentarchy}"
+source "$OAL_PATH/default/bash/envs"
+source "$OAL_PATH/default/bash/shell"
+source "$OAL_PATH/default/bash/aliases"
+source "$OAL_PATH/default/bash/functions"
+source "$OAL_PATH/default/bash/init"
+[[ $- == *i* ]] && bind -f "$OAL_PATH/default/bash/inputrc"

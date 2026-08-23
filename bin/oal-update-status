@@ -1,0 +1,12 @@
+#!/bin/bash
+
+# oal:summary=Refresh the shell update status
+# oal:hidden=true
+
+set -e
+
+if oal-update-available >/dev/null; then
+  oal-shell -q oal.system-update refresh
+else
+  oal-shell -q oal.system-update clear
+fi

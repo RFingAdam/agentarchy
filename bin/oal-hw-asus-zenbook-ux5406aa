@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# oal:summary=Detect ASUS Zenbook UX5406AA series laptops on Intel Panther Lake.
+
+oal-hw-match "ux5406aa" && oal-hw-intel-ptl

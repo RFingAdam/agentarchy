@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# oal:summary=Reload btop configuration (used by the Agentarchy theme switching).
+
+pkill -SIGUSR2 btop

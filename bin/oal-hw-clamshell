@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# oal:summary=Returns true when clamshell mode is active
+# oal:hidden=true
+
+# Clamshell = lid closed while driving one or more external monitors.
+oal-hw-laptop-closed && oal-hw-external-monitors

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# oal:summary=Refresh the SDDM theme from default
+# oal:requires-sudo=true
+
+sudo rm -rf /usr/share/sddm/themes/oal
+sudo cp -r "$OAL_PATH/default/sddm/oal" /usr/share/sddm/themes/oal

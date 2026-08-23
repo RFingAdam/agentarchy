@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# oal:summary=Detect ASUS ExpertBook B9406 series laptops on Intel Panther Lake.
+
+oal-hw-match "B9406" && oal-hw-intel-ptl

@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# oal:summary=Open the oal-shell dev gallery (qs.Ui kit preview)
+# oal:args=[section]
+# oal:examples=oal dev ui-preview | oal dev ui-preview button | oal dev ui-preview button-group | oal dev ui-preview slider
+#
+# Pass a section name to jump straight to that component instead of
+# scrolling from the top. Section names match the cursor section ids in
+# shell/plugins/dev-gallery/GalleryPanel.qml — `button`, `button-group`,
+# `cursor-surface`, `slider`, `toggle`, `dropdown`, etc. Unknown names
+# are ignored and the gallery opens at its normal default position.
+
+if (( $# > 0 )) && [[ -n $1 ]]; then
+  section="$1"
+  payload=$(printf '{"section":"%s"}' "${section//\"/}")
+else
+  payload='{}'
+fi
+
+oal-shell shell summon oal.dev-gallery "$payload"

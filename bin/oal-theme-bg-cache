@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# oal:summary=Cache background switcher thumbnails for the current theme
+
+theme_name=$(cat "$HOME/.local/state/oal/current/theme.name" 2>/dev/null)
+
+oal-menu-images \
+  --cache-only \
+  "$HOME/.local/state/oal/current/theme/backgrounds" \
+  "$HOME/.config/oal/backgrounds/$theme_name"

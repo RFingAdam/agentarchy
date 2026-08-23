@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# oal:summary=Cycle to the next media source and transfer playback when the current source is playing
+# oal:args=[next|previous]
+# oal:examples=oal audio source switch | oal-audio-source-switch previous
+
+direction="${1:-next}"
+
+case "$direction" in
+  next)
+    oal-shell media sourceSwitch
+    ;;
+  previous)
+    oal-shell media sourceSwitchPrevious
+    ;;
+  *)
+    echo "Usage: oal-audio-source-switch [next|previous]" >&2
+    exit 1
+    ;;
+esac

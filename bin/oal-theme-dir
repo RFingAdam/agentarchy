@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# oal:summary=Print the directory holding a theme, preferring a user-installed copy
+# oal:args=<theme-name>
+# oal:examples=oal theme dir tokyo-night
+
+theme="${1:-}"
+
+if [[ -z $theme ]]; then
+  echo "Usage: oal-theme-dir <theme-name>" >&2
+  exit 1
+fi
+
+if [[ -d $HOME/.config/oal/themes/$theme ]]; then
+  echo "$HOME/.config/oal/themes/$theme"
+else
+  echo "$OAL_PATH/themes/$theme"
+fi

@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# oal:summary=Apply the current theme keyboard color to supported keyboards
+# oal:hidden=true
+
+oal-theme-set-keyboard-asus-rog
+oal-theme-set-keyboard-f16

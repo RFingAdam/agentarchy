@@ -1,0 +1,104 @@
+# Reporting a Crash Upstream to Agentarchy
+
+Read this only after concluding that a crash is genuinely Agentarchy's to fix.
+
+## Is it even Agentarchy's bug?
+
+Be strict here. Agentarchy is a configuration layer over Arch Linux, so a crash
+inside a third-party application — a file manager, a browser, a GNOME or Qt
+library — is almost always an upstream bug in **that** project, not in Agentarchy.
+
+Agentarchy's sphere of control is roughly:
+
+- the `oal-*` commands
+- the Quickshell shell and its plugins
+- the Hyprland and terminal configuration it ships
+- its themes
+- its install and migration scripts
+- how it packages and configures what it installs
+
+A crash in a program Agentarchy merely installs is **not** an Agentarchy bug unless
+Agentarchy's own packaging or configuration is implicated.
+
+If it is not Agentarchy's, say so and stop. Suggesting the right upstream project is
+useful; filing there yourself is not part of this.
+
+## Three conditions, all required
+
+1. **It is a verified bug in Agentarchy's sphere**, established on evidence. Issues
+   are for verified bugs only. An "is this even a bug?" belongs on the Discord at
+   <https://github.com/RFingAdam/agentarchy>; a feature idea belongs in GitHub Discussions
+   under Suggestions.
+2. **The user has explicitly agreed.** Show them the exact title and body you
+   propose, and wait for a yes. Never file unprompted.
+3. **The machine can file it** — `gh auth status` must succeed. If `gh` is missing
+   or unauthenticated, do not install or authenticate it. Say so, and hand the
+   user the finished text to submit themselves.
+
+## Search before filing
+
+A duplicate issue costs a maintainer more time than no report at all.
+
+```bash
+gh search issues --repo basecamp/oal "<program> crash"
+gh issue list --repo basecamp/oal --state all --search "<signal> <program>"
+```
+
+Search on the crashing program, the signal, and distinctive symbols from the
+backtrace — not on the wording of the title you were about to write.
+
+`gh search issues` accepts only `open` or `closed` for `--state`, and errors on
+anything else. Leaving it off searches both, which is what you want here.
+
+Include **closed** issues. A matching issue closed as fixed, when the crash still
+reproduces on a current system, is a regression — and reporting that is worth far
+more than another duplicate.
+
+## Adding to an existing report
+
+If a plausible match comes back, read it properly first:
+
+```bash
+gh issue view <number> --repo basecamp/oal --comments
+```
+
+Confirm it is genuinely the same failure. The same program crashing is not the
+same bug if the trigger or the stack differs.
+
+If it is the same, add to that issue rather than opening a new one — but only
+when you have something the thread does not already contain: a different
+reproduction, a symbolized stack where it has none, a narrower trigger, a version
+where it regressed.
+
+A comment that only says the bug happens to you too is noise. If that is all you
+have, tell the user so and file nothing.
+
+```bash
+gh issue comment <number> --repo basecamp/oal --body "..."
+```
+
+## Filing a new issue
+
+Only when the search turns up nothing that matches:
+
+```bash
+gh issue create --repo basecamp/oal --title "..." --body "..."
+```
+
+Include what happened, what was expected, steps to reproduce, system details from
+`oal version`, and diagnostics from `oal debug --no-sudo --print` (which
+also writes `/tmp/oal-debug.log`; the interactive `oal debug` can upload
+it and print a shareable URL worth including).
+
+`gh` cannot attach media. If a screenshot would help, save one and give the user
+the path to drag into the web form.
+
+## Signing
+
+End the issue or comment with a line naming the model and agent harness that
+produced it, so a human reader knows it was machine-authored:
+
+> Filed by \<model name\> via \<agent harness\>.
+
+Use your actual model and harness names. If you are not certain of them, say so
+plainly rather than inventing a version string.

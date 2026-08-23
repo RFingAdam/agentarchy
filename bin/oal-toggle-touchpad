@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# oal:summary=Enable, disable, or toggle the touchpad
+# oal:args=[on|off|toggle]
+
+exec oal-toggle-input-device touchpad "${1:-toggle}"

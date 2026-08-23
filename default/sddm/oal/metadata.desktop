@@ -1,0 +1,7 @@
+[SddmGreeterTheme]
+Name=Agentarchy
+Description=Minimal terminal-style login theme matching the Limine bootloader aesthetic
+Author=Agentarchy
+Type=sddm-theme
+Version=1.0
+QtVersion=6

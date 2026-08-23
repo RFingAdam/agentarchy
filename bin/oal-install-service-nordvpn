@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# oal:summary=Install the NordVPN service with optional GUI.
+# oal:requires-sudo=true
+
+echo "Installing NordVPN..."
+oal-pkg-add nordvpn-bin
+
+echo "Enabling NordVPN daemon..."
+sudo systemctl enable --now nordvpnd
+
+echo "Adding user to nordvpn group..."
+sudo usermod -aG nordvpn "$USER"
+
+echo -e "\nNordVPN installed! After reboot, run 'nordvpn login' to authenticate."
+
+echo
+gum confirm "Reboot now to make NordVPN usable?" && oal-system-reboot

@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Checking Agentarchy update entrypoint...
+When = PreTransaction
+Depends = oal
+Exec = /usr/bin/oal-update-pacman-guard
+AbortOnFail

@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# oal:summary=Compatibility wrapper for oal-migrate-notify.
+# oal:hidden=true
+
+exec oal-migrate-notify "$@"

@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# oal:summary=Ensure default application launchers and mise wrappers are installed.
+
+# Copy .desktop declarations
+mkdir -p ~/.local/share/applications
+cp "$OAL_PATH"/applications/*.desktop ~/.local/share/applications/
+
+if oal-cmd-present alacritty; then
+  cp "$OAL_PATH/default/alacritty/Alacritty.desktop" ~/.local/share/applications/
+fi
+
+if [[ -f "$OAL_PATH/install/user/mise.sh" ]]; then
+  bash "$OAL_PATH/install/user/mise.sh"
+fi
+
+update-desktop-database ~/.local/share/applications

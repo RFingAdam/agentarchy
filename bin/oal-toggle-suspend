@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# oal:summary=Toggle suspend availability in the system menu
+
+oal-toggle suspend-off
+
+if oal-toggle-enabled suspend-off; then
+  oal-notification-send -g 󰒲 "Suspend removed from system menu"
+else
+  oal-notification-send -g 󰒲 "Suspend now available in system menu"
+fi

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# oal:summary=Toggle screensaver availability
+
+oal-toggle screensaver-off
+
+if oal-toggle-enabled screensaver-off; then
+  oal-notification-send -g 󱄄 "Screensaver disabled"
+else
+  oal-notification-send -g 󱄄 "Screensaver enabled"
+fi

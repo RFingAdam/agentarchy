@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# oal:summary=Print the active Agentarchy package channel
+
+set -euo pipefail
+
+# Dev is a linked source checkout: OAL_PATH points somewhere other than
+# the package-backed install at /usr/share/agentarchy. This takes precedence over
+# the package channels, since the checkout overrides whatever is installed.
+if [[ $OAL_PATH != "/usr/share/agentarchy" ]]; then
+  echo dev
+  exit 0
+fi
+
+# oal-dev / oal-settings-dev are only shipped from the edge package
+# repo, so their presence alone means edge. oal / oal-settings come
+# from either the stable or rc mirror, distinguished by oal-version-channel
+# (which reports the mirror as its first token).
+if pacman -Q oal-dev oal-settings-dev >/dev/null 2>&1; then
+  echo edge
+elif pacman -Q oal oal-settings >/dev/null 2>&1; then
+  channel=$(oal-version-channel 2>/dev/null | awk '{ print $1 }')
+  case "$channel" in
+    stable) echo stable ;;
+    rc) echo rc ;;
+    *) echo unknown ;;
+  esac
+else
+  echo unknown
+fi
