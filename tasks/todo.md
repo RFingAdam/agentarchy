@@ -89,6 +89,11 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 - [ ] Confirm the tagline "Omarchy's taste. Your mouse. Your agents." and whether a text logo is fine for v0.1.
 - [ ] Confirm the git author identity you want on this public repo (commits currently use your global
       gitconfig email). Blocked on you: it is your identity.
+- [ ] Power off and start the `agentarchy` libvirt domain again, so its display comes up at 1920x1200.
+      `bin/oal-dev-vm-display` already wrote `<resolution x='1920' y='1200'/>` into the domain's
+      persistent XML, but a guest reads its EDID once at boot and that domain is running: it keeps
+      1280x800 until the qemu process is replaced (`virsh reboot` does not replace it). Blocked on you:
+      it is a VM you have open, and only you know whether there is unsaved work inside it.
 
 - [x] ~~Fix GitHub Actions billing for the private repo~~ — resolved 2026-08-23 by making the repo public (free Actions minutes); private-repo minutes were exhausted by other work.
 ## Review log

@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+# oal:summary=Give libvirt VMs the same display resolution the test harness boots with
+#
+# Usage: oal-dev-vm-display [--check] [DOMAIN...]
+#
+#   --check      report what each domain would get, change nothing, exit non-zero if any differs
+#   DOMAIN...    domains to act on (default: every domain libvirt knows about)
+#
+# libvirt has no global default for a guest's display size. A domain created with `--video virtio`
+# gets whatever virtio-gpu invents for it, which is 1280x800 no matter how big the host's screen is,
+# and that is why an imported Agentarchy looks small in virt-manager while the same disk booted by
+# test/vm/vm-up does not. This stamps <resolution> onto each domain's video model using the same
+# VM_XRES/VM_YRES the harness uses, so every VM carries one resolution however it was created.
+#
+# The guest reads its EDID once, at boot: a domain that is already running has to be powered off and
+# started again for this to take effect. `virsh reboot` is not enough -- the qemu process itself has
+# to be replaced.
+set -euo pipefail
+
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+root="$(oal_dev_root)" || exit 1
+# The resolution is written down in exactly one place. Sourcing the harness library is what keeps
+# this command in step with what vm-up boots; it also creates the git-ignored .vm/ and .vm-cache/.
+# shellcheck source=test/vm/lib.sh
+source "$root/test/vm/lib.sh"
+
+uri="${LIBVIRT_DEFAULT_URI:-qemu:///system}"
+check=0
+domains=()
+while (($#)); do
+  case "$1" in
+    --check) check=1; shift ;;
+    -h | --help) sed -n '2,17p' "$0"; exit 0 ;;
+    -*) oal_dev_die "unknown argument: $1 (see --help)" ;;
+    *) domains+=("$1"); shift ;;
+  esac
+done
+
+command -v virsh >/dev/null 2>&1 || oal_dev_die "virsh is not installed"
+command -v virt-xml >/dev/null 2>&1 || oal_dev_die "virt-xml is not installed (it ships with virt-install)"
+
+if ((${#domains[@]} == 0)); then
+  mapfile -t domains < <(virsh --connect "$uri" list --all --name 2>/dev/null | sed '/^[[:space:]]*$/d')
+  ((${#domains[@]} > 0)) || oal_dev_die "no domains defined on $uri"
+fi
+
+want="${VM_XRES}x${VM_YRES}"
+drift=0
+
+for dom in "${domains[@]}"; do
+  if ! xml="$(virsh --connect "$uri" dumpxml --inactive "$dom" 2>/dev/null)"; then
+    oal_dev_log "$dom: cannot read its XML, skipped"
+    continue
+  fi
+  # A domain with no video device is headless on purpose (a server, a builder); giving it a screen
+  # is not this command's business.
+  if ! grep -q '<video>' <<<"$xml"; then
+    oal_dev_log "$dom: no video device, skipped"
+    continue
+  fi
+
+  have="$(sed -n "s/.*<resolution x='\([0-9]\{1,\}\)' y='\([0-9]\{1,\}\)'.*/\1x\2/p" <<<"$xml" | head -n1)"
+  [[ -n $have ]] || have="default(1280x800)"
+
+  if [[ $have == "$want" ]]; then
+    printf '%-24s %s\n' "$dom" "$want"
+    continue
+  fi
+
+  drift=1
+  if ((check)); then
+    printf '%-24s %s -> %s (not applied)\n' "$dom" "$have" "$want"
+    continue
+  fi
+
+  if virt-xml --connect "$uri" "$dom" --edit \
+    --xml "./devices/video/model/resolution/@x=$VM_XRES" \
+    --xml "./devices/video/model/resolution/@y=$VM_YRES" >/dev/null; then
+    printf '%-24s %s -> %s\n' "$dom" "$have" "$want"
+    if [[ "$(virsh --connect "$uri" domstate "$dom" 2>/dev/null)" == running ]]; then
+      oal_dev_log "$dom is running: power it off and start it again before the guest sees $want"
+    fi
+  else
+    oal_dev_log "$dom: virt-xml refused the edit, left alone"
+  fi
+done
+
+if ((check)); then exit "$drift"; fi
+exit 0

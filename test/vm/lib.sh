@@ -92,6 +92,17 @@ export VM_DISK_SIZE="${VM_DISK_SIZE:-24G}"
 export VM_PORT_MIN="${VM_PORT_MIN:-2822}"
 export VM_PORT_MAX="${VM_PORT_MAX:-2899}"
 
+# Display. One resolution for every VM this harness creates, fixed here rather than passed per run,
+# so any two screenshots are the same size and comparable. virtio-gpu's own defaults are xres=1280
+# yres=800: left alone the device synthesises an EDID advertising exactly that, the guest believes
+# it, and Plasma renders a 1280x800 desktop however big the host's screen is -- which is where the
+# low-resolution desktop came from. These numbers are the dev host's panel; export VM_XRES/VM_YRES
+# to match a different one.
+export VM_XRES="${VM_XRES:-1920}"
+export VM_YRES="${VM_YRES:-1200}"
+[[ "$VM_XRES" =~ ^[0-9]+$ && "$VM_YRES" =~ ^[0-9]+$ ]] ||
+  vm_die "VM_XRES/VM_YRES must be whole numbers of pixels (got '$VM_XRES'x'$VM_YRES')"
+
 # --- port -------------------------------------------------------------------------------------
 
 # Read the port the current VM was booted with. Deliberately fails instead of guessing: talking to

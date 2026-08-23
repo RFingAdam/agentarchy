@@ -36,9 +36,9 @@ test/vm/vm-image && test/vm/vm-up --fresh && test/vm/vm-ssh 'uname -r; df -h /'
 
 ## What you get
 
-A `q35`/KVM guest with 6 vCPU, 8 GB RAM and a 24 G root, booted through OVMF (UEFI) from a
-copy-on-write overlay on the cached cloud image -- so the cache stays pristine and `--fresh` is
-just deleting a file. Cloud-init seeds one user:
+A `q35`/KVM guest with 6 vCPU, 8 GB RAM, a 24 G root and a 1920x1200 display, booted through OVMF
+(UEFI) from a copy-on-write overlay on the cached cloud image -- so the cache stays pristine and
+`--fresh` is just deleting a file. Cloud-init seeds one user:
 
 * user `oal`, in `wheel`, passwordless `sudo`, no password login, key at `.vm/id_vm`
 * hostname `agentarchy-vm`, sshd enabled on first boot
@@ -99,6 +99,14 @@ half-upgraded; `-Sy` is only the fallback for when those databases are too stale
 user-data, so editing the cloud config really does take effect on the next boot instead of being
 silently ignored on an existing disk.
 
+**virtio-gpu invents a 1280x800 monitor unless you tell it otherwise.** A guest with no physical
+monitor sizes its display off the EDID the GPU synthesises, and `virtio-gpu-pci` ships defaults of
+`xres=1280 yres=800`. Booting the device bare is why the desktop came up small on a much larger
+host: nothing was scaling the screenshot down, Plasma really was rendering 1280x800. `vm-up` passes
+`edid=on,xres=$VM_XRES,yres=$VM_YRES` (1920x1200, set once in `lib.sh`), and `golden-path` fails the
+run if either screenshot comes back a different size -- so a silent fall back to the stock EDID
+cannot pass again.
+
 **A console screenshot looks empty, and that is correct.** The kernel command line puts the console
 on `ttyS0` (captured to `.vm/serial.log`), so the virtio-gpu framebuffer holds only the login
 banner until something actually draws. `vm-shot` still captures the real framebuffer -- write to
@@ -113,7 +121,7 @@ zero-byte PNG.
 
 The guest normally runs headless (`-display none -vga none` with a `virtio-gpu-pci` device, so
 there is still a framebuffer to screenshot). To watch it instead, boot with `VM_VNC` set and point
-a VNC client at that address:
+a VNC client at that address -- the window is `VM_XRES`x`VM_YRES`, the same as the screenshots:
 
 ```bash
 VM_VNC=127.0.0.1:1 test/vm/vm-up --fresh   # then: vncviewer 127.0.0.1:5901
@@ -121,6 +129,21 @@ VM_VNC=127.0.0.1:1 test/vm/vm-up --fresh   # then: vncviewer 127.0.0.1:5901
 
 `.vm/serial.log` is the boot console and is usually the faster answer; `vm-up` prints its tail
 automatically when a boot never reaches ssh.
+
+## Changing the resolution
+
+`VM_XRES` and `VM_YRES` in `test/vm/lib.sh` are the only place a resolution is written down, and
+every VM the harness boots gets them -- there is no per-run flag on purpose, because two screenshots
+of different sizes cannot be compared. The default is 1920x1200 (the dev host's panel). To boot
+something else, export both and boot a fresh guest; the EDID is read at boot, so a running VM will
+not change size underneath you:
+
+```bash
+VM_XRES=2560 VM_YRES=1440 test/vm/vm-up --fresh
+```
+
+`golden-path` asserts both screenshots come back at exactly that size, so a typo that qemu quietly
+ignores fails the run instead of producing small screenshots nobody notices.
 
 ## Opening the result in virt-manager
 
@@ -149,6 +172,20 @@ virt-install --connect qemu:///system --name agentarchy \
   --boot loader=/usr/share/OVMF/OVMF_CODE_4M.fd,loader.readonly=yes,loader.type=pflash,nvram=/var/lib/libvirt/qemu/nvram/agentarchy_VARS.fd
 sudo install -o libvirt-qemu -g kvm -m 600 .vm/vars.fd /var/lib/libvirt/qemu/nvram/agentarchy_VARS.fd
 ```
+
+libvirt has no global default for a guest's display, so an imported domain lands back on
+virtio-gpu's 1280x800 however big the host's screen is. `bin/oal-dev-vm-display` stamps the
+harness's `VM_XRES`/`VM_YRES` onto libvirt's video model, which is the other half of "every VM is
+the same size":
+
+```bash
+bin/oal-dev-vm-display --check     # what each domain has now, changes nothing
+bin/oal-dev-vm-display             # give every domain VM_XRES x VM_YRES
+bin/oal-dev-vm-display agentarchy  # or just one
+```
+
+A domain that is already running keeps its old screen until the qemu process is replaced: power it
+off and start it again (`virsh reboot` is not enough -- the guest reads its EDID once, at boot).
 
 The libvirt copy is independent of `.vm/disk.qcow2`, which `--fresh` throws away on the next run.
 

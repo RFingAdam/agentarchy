@@ -134,13 +134,19 @@ shots() {
 stage shots shots || fail screenshots
 
 # A screenshot is only evidence if it is a real frame; a black or 1 KB image means the compositor
-# never rendered, which has happened and passed every other check.
+# never rendered, which has happened and passed every other check. Its size is evidence too: the QMP
+# shot is the framebuffer and the --guest shot is what KWin actually painted, so both of them
+# matching the resolution the VM was booted with is what proves the desktop is really full size,
+# rather than the 1280x800 one virtio-gpu hands out when nobody tells it otherwise.
+want_res="${VM_XRES}x${VM_YRES}"
 for shot in "$art/desktop-qmp.png" "$art/desktop-guest.png"; do
   bytes="$(stat -c %s -- "$shot")"
   mean="$(magick identify -format '%[mean]' "$shot" 2>/dev/null || echo 0)"
-  printf '%s %s bytes mean=%s\n' "$(basename -- "$shot")" "$bytes" "$mean" >&2
+  dims="$(magick identify -format '%wx%h' "$shot" 2>/dev/null || echo '?')"
+  printf '%s %s bytes mean=%s %s\n' "$(basename -- "$shot")" "$bytes" "$mean" "$dims" >&2
   (( bytes > 50000 )) || fail "screenshot $(basename -- "$shot") is only $bytes bytes"
   awk -v m="$mean" 'BEGIN { exit !(m > 1000) }' || fail "screenshot $(basename -- "$shot") is a blank frame (mean $mean)"
+  [[ $dims == "$want_res" ]] || fail "screenshot $(basename -- "$shot") is $dims, not the $want_res this VM was booted with"
 done
 
 printf '\ngolden-path: PASS\n' >&2
