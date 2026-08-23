@@ -1,0 +1,82 @@
+#!/bin/bash
+
+# oal:summary=Render a themed template against a theme's palette
+# oal:args=<template-name> [--file <colors.toml>] [--name <scheme-name>]
+# oal:examples=oal-theme-render plasma.colors --file themes/nord/colors.toml
+
+# One-shot renderer for a single `default/themed/<name>.tpl`, printed to stdout.
+#
+# The vendored oal-theme-set-templates renders every template at once, into the staging directory a
+# theme-set builds, which is the right thing during a theme change and useless anywhere else: it
+# cannot render one template, for a theme that is not the current one, to a path of your choosing.
+# This does exactly that, with the same substitutions ({{ key }}, {{ key_strip }}, {{ key_rgb }}) and
+# the same user-override precedence (~/.config/oal/themed/ before the packaged template), so a file
+# rendered here and the same file rendered during a theme-set agree.
+#
+# {{ scheme_name }} is the one addition: KDE names a colour scheme inside the file it lives in, and
+# that name is not a palette value.
+
+set -euo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+
+colors_file="$HOME/.local/state/oal/current/theme/colors.toml"
+scheme_name=""
+template=""
+
+usage() { echo "Usage: oal-theme-render <template-name> [--file <colors.toml>] [--name <scheme-name>]" >&2; }
+
+while (( $# > 0 )); do
+  case "$1" in
+    --file) colors_file="${2:-}"; shift ;;
+    --name) scheme_name="${2:-}"; shift ;;
+    -h | --help) usage; exit 0 ;;
+    -*) echo "oal-theme-render: unknown option $1" >&2; usage; exit 1 ;;
+    *) template="$1" ;;
+  esac
+  shift
+done
+
+[[ -n $template ]] || { usage; exit 1; }
+[[ -f $colors_file ]] || { echo "oal-theme-render: no colors.toml at $colors_file" >&2; exit 1; }
+
+# User templates win over packaged ones, the same precedence oal-theme-set-templates uses.
+tpl=""
+for candidate in "$HOME/.config/oal/themed/$template.tpl" "$OAL_PATH/default/themed/$template.tpl"; do
+  [[ -f $candidate ]] && { tpl="$candidate"; break; }
+done
+[[ -n $tpl ]] || { echo "oal-theme-render: no template '$template.tpl' in ~/.config/oal/themed or $OAL_PATH/default/themed" >&2; exit 1; }
+
+# Default the scheme name from the theme directory: themes/tokyo-night/colors.toml -> OAL Tokyo Night.
+if [[ -z $scheme_name ]]; then
+  slug="$(basename "$(dirname "$colors_file")")"
+  scheme_name="OAL $(echo "$slug" | tr '-' ' ' | sed -E 's/(^| )([a-z])/\1\u\2/g')"
+fi
+
+script="$(mktemp)"
+trap 'rm -f -- "$script"' EXIT
+
+# sed is the substitution engine upstream uses, so a template that renders there renders here. Values
+# are palette colours and a scheme name, never anything with a '|' in it.
+while IFS=$'\t' read -r key value; do
+  printf 's|{{ %s }}|%s|g\n' "$key" "$value" >>"$script"
+  printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}" >>"$script"
+  if [[ $value =~ ^#[0-9A-Fa-f]{6}$ ]]; then
+    printf 's|{{ %s_rgb }}|%d,%d,%d|g\n' "$key" "0x${value:1:2}" "0x${value:3:2}" "0x${value:5:2}" >>"$script"
+  fi
+done < <("$bin_dir/oal-theme-color" --file "$colors_file" --all)
+
+printf 's|{{ scheme_name }}|%s|g\n' "$scheme_name" >>"$script"
+
+rendered="$(sed -f "$script" "$tpl")"
+
+# An unsubstituted placeholder is a silent half-rendered config: KDE would read the file, ignore the
+# broken line and show the previous colour there. Fail instead.
+if grep -q '{{ [a-z_]* }}' <<<"$rendered"; then
+  echo "oal-theme-render: $template.tpl has placeholders the palette does not define:" >&2
+  grep -o '{{ [a-z_]* }}' <<<"$rendered" | sort -u >&2
+  exit 1
+fi
+
+printf '%s\n' "$rendered"
