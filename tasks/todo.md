@@ -66,6 +66,12 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
       (private until v0.1.0 is the safe default). Blocked on you: repo ownership/visibility is your call.
       **Keep it private until the Phase 2 wallpaper + application-icon audit is finished** (see NOTICE):
       git history is permanent, so an unlicensed asset pushed once is pushed forever.
+- [x] ~~Settle wallpaper provenance before v0.1.0~~ — done 2026-08-23. No wallpaper had a licence
+      (docs/asset-audit-findings.md); all 68 removed, 22 generated ones ship instead, history purged
+      with git-filter-repo, and the repository was **deleted and recreated** at the same URL so merged
+      pull-request refs could not keep the old blobs reachable. Verified with a fresh mirror clone: 0
+      unlicensed paths in any ref, 0 PR refs. The pre-rewrite bundle was destroyed; your copy of the
+      originals is at `~/Pictures/agentarchy-wallpapers/`.
 - [ ] Reopen the Claude Code session in `~/projects/github/agentarchy` and `rmdir ~/projects/github/opinions-are-like`.
       Blocked on you: the running session's cwd cannot move itself.
 - [ ] Create the private overlay repo (e.g. `RFingAdam/oal-overlay`, private) once Phase 5 publishes `docs/overlay.md`.
