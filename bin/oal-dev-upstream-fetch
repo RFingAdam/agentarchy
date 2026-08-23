@@ -3,7 +3,7 @@
 # Usage: oal-dev-upstream-fetch [--print]
 #   --print   print the extracted tree path (default behaviour; flag kept for readability)
 # Env: OAL_DEV_CACHE (default ~/.cache/agentarchy), OAL_UPSTREAM_TARBALL (use a local tarball, no network),
-#      OAL_PIN_FILE (default <repo>/upstream/PIN), OAL_UPSTREAM_REPO (default basecamp/omarchy)
+#      OAL_PIN_FILE (default <repo>/upstream/PIN), OAL_UPSTREAM_REPO (override the owner/name slug in upstream/REPO)
 set -euo pipefail
 # shellcheck source=bin/oal-dev-lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
@@ -26,7 +26,9 @@ trap 'rm -rf "$tmp"' EXIT
 
 tarball="${OAL_UPSTREAM_TARBALL:-}"
 if [[ -z "$tarball" ]]; then
-  repo="${OAL_UPSTREAM_REPO:-basecamp/omarchy}"
+  repo_file="${OAL_UPSTREAM_REPO_FILE:-$root/upstream/REPO}"
+  repo="${OAL_UPSTREAM_REPO:-$(tr -d '[:space:]' < "$repo_file")}"
+  [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || oal_dev_die "upstream/REPO must be owner/name, got '$repo'"
   tarball="$tmp/src.tar.gz"
   oal_dev_log "downloading https://github.com/$repo/archive/$sha.tar.gz"
   curl -fsSL --retry 3 -o "$tarball" "https://github.com/$repo/archive/$sha.tar.gz"

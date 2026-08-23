@@ -28,3 +28,10 @@ setup() {
   [ "$status" -ne 0 ]
   [[ "$output" == *"upstream/PIN"* ]]
 }
+
+@test "fails clearly when upstream/REPO is malformed" {
+  echo 'not a slug' > "$BATS_TEST_TMPDIR/REPO"
+  run env -u OAL_UPSTREAM_TARBALL OAL_UPSTREAM_REPO_FILE="$BATS_TEST_TMPDIR/REPO" oal-dev-upstream-fetch --print
+  [ "$status" -ne 0 ]
+  [[ "$output" == *"upstream/REPO"* ]]
+}
