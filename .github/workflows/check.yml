@@ -30,7 +30,7 @@ jobs:
           sudo tar -xzf gitleaks.tgz -C /usr/local/bin gitleaks
           rm -f gitleaks.tgz
       - name: Cache upstream tarball
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/agentarchy/upstream
           key: upstream-${{ hashFiles('upstream/PIN') }}
