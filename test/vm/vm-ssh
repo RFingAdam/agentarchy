@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Run a command in the test VM (or open a shell with no arguments).
+# Usage: vm-ssh [command...]
+# The arguments are the guest's command line; ssh's own options live in VM_SSH_OPTS in lib.sh.
+set -euo pipefail
+# shellcheck source=test/vm/lib.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
+vm_need ssh
+vm_ssh "$@"

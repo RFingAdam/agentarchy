@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Copy one path in or out of the test VM. Exactly two forms, so the direction is never ambiguous:
+#   vm-scp to   <local> <remote>
+#   vm-scp from <remote> <local>
+# Use vm-sync to push the whole repo checkout instead.
+set -euo pipefail
+# shellcheck source=test/vm/lib.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
+vm_need scp
+
+[[ $# -eq 3 ]] || { sed -n '2,5p' "$0" >&2; exit 2; }
+case "$1" in
+  to)   vm_scp_to "$2" "$3" ;;
+  from) vm_scp_from "$2" "$3" ;;
+  *)    vm_die "first argument must be 'to' or 'from', not '$1'" ;;
+esac

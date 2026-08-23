@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# rsync this checkout into the guest at $VM_GUEST_REPO (default /home/oal/agentarchy).
+# Usage: vm-sync [--dest PATH]
+#
+# --delete is on: the guest copy mirrors the host checkout exactly, so a file you deleted here
+# cannot linger there and quietly keep a test passing. Git history, the harness's own scratch
+# directories and local build output are excluded (see VM_SYNC_EXCLUDES in lib.sh).
+set -euo pipefail
+# shellcheck source=test/vm/lib.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
+vm_need rsync ssh
+
+dest="$VM_GUEST_REPO"
+while (($#)); do
+  case "$1" in
+    --dest) dest="${2:-}"; [[ -n "$dest" ]] || vm_die "--dest wants a path"; shift 2 ;;
+    -h | --help) sed -n '2,8p' "$0"; exit 0 ;;
+    *) vm_die "unknown argument: $1 (see --help)" ;;
+  esac
+done
+
+# The Arch cloud image does not ship rsync, so a fresh guest cannot receive a sync until it does.
+# Its pacman databases are already populated by the image build, so a plain -S needs no -Sy (and
+# therefore cannot leave the guest in a partial-upgrade state); -Sy is only the fallback for when
+# the shipped databases have gone stale enough that the version they name is off the mirrors.
+if ! vm_ssh command -v rsync >/dev/null 2>&1; then
+  vm_log "guest has no rsync; installing it (the cloud image does not ship one)"
+  vm_ssh 'sudo pacman -S --needed --noconfirm rsync >/dev/null 2>&1 || sudo pacman -Sy --needed --noconfirm rsync' \
+    || vm_die "could not install rsync in the guest; install it there and re-run"
+fi
+
+vm_log "syncing $VM_REPO/ -> $VM_USER@$VM_HOST:$dest"
+vm_ssh mkdir -p -- "$dest"
+vm_rsync_to "$VM_REPO/" "$dest"
+vm_log "synced ($(vm_ssh "find '$dest' -type f | wc -l") files in the guest)"

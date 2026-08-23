@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# Boot the Agentarchy test VM from the cached Arch cloud image and block until ssh answers.
+# Usage: vm-up [--fresh] [--timeout SECONDS]
+#
+#   --fresh          throw away .vm/disk.qcow2 (and the UEFI vars) first, i.e. boot a pristine guest
+#   --timeout N      how long to wait for ssh (default 300)
+#
+# Safe to run twice: an already-running VM is reported and re-checked, not booted a second time.
+# Set VM_VNC (e.g. VM_VNC=127.0.0.1:1) to also expose a VNC display and watch the guest live.
+set -euo pipefail
+# shellcheck source=test/vm/lib.sh
+source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
+
+here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+fresh=0
+timeout=300
+while (($#)); do
+  case "$1" in
+    --fresh) fresh=1; shift ;;
+    --timeout) timeout="${2:-}"; [[ "$timeout" =~ ^[0-9]+$ ]] || vm_die "--timeout wants seconds"; shift 2 ;;
+    -h | --help) sed -n '2,9p' "$0"; exit 0 ;;
+    *) vm_die "unknown argument: $1 (see --help)" ;;
+  esac
+done
+
+vm_need qemu-system-x86_64 qemu-img ssh ssh-keygen cloud-localds
+[[ -r /dev/kvm && -w /dev/kvm ]] || vm_die "/dev/kvm is not usable by $(id -un); add yourself to the kvm group"
+
+if vm_running; then
+  if [[ $fresh -eq 1 ]]; then
+    vm_log "--fresh: stopping the running VM (pid $(vm_pid))"
+    "$here/vm-down"
+  else
+    vm_log "VM already running (pid $(vm_pid), ssh port $(vm_port)); re-checking ssh"
+    if vm_wait_ssh "$timeout"; then
+      vm_log "ssh answers; nothing to do"
+      exit 0
+    fi
+    vm_serial_tail 40
+    vm_die "the running VM does not answer ssh; stop it with test/vm/vm-down"
+  fi
+fi
+
+# A dead VM leaves the socket behind and qemu refuses to bind over it.
+rm -f -- "$VM_QMP_SOCK" "$VM_PIDFILE"
+
+[[ -s "$VM_IMAGE" ]] || vm_die "no cloud image at $VM_IMAGE -- run test/vm/vm-image first"
+
+# --- guest key ---------------------------------------------------------------------------------
+# Never committed (.vm/ is git-ignored) and never reused from the host: this key exists only to let
+# the harness into a throwaway VM.
+if [[ ! -f "$VM_KEY" ]]; then
+  vm_log "generating guest key $VM_KEY"
+  rm -f -- "$VM_KEY.pub"
+  ssh-keygen -q -t ed25519 -N '' -C "agentarchy-vm" -f "$VM_KEY"
+fi
+[[ -f "$VM_KEY.pub" ]] || vm_die "$VM_KEY exists but $VM_KEY.pub does not; delete both and re-run"
+chmod 600 "$VM_KEY"
+
+# --- cloud-init seed ---------------------------------------------------------------------------
+# cloud-init only re-runs its per-instance modules when the instance id changes, so the id is a
+# digest of the user-data: edit the config and the next boot really applies it.
+pubkey="$(cat -- "$VM_KEY.pub")"
+tmp_user="$VM_DIR/user-data.new"
+tmp_meta="$VM_DIR/meta-data.new"
+cat >"$tmp_user" <<CLOUDCFG
+#cloud-config
+hostname: $VM_HOSTNAME
+users:
+  - name: $VM_USER
+    groups: [wheel]
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - $pubkey
+disable_root: true
+ssh_pwauth: false
+package_update: false
+runcmd:
+  - [systemctl, enable, --now, sshd]
+CLOUDCFG
+instance_id="agentarchy-$(sha256sum -- "$tmp_user" | cut -c1-12)"
+cat >"$tmp_meta" <<CLOUDMETA
+instance-id: $instance_id
+local-hostname: $VM_HOSTNAME
+CLOUDMETA
+
+if [[ ! -s "$VM_SEED" ]] || ! cmp -s "$tmp_user" "$VM_DIR/user-data" || ! cmp -s "$tmp_meta" "$VM_DIR/meta-data"; then
+  mv -f -- "$tmp_user" "$VM_DIR/user-data"
+  mv -f -- "$tmp_meta" "$VM_DIR/meta-data"
+  vm_log "building cloud-init seed ($instance_id)"
+  cloud-localds "$VM_SEED" "$VM_DIR/user-data" "$VM_DIR/meta-data"
+else
+  rm -f -- "$tmp_user" "$tmp_meta"
+fi
+
+# --- disk --------------------------------------------------------------------------------------
+if [[ $fresh -eq 1 ]]; then
+  vm_log "--fresh: discarding $VM_DISK and the UEFI variable store"
+  rm -f -- "$VM_DISK" "$VM_VARS"
+fi
+if [[ ! -f "$VM_DISK" ]]; then
+  avail="$(vm_free_mb "$VM_DIR")"
+  [[ "$avail" -ge 8192 ]] || vm_die "only ${avail} MB free on $VM_DIR; the guest needs room to grow"
+  # Copy-on-write overlay on the read-only cloud image: creating it is instant and the cache stays
+  # pristine. The cloud image is a ~2 G virtual disk, so grow the overlay here and let cloud-init's
+  # growpart/resizefs expand the btrfs root on first boot.
+  vm_log "creating $VM_DISK ($VM_DISK_SIZE overlay on $VM_IMAGE_NAME)"
+  qemu-img create -q -f qcow2 -F qcow2 -b "$VM_IMAGE" "$VM_DISK" "$VM_DISK_SIZE"
+fi
+[[ -f "$VM_VARS" ]] || cp -- "$(vm_ovmf_vars)" "$VM_VARS"
+chmod u+w "$VM_VARS"
+
+# --- boot --------------------------------------------------------------------------------------
+port="$(vm_port_alloc)"
+: >"$VM_SERIAL"
+: >"$VM_QEMU_LOG"
+
+qemu_args=(
+  -name "$VM_HOSTNAME"
+  -machine "q35,accel=kvm" -cpu host -smp "$VM_SMP" -m "$VM_MEM"
+  -drive "if=pflash,format=raw,readonly=on,file=$(vm_ovmf_code)"
+  -drive "if=pflash,format=raw,file=$VM_VARS"
+  -drive "file=$VM_DISK,if=virtio,format=qcow2"
+  -drive "file=$VM_SEED,if=virtio,format=raw,readonly=on"
+  # virtio-gpu with no host window: the guest still has a framebuffer, so a QMP screendump shows
+  # the real console/desktop even though nothing is displayed here.
+  -device virtio-gpu-pci -display none -vga none
+  -netdev "user,id=n0,hostfwd=tcp:$VM_HOST:$port-:22" -device "virtio-net-pci,netdev=n0"
+  -qmp "unix:$VM_QMP_SOCK,server,nowait"
+  -serial "file:$VM_SERIAL"
+  -daemonize -pidfile "$VM_PIDFILE"
+)
+[[ -n "${VM_VNC:-}" ]] && qemu_args+=(-vnc "$VM_VNC")
+
+vm_log "booting: ${VM_SMP} vcpu, ${VM_MEM} MB, ssh on $VM_HOST:$port${VM_VNC:+, vnc on $VM_VNC}"
+if ! qemu-system-x86_64 "${qemu_args[@]}" >>"$VM_QEMU_LOG" 2>&1; then
+  vm_warn "qemu failed to start; $VM_QEMU_LOG says:"
+  tail -n 20 -- "$VM_QEMU_LOG" >&2
+  exit 1
+fi
+vm_running || vm_die "qemu daemonized but no live process in $VM_PIDFILE"
+vm_log "qemu pid $(vm_pid)"
+
+if vm_wait_ssh "$timeout"; then
+  vm_log "ssh answers after ${VM_WAIT_ELAPSED}s (test/vm/vm-ssh, port $port)"
+  exit 0
+fi
+
+vm_serial_tail 40
+vm_warn "the VM is still running for inspection; stop it with test/vm/vm-down"
+vm_die "boot did not reach ssh within ${timeout}s"
