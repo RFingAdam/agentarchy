@@ -35,7 +35,7 @@ manifest is read before `RENAME-PATHS.sed` runs, so it spells the upstream name,
 - Symlinks are never vendored. If the manifest *includes* one the sync dies rather than silently
   dropping a file, so a symlink has to be excluded explicitly.
 - A "never vendor X" rule only exists if it is an `exclude` here. Prose in `CLAUDE.md` is not
-  checkable; the gates are all text-based and cannot see inside an image (see `tasks/lessons.md`,
+  checkable; the gates are all text-based and cannot see inside an image (see
   2026-08-23).
 
 ### RENAME-PATHS.sed

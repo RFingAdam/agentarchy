@@ -94,7 +94,7 @@ exclude themes/*/hyprland.lua
 # is the interesting one: what upstream ships under that name is Rosé Pine *Dawn*, the light variant,
 # while the flagship of that family is dark -- so the name promised the wrong thing. Porting the dark
 # original would mean inventing a green and a blue that Rosé Pine does not define, which is worse
-# than not shipping it, so it goes and a proper port is a candidate to add later (tasks/todo.md).
+# than not shipping it, so it goes. A proper dark port is a candidate to add back later.
 exclude themes/lupine/**
 exclude themes/flexoki-light/**
 exclude themes/rose-pine/**

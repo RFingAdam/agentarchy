@@ -5,6 +5,8 @@
 Agentarchy is an Arch Linux distribution derived from [Omarchy](https://omarchy.org), on **KDE
 Plasma 6** instead of Hyprland.
 
+![Agentarchy on its default theme](docs/screenshots/desktop-agentarchy.webp)
+
 > **Status: pre-alpha, and the third clause of that tagline is a plan, not a feature.** There is no
 > agent layer yet. If you are looking for a reason to install this today over Omarchy or stock Arch,
 > there isn't one. What exists is below, stated plainly, because a README that describes the roadmap
@@ -20,6 +22,22 @@ Plasma 6** instead of Hyprland.
   btop, tmux, foot and the rest, in one command. 20 themes ship; the default is ours.
 - Wallpapers derived from public-domain photography and recoloured per palette, with every file
   accounted for in `NOTICE`.
+
+## What it looks like
+
+One `colors.toml` per theme drives the whole surface, so switching a theme moves the desktop, the
+panel, the icon set, the lock screen and the login screen together. Left to right: the default theme,
+gruvbox, the lock screen, and the greeter.
+
+| | |
+|---|---|
+| ![gruvbox](docs/screenshots/desktop-gruvbox.webp) | ![lock screen](docs/screenshots/lock-screen.webp) |
+
+![the login screen](docs/screenshots/greeter.webp)
+
+Wallpapers are public-domain NASA photography recoloured to each palette, so a theme change moves the
+background too rather than leaving one picture under twenty colour schemes. `NOTICE` credits every
+source.
 
 ## What came from Omarchy, and why you cannot see it
 
@@ -71,7 +89,6 @@ independent project, not affiliated with or endorsed by Basecamp or DHH. See `NO
 | `themes/` | colour themes (`colors.toml` + assets) |
 | `upstream/` | upstream pin, vendor manifest, rename rules, patches, reports -- see `upstream/README.md` |
 | `test/` | bats unit tests and the VM golden path |
-| `docs/superpowers/` | design spec and per-phase implementation plans |
 
 ## Try it in a VM
 
