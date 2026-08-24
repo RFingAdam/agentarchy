@@ -96,9 +96,10 @@ exclude config/starship.toml
 # Agentarchy ships its own palette as the default now (themes/agentarchy, native), and the light
 # ones were the least defensible of the inherited set. lupine and flexoki-light are niche. rose-pine
 # is the interesting one: what upstream ships under that name is Rosé Pine *Dawn*, the light variant,
-# while the flagship of that family is dark -- so the name promised the wrong thing. Porting the dark
-# original would mean inventing a green and a blue that Rosé Pine does not define, which is worse
-# than not shipping it, so it goes. A proper dark port is a candidate to add back later.
+# while the flagship of that family is dark, so the name promised the wrong thing. themes/rose-pine
+# is native now and carries the dark original -- the exclude keeps upstream's Dawn out so ours is not
+# overwritten by a sync. The green and the blue it needed are designed rather than ported, and the
+# file says which and why.
 exclude themes/lupine/**
 exclude themes/flexoki-light/**
 exclude themes/rose-pine/**
