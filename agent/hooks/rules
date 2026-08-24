@@ -1,0 +1,46 @@
+# Tool-call rules for agent/hooks/pretooluse-guard. One rule per line:
+#
+#   tier | tool | pattern
+#
+#   tier     block, confirm, or allow. First match wins, so order matters and the
+#            dangerous rules come first.
+#   tool     the tool name to match, or * for any.
+#   pattern  an extended regex matched against the tool's input, flattened to one line.
+#
+# The default for anything unmatched is set by the active oal-agent-profile, not here:
+# scoped and trusted allow, untrusted confirms. That is what makes the posture a machine
+# setting rather than a property of this file.
+#
+# Adding a rule: prefer confirm over block. A block with no override is a wall someone
+# will eventually route around by disabling the hook entirely, which is worse than a
+# prompt they answer. Reserve block for things with no legitimate agent use.
+
+# --- no legitimate agent use, no override ---------------------------------------------
+block | * | rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+)+/([[:space:]]|$)
+block | * | mkfs(\.[a-z0-9]+)?[[:space:]]
+block | * | dd[[:space:]].*of=/dev/(sd|nvme|vd|hd)
+block | * | :\(\)[[:space:]]*\{.*\|.*&.*\}
+block | * | >[[:space:]]*/dev/(sd|nvme|vd|hd)[a-z]
+block | * | chmod[[:space:]]+-R[[:space:]]+777[[:space:]]+/([[:space:]]|$)
+block | * | oal-system-factory-reset
+
+# Piping a downloaded script straight into a shell. The agent can download it, read it,
+# and then run it -- that is the whole point of having an agent.
+block | * | (curl|wget)[[:space:]][^|]*\|[[:space:]]*(sudo[[:space:]]+)?(ba|z|d|k)?sh
+
+# --- credentials: readable by a person, never by an agent unattended -------------------
+block | Read | /\.ssh/id_(rsa|ed25519|ecdsa)([^.]|$)
+block | Read | \.env($|[^.a-zA-Z])
+block | Read | \.age($|")
+block | * | cat[[:space:]]+[^|]*\.ssh/id_
+
+# --- reversible but expensive, or hard to undo ----------------------------------------
+confirm | * | \bsudo\b
+confirm | * | pacman[[:space:]]+-(R|S[^y]|Syu)
+confirm | * | systemctl[[:space:]]+(disable|mask|stop)
+confirm | * | git[[:space:]]+push[[:space:]].*--force
+confirm | * | git[[:space:]]+(reset[[:space:]]+--hard|clean[[:space:]]+-[a-z]*f)
+confirm | * | (npm|pnpm|yarn|pip|uv)[[:space:]]+(install|add)[[:space:]]
+confirm | * | \brm[[:space:]]+-[a-zA-Z]*[rR]
+confirm | Write | /etc/
+confirm | Edit | /etc/

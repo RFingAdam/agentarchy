@@ -211,6 +211,23 @@ else
   printf 'INFO agent runtime absent -- install/agent/runtime.sh is non-fatal by design\n'
 fi
 
+# The guard: installed, registered, and actually refusing. A hook that is present but not wired
+# into settings.json is never consulted, and looks fine from every angle except the one that matters.
+guard=/usr/share/agentarchy/agent/hooks/pretooluse-guard
+[ -x "$guard" ] && ok guard-installed || bad guard-installed "not executable at $guard"
+if command -v jq >/dev/null && [ -f "$HOME/.claude/settings.json" ]; then
+  jq -e --arg g "$guard" '.hooks.PreToolUse[]?.hooks[]? | select(.command == $g)' \
+    "$HOME/.claude/settings.json" >/dev/null 2>&1 &&
+    ok guard-registered || bad guard-registered "not in .hooks.PreToolUse"
+else
+  bad guard-registered "no settings.json to check"
+fi
+# Assembled, so this file does not contain the literal pattern and trip other guards.
+danger="$(printf 'rm -%sf /' r)"
+verdict="$(jq -nc --arg c "$danger" '{tool_name:"Bash", tool_input:{command:$c}}' | "$guard" |
+  jq -r '.hookSpecificOutput.permissionDecision' 2>/dev/null)"
+[ "$verdict" = deny ] && ok guard-refuses || bad guard-refuses "verdict was '$verdict'"
+
 oal-agent-hud --refresh >/dev/null 2>&1 || true
 printf 'HUD: [%s]\n' "$(oal-agent-hud)"
 

@@ -35,6 +35,28 @@ if command -v oal-agent-profile >/dev/null; then
   [[ -f $state ]] || oal-agent-profile scoped >/dev/null || true
 fi
 
+# The guard that classifies every tool call. Registered in settings.json rather than assumed: the
+# agent only runs a hook it has been told about, and a guard nobody wired up is worse than none
+# because it looks installed.
+settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+guard="${OAL_PATH:-/usr/share/agentarchy}/agent/hooks/pretooluse-guard"
+if [[ -x $guard ]] && command -v jq >/dev/null; then
+  mkdir -p -- "$(dirname "$settings")"
+  [[ -f $settings ]] || printf '{}\n' >"$settings"
+  hook_tmp="$(mktemp)"
+  if jq --arg g "$guard" \
+      '.hooks.PreToolUse = [{matcher: "*", hooks: [{type: "command", command: $g}]}]' \
+      "$settings" >"$hook_tmp" 2>/dev/null; then
+    mv -- "$hook_tmp" "$settings"
+    log "tool-call guard registered ($guard)"
+  else
+    rm -f -- "$hook_tmp"
+    log "warning: could not register the tool-call guard in $settings"
+  fi
+else
+  log "warning: tool-call guard not registered (needs jq and $guard)"
+fi
+
 # The prompt's agent line reads a cached file and never the network. Something has to fill it, and a
 # user timer is the right something: it survives logout, it does not run when the machine is asleep,
 # and if it fails the prompt just prints nothing.

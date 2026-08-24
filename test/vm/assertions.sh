@@ -114,7 +114,9 @@ for pair in "ghostty/config" "kitty/kitty.conf" "alacritty/alacritty.toml" "foot
     continue
   fi
   # And the themed file it points at has to exist, or the include is decoration.
-  target="$(grep -oE '[^ "]*current/theme/[^ "]*' "$cfg" | head -n1)"
+  # '=' is excluded from the leading class because foot.ini writes `include=~/path` with no space,
+  # and a greedy match swallows the `include=` prefix and then looks for a file by that name.
+  target="$(grep -oE '[^ "=]*current/theme/[^ ",]*' "$cfg" | head -n1)"
   target="${target/#\~/$HOME}"
   if [[ -z $target ]]; then
     bad "$name" "no themed include"
