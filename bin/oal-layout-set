@@ -38,8 +38,12 @@ layout="$1"
 script="$layouts/$layout.js"
 [[ -f $script ]] || die "no layout '$layout' (try --list)"
 
-command -v qdbus6 >/dev/null || die "qdbus6 is not installed; it comes with qt6-tools"
+# Session first, tooling second. No session is the more fundamental condition and the one a person
+# is most likely to hit, and checking for qdbus6 first reports a missing package on a machine whose
+# real problem is that nothing is running -- which is what CI saw and a developer with Qt tools
+# installed never did.
 [[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} ]] || die "no graphical session: a layout is applied to a running Plasma, not to a config file"
+command -v qdbus6 >/dev/null || die "qdbus6 is not installed; it comes with qt6-tools"
 
 out="$(qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$(cat "$script")" 2>&1)" || {
   echo "$out" >&2
