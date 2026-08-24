@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Agentarchy first-login layout
+Comment=Applies the default panel layout on the first graphical session, then never again
+Exec=oal-layout-first-login
+OnlyShowIn=KDE;
+X-KDE-autostart-phase=2
+NoDisplay=true

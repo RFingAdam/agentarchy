@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# oal:summary=Apply the default panel layout, once, on the first graphical login
+# oal:hidden=true
+#
+# A layout can only be applied to a running Plasma, and nothing during an install is running Plasma:
+# oal-apply-system may be in a chroot and oal-bootstrap.sh finishes before the first reboot. So the
+# default arrives here, from config/autostart, on the first session that exists.
+#
+# It runs exactly once. After that the recorded layout is the user's, whether they kept the default
+# or changed it, and a preset apply removes every panel -- rediscovering that at each login would
+# throw away their arrangement daily.
+set -euo pipefail
+
+state="${XDG_STATE_HOME:-$HOME/.local/state}/oal/layout"
+[[ -e $state ]] && exit 0
+
+# plasmashell has to be up to be scripted; the autostart entry fires alongside it, not after it.
+for _ in $(seq 1 30); do
+  qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "0" >/dev/null 2>&1 && break
+  sleep 2
+done
+
+exec oal-layout-set "${OAL_LAYOUT:-ubuntu}"

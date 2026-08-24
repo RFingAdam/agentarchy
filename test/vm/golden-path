@@ -253,6 +253,36 @@ prompt_shot() {
 }
 stage prompt prompt_shot || vm_warn "could not photograph the prompt; continuing"
 
+# --- 6d. panel layouts ------------------------------------------------------------------------------
+
+# Both presets, applied to the live session and photographed. The count comes from Plasma itself
+# rather than from parsing appletsrc: the config file's panel encoding is an implementation detail
+# and the script API is the same surface oal-layout-set uses to apply them.
+layouts() {
+  local rc=0 name want
+  for pair in "ubuntu 2" "mint 1"; do
+    set -- $pair
+    name="$1"; want="$2"
+    vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; bash -lc 'oal-layout-set $name'" \
+      >>"$art/layout-$name.txt" 2>&1 || { vm_warn "applying layout $name failed"; rc=1; continue; }
+    sleep 4
+    local got
+    got="$(vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript 'print(panels().length)'" 2>/dev/null | tr -dc '0-9')"
+    if [[ $got == "$want" ]]; then
+      printf 'PASS layout-%s (%s panel(s))\n' "$name" "$got" >&2
+    else
+      printf 'FAIL layout-%s: Plasma reports %s panels, expected %s\n' "$name" "${got:-none}" "$want" >&2
+      rc=1
+    fi
+    "$here/vm-shot" "$art/layout-$name.png" --guest || return 1
+    shots+=("$art/layout-$name.png")
+  done
+  # Leave it on the default, so the greeter stage and any --keep session are the shipped arrangement.
+  vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; bash -lc 'oal-layout-set ubuntu'" >/dev/null 2>&1 || true
+  return "$rc"
+}
+stage layouts layouts || fail "panel layouts (see $art/layout-*.txt)"
+
 # --- 7. the login screen ---------------------------------------------------------------------------
 
 # Autologin means nobody -- including every run before this one -- has ever seen the greeter. Turn it
