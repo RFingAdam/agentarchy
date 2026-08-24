@@ -125,13 +125,13 @@ STUB
   done < <(grep -n 'config\.' "$QML" | grep -v '^\s*//' | grep -v '// ')
 }
 
-@test "the greeter ships no image assets but its own logo" {
-  # The five upstream sprites were a single hard-coded colour and had no recorded licence; they are
-  # excluded in upstream/VENDOR-MANIFEST. If a PIN bump quietly reinstates one, this fails.
-  for gone in lock.png lock-failed.png entry.png entry-failed.png bullet.png; do
-    [ ! -e "$SRC/default/sddm/oal/$gone" ] || { echo "$gone is back"; return 1; }
-  done
-  [ -f "$SRC/default/sddm/oal/logo.png" ]
+@test "the greeter ships no image assets at all" {
+  # It used to ship six: five upstream sprites in one hard-coded colour with no recorded licence,
+  # and a white wordmark PNG. Every one is drawn from the palette now, so anything with an image
+  # extension in this directory is either a regression or a PIN bump quietly reinstating one.
+  run find "$SRC/default/sddm/oal" -maxdepth 1 -type f \
+    \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.svg' -o -iname '*.webp' \)
+  [ -z "$output" ] || { echo "image assets in the greeter: $output"; return 1; }
 }
 
 # --- the hook ---------------------------------------------------------------------------------

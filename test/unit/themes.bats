@@ -97,10 +97,10 @@ themes() { ls "$SRC/themes"; }
   done
 }
 
-@test "the light themes are the five we think they are" {
+@test "the light themes are the two we think they are" {
   # Named rather than counted: a theme silently flipping mode changes the icon set, the greeter and
-  # the GTK preference at once, and "five light themes" would still be true afterwards.
-  expected="catppuccin-latte flexoki-light lupine rose-pine white"
+  # the GTK preference at once, and a count would still be true afterwards.
+  expected="catppuccin-latte white"
   actual="$(for slug in $(themes); do [[ "$(value "$slug" mode)" == light ]] && echo "$slug"; done | tr '\n' ' ')"
   [ "$(echo "$actual" | xargs)" = "$expected" ]
 }

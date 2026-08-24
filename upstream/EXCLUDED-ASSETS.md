@@ -42,6 +42,17 @@ Also dropped with no vendored referent, listed so a PIN bump does not quietly re
 - `themes/*/hyprland.lua` — compositor theme fragment, matches the "never vendor Hyprland" rule that
   `config/hypr/**` and `default/hypr/**` already encode.
 
+## The greeter now ships no images at all (2026-08-23)
+
+The wordmark PNG went the way of the five sprites. `default/sddm/oal/logo.png` is deleted and
+`Main.qml` sets the wordmark as palette-coloured text instead: it was a white image on an otherwise
+dark screen, the single brightest thing in the greeter, and the one element that could not follow a
+theme while everything around it did.
+
+`default/branding/logo.png` still exists and is still copied to `default/plymouth/logo.png` — the
+boot splash is a framebuffer, it cannot draw text from a palette, and it is one fixed colour on one
+fixed background. The greeter is not, which is why only one of the two keeps an image.
+
 ## Replaced in Phase 2 Task 4 (2026-08-23)
 
 The SDDM greeter's five sprites — `default/sddm/oal/{lock,lock-failed,entry,entry-failed,bullet}.png`

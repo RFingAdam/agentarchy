@@ -1,0 +1,31 @@
+# Source images the wallpapers are derived from. Read by bin/oal-dev-make-wallpapers.
+#
+# Format, pipe-separated:  id | url | sha256 | gravity | credit | licence | homepage
+#
+# `gravity` is where the 16:9 crop is taken from (an ImageMagick -gravity value). It is not a
+# nicety: iss058e005282 is shot past one of the station's solar arrays, and a centre crop leaves a
+# panel grid in the corner of every wallpaper derived from it.
+#
+# These files are deliberately NOT committed. The repository went from ~90 MB to 37 MB when the 68
+# unlicensed wallpapers were purged, and re-adding 20 MB of source photography to generate 20
+# derived images would undo a good part of that. They are fetched into $OAL_DEV_CACHE and verified
+# against the hash below, exactly the way bin/oal-dev-upstream-fetch treats the upstream tarball and
+# test/vm/vm-image treats the Arch cloud image. A pinned hash also means "same source, same
+# wallpaper" survives NASA reorganising a URL.
+#
+# Why public domain specifically: docs/asset-audit-findings.md is the record of what happens
+# otherwise. NASA-produced imagery is not subject to copyright protection in the United States
+# (https://www.nasa.gov/nasa-brand-center/images-and-media/), which makes it one of the very few
+# large bodies of photography a fork can redistribute and re-tone without asking anyone. Credit is
+# requested rather than required; NOTICE gives it anyway, per derived file.
+#
+# Choosing them is mostly rejection. A wallpaper is empty space with something in one corner, so it
+# has to be dark, one frame, and calm enough to sit behind icons. Two candidates were dropped after
+# rendering all 20 themes and looking at the sheet: southern_ring_nebula is a two-panel NIRCam/MIRI
+# comparison figure and put a seam down the middle of seven themes, and iss040e062704 has the
+# station's robotic arm across the top, which reads as a photograph of a spacecraft rather than a
+# background.
+
+carina_nebula | https://images-assets.nasa.gov/image/carina_nebula/carina_nebula~orig.png | 08b88392b4d093ebdfdff7de7bc5cacbdef134c9f2f503ffee2ae39b062e2bcd | center | NASA, ESA, CSA, STScI | public domain (NASA) | https://images.nasa.gov/details/carina_nebula
+eagle_nebula_pillars | https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000842/GSFC_20171208_Archive_e000842~orig.jpg | 049b096fd781c11bfcda743b7150eebc86d52a25b8b1128964241dc29933ded1 | center | NASA, ESA, Hubble Heritage Team (STScI/AURA) | public domain (NASA) | https://images.nasa.gov/details/GSFC_20171208_Archive_e000842
+earth_limb_night | https://images-assets.nasa.gov/image/iss058e005282/iss058e005282~orig.jpg | 6c94af4b4617619862e0e8685087143aa021fa678a8e83a797f58d3b3413b091 | south | NASA / ISS Expedition 58 | public domain (NASA) | https://images.nasa.gov/details/iss058e005282

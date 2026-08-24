@@ -1,17 +1,31 @@
 #!/usr/bin/env bash
-# oal:summary=Render one wallpaper per theme from that theme's own palette
+# oal:summary=Render one wallpaper per theme by toning a public-domain photograph to its palette
 # oal:args=[--out-dir <dir>] [--size WxH] [--theme <name>]
+# Env: OAL_DEV_CACHE (default ~/.cache/agentarchy) -- where source images are fetched and verified
 #
 # Repo tooling, not shipped: the output is committed, so an installed system needs no ImageMagick.
 #
-# Why this exists: docs/asset-audit.md found that not one of the 68 vendored wallpapers carries a
+# Why this exists: docs/asset-audit.md found that not one of the 68 vendored wallpapers carried a
 # licence, so they cannot ship from a public repository. A theme with no background is a broken
-# theme, so every palette gets one that is unambiguously ours -- built out of nothing but the
-# colours in its own colors.toml.
+# theme, so every palette gets one that can be accounted for line by line.
 #
-# The composition is the same everywhere (a soft colour field, two flat bands, one hairline) but its
-# geometry is seeded from the theme name, so the 22 wallpapers look like a family rather than
-# twenty-two copies. Same name, same picture, every time.
+# The first version of this drew gradients, and they looked like gradients -- thin next to the
+# photography they replaced, because there was no structure underneath. This version puts structure
+# there: a public-domain photograph (default/backgrounds/SOURCES, NASA, fetched and hash-verified,
+# never committed) is reduced to luminance and re-coloured through a ramp built out of the theme's
+# own palette. The picture keeps its shape; the colour is entirely the theme's. One source therefore
+# serves several themes without any of them looking like the same wallpaper.
+#
+# Two deliberate choices in the ramp:
+#
+#   Most of the range is shadow. A wallpaper is mostly ground with something in one corner, so 150
+#   of 256 steps sit between the two darkest colours and highlights stay rare. Desktop icons need
+#   somewhere dark to live.
+#
+#   Light themes get a dark wallpaper too. Their `background` is near-white, which made the old
+#   output read as paper; a light theme with a dark backdrop is both better looking and what was
+#   asked for. For those palettes the ramp is built from `foreground` -- the darkest colour a light
+#   theme has -- rather than from `background`.
 set -euo pipefail
 export LC_ALL=C
 # shellcheck source=bin/oal-dev-lib.sh
@@ -27,77 +41,131 @@ while (($#)); do
     --out-dir) out_dir="${2:?--out-dir wants a path}"; shift 2 ;;
     --size) size="${2:?--size wants WxH}"; shift 2 ;;
     --theme) only="${2:?--theme wants a name}"; shift 2 ;;
-    -h | --help) sed -n '2,3p' "$0"; exit 0 ;;
-    *) echo "oal-dev: unknown argument: $1" >&2; exit 2 ;;
+    -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
+    *) oal_dev_die "unknown argument: $1" ;;
   esac
 done
 
-command -v magick >/dev/null || { echo "oal-dev: ImageMagick (magick) is required" >&2; exit 1; }
+command -v magick >/dev/null || oal_dev_die "ImageMagick (magick) is required"
+command -v curl >/dev/null || oal_dev_die "curl is required"
 
 width="${size%x*}"
 height="${size#*x}"
+manifest="default/backgrounds/SOURCES"
+[[ -f $manifest ]] || oal_dev_die "no $manifest"
+cache="${OAL_DEV_CACHE:-$HOME/.cache/agentarchy}/backgrounds"
+mkdir -p -- "$cache"
 
-# A stable integer per theme name, so re-running produces the same file rather than a new diff.
+# --- sources ------------------------------------------------------------------------------------
+
+ids=(); declare -A URL=() SHA=() GRAVITY=() CREDIT=() LICENCE=() HOME_PAGE=() FILE=()
+while IFS='|' read -r id url sha gravity credit licence homepage; do
+  id="${id// /}"; [[ -n $id && $id != \#* ]] || continue
+  ids+=("$id")
+  URL[$id]="$(xargs <<<"$url")"; SHA[$id]="$(xargs <<<"$sha")"
+  GRAVITY[$id]="$(xargs <<<"$gravity")"; CREDIT[$id]="$(xargs <<<"$credit")"
+  LICENCE[$id]="$(xargs <<<"$licence")"; HOME_PAGE[$id]="$(xargs <<<"$homepage")"
+done < <(grep -v '^[[:space:]]*#' "$manifest" | grep '|')
+(( ${#ids[@]} )) || oal_dev_die "$manifest lists no sources"
+
+for id in "${ids[@]}"; do
+  ext="${URL[$id]##*.}"; ext="${ext%%\?*}"
+  f="$cache/$id.$ext"
+  if [[ ! -f $f ]] || ! sha256sum -c <<<"${SHA[$id]}  $f" >/dev/null 2>&1; then
+    oal_dev_log "fetching $id"
+    curl -fsSL --retry 3 --max-time 300 -o "$f.part" "${URL[$id]}" || oal_dev_die "could not fetch ${URL[$id]}"
+    sha256sum -c <<<"${SHA[$id]}  $f.part" >/dev/null 2>&1 ||
+      oal_dev_die "$id: sha256 mismatch -- the file at ${URL[$id]} is not the one this manifest pins"
+    mv -- "$f.part" "$f"
+  fi
+  FILE[$id]="$f"
+done
+
+# --- helpers ------------------------------------------------------------------------------------
+
+# A stable integer per theme name: same name, same source and same picture, every time.
 seed_of() { cksum <<<"$1" | awk '{print $1}'; }
 
+# Scale a #rrggbb toward black. Light palettes have no colour dark enough to be a shadow, so one
+# gets made out of the darkest colour they do have.
+dim() {
+  local hex="${1#\#}" pct="$2"
+  printf '#%02x%02x%02x' \
+    $(( 0x${hex:0:2} * pct / 100 )) $(( 0x${hex:2:2} * pct / 100 )) $(( 0x${hex:4:2} * pct / 100 ))
+}
+
+# --- render -------------------------------------------------------------------------------------
+
+declare -A USED_SOURCE=()
 for theme_dir in themes/*/; do
   theme="$(basename -- "$theme_dir")"
   [[ -z $only || $only == "$theme" ]] || continue
   colors="$theme_dir/colors.toml"
-  [[ -f $colors ]] || { echo "oal-dev: $theme has no colors.toml, skipped" >&2; continue; }
+  [[ -f $colors ]] || { oal_dev_log "$theme has no colors.toml, skipped"; continue; }
 
   declare -A C=()
   while IFS=$'\t' read -r key value; do C[$key]="$value"; done < <(bin/oal-theme-color --file "$colors" --all)
 
-  mode="${C[mode]:-dark}"
-  ground="${C[background]}"
-  deep="${C[dark_background]:-$ground}"
-  accent="${C[accent]}"
-  second="${C[magenta]:-$accent}"
-  third="${C[cyan]:-${C[blue]:-$accent}}"
-  band="${C[lighter_background]:-$ground}"
-
-  # A light palette needs the opposite treatment: colour laid *on* a bright ground reads as haze
-  # rather than glow, so the bands go darker and every alpha comes down.
-  if [[ $mode == light ]]; then
-    blob_alpha=14; band_a=0.30; band_b=0.20; hair=0.55
-  else
-    blob_alpha=22; band_a=0.34; band_b=0.22; hair=0.60
-  fi
-
-  # Just enough grain to dither the gradients (8-bit banding across 4K is real), and no more: noise
-  # is what a lossy encoder cannot predict, and at 0.18 it took a 4K frame from a few hundred KB to
-  # 3 MB. That is the whole reason the vendored wallpapers were 51 MB.
-  grain=0.04
-
+  # Knuth's multiplicative hash rather than seed % n. cksum values over theme names cluster badly
+  # against a small modulus -- a plain remainder put eleven of twenty themes on the same photograph,
+  # which reads as one wallpaper with the colour changed. The mask keeps it non-negative after bash
+  # wraps the product at 64 bits.
   seed="$(seed_of "$theme")"
-  # Four numbers out of one seed: which corner the colour field sits in, and where the bands cross.
-  bx=$(( width  * (15 + seed % 40) / 100 ))
-  by=$(( height * (12 + (seed / 7) % 45) / 100 ))
-  horizon=$(( height * (28 + (seed / 13) % 34) / 100 ))
-  second_horizon=$(( height * (55 + (seed / 17) % 25) / 100 ))
-  radius=$(( height * 24 / 100 ))
-  blur=$(( height / 7 ))
+  id="${ids[$(( ((seed * 2654435761) >> 16 & 0x7fffffff) % ${#ids[@]} ))]}"
+  USED_SOURCE[$theme]="$id"
 
-  out="${out_dir:-$theme_dir/backgrounds}"
+  if [[ ${C[mode]:-dark} == light ]]; then
+    s0="$(dim "${C[foreground]}" 20)"; s1="${C[foreground]}"
+  else
+    s0="${C[darker_background]:-${C[background]}}"; s1="${C[background]}"
+  fi
+  s2="${C[accent]}"
+  s3="${C[bright_foreground]:-${C[foreground]}}"
+  # A palette can make the two shadow stops identical -- the `white` theme's foreground is #000000,
+  # so both ends of the long shadow run were pure black and 150 of 256 steps rendered nothing. Give
+  # it somewhere to travel.
+  [[ $s0 == "$s1" ]] && s1="$(dim "$s2" 30)"
+
+  out="${out_dir:-${theme_dir%/}/backgrounds}"
   mkdir -p -- "$out"
   target="$out/00-$theme.webp"
 
-  magick -size "$size" "xc:$ground" \
-    \( -size "$size" "xc:$ground" \
-       -fill "$accent" -draw "circle $bx,$by $bx,$((by + radius))" \
-       -fill "$second" -draw "circle $((width - bx)),$((height - by)) $((width - bx)),$((height - by + radius))" \
-       -fill "$third"  -draw "circle $((width * 3 / 4)),$((height / 8)) $((width * 3 / 4)),$((height / 8 + radius * 2 / 3))" \
-       -blur "0x$blur" \) \
-    -compose blend -define "compose:args=$blob_alpha" -composite \
-    -fill "rgba($(magick "xc:$band" -format '%[fx:int(255*r)],%[fx:int(255*g)],%[fx:int(255*b)]' info:),$band_a)" \
-      -draw "polygon 0,$height $width,$horizon $width,$height" \
-    -fill "rgba($(magick "xc:$deep" -format '%[fx:int(255*r)],%[fx:int(255*g)],%[fx:int(255*b)]' info:),$band_b)" \
-      -draw "polygon 0,$height $width,$second_horizon $width,$height" \
-    -stroke "rgba($(magick "xc:$accent" -format '%[fx:int(255*r)],%[fx:int(255*g)],%[fx:int(255*b)]' info:),$hair)" \
-      -strokewidth 1 -draw "line 0,$height $width,$horizon" -stroke none \
-    -attenuate "$grain" +noise Gaussian \
-    -quality 96 -define webp:method=5 -define webp:near-lossless=60 "$target"
+  # gradient: runs top to bottom, so the strip is built vertically and rotated anticlockwise -- with
+  # -rotate 90 index 0 lands on the wrong end and the whole image comes out as a negative.
+  magick \
+    -size 1x150 gradient:"$s0-$s1" \
+    -size 1x70  gradient:"$s1-$s2" \
+    -size 1x36  gradient:"$s2-$s3" \
+    -append -rotate -90 "$cache/ramp-$theme.png"
 
-  echo "oal-dev: $target ($(stat -c %s -- "$target") bytes, $mode)"
+  # -auto-level first: sources vary in how much of the range they use, and a ramp applied to a
+  # compressed histogram wastes most of the palette.
+  magick "${FILE[$id]}" -colorspace gray -auto-level \
+    "$cache/ramp-$theme.png" -clut \
+    -resize "${width}x${height}^" -gravity "${GRAVITY[$id]:-center}" -extent "${width}x${height}" \
+    -attenuate 0.03 +noise Gaussian \
+    -quality 92 -define webp:method=5 "$target"
+  rm -f -- "$cache/ramp-$theme.png"
+
+  oal_dev_log "$target ($(stat -c %s -- "$target") bytes, ${C[mode]:-dark}, from $id)"
 done
+
+# --- NOTICE -------------------------------------------------------------------------------------
+
+# Written here rather than by hand: this script is the only thing that knows which source each
+# wallpaper came from, and bin/oal-dev-notice-check --strict will not accept a line without one.
+if [[ -z $out_dir && -z $only ]]; then
+  begin='<!-- BEGIN BACKGROUNDS -->'; end='<!-- END BACKGROUNDS -->'
+  grep -q "$begin" NOTICE && grep -q "$end" NOTICE || oal_dev_die "NOTICE lacks the BACKGROUNDS markers"
+  {
+    sed "/$begin/q" NOTICE
+    for theme_dir in themes/*/; do
+      theme="$(basename -- "$theme_dir")"
+      id="${USED_SOURCE[$theme]:-}"; [[ -n $id ]] || continue
+      printf '%s | DERIVED from "%s" by %s (%s, %s), recoloured to that theme'"'"'s colors.toml by bin/oal-dev-make-wallpapers (MIT, this repository)\n' \
+        "themes/$theme/backgrounds/00-$theme.webp" "$id" "${CREDIT[$id]}" "${LICENCE[$id]}" "${HOME_PAGE[$id]}"
+    done
+    sed -n "/$end/,\$p" NOTICE
+  } > NOTICE.new && mv NOTICE.new NOTICE
+  oal_dev_log "NOTICE updated"
+fi

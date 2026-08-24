@@ -6,7 +6,7 @@
 #
 #   --keep           leave the VM running afterwards (default: shut it down)
 #   --theme LIST     comma-separated themes to cycle in the live session
-#                    (default: tokyo-night,gruvbox,catppuccin-latte -- the last one light)
+#                    (default: agentarchy,gruvbox,white -- ours first, and the last one light)
 #   --no-greeter     skip the login-screen stage (which costs one extra reboot)
 #   --timeout N      seconds to wait for ssh after a boot or reboot (default 300)
 #
@@ -19,7 +19,7 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
 
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 keep=0
-themes="tokyo-night,gruvbox,catppuccin-latte"
+themes="agentarchy,gruvbox,white"
 greeter=1
 timeout=300
 while (($#)); do
