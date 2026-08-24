@@ -106,6 +106,13 @@ oal-provision-user --first-install
 # Land on a themed desktop instead of stock Breeze. No Plasma session exists during a bootstrap, so
 # this writes the colour scheme and points kdeglobals at it; the first login reads that. The
 # wallpaper needs a live session and is applied the first time the theme is set inside one.
+# /etc/skel only seeds users created after the package is installed, and the person running this
+# already has a home directory. Idempotent: the marker is the source line itself.
+log "Wiring the shell"
+if ! grep -qF 'agentarchy/default/bash/rc' ~/.bashrc 2>/dev/null; then
+  printf '\n# Agentarchy\n[ -r /usr/share/agentarchy/default/bash/rc ] && . /usr/share/agentarchy/default/bash/rc\n' >>~/.bashrc
+fi
+
 log "Applying the default theme"
 oal-theme-set-kde "${OAL_DEFAULT_THEME:-agentarchy}"
 
