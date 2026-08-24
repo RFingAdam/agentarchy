@@ -210,8 +210,11 @@ ATGREETER
   fi
   shots+=("$art/greeter-qmp.png")
 
-  # Put autologin back, so a --keep VM is left the way the install made it.
-  vm_ssh 'sudo mv /root/10-agentarchy.conf /etc/sddm.conf.d/10-agentarchy.conf' >/dev/null 2>&1 ||
+  # Put autologin back, so the disk this run leaves behind is the one the install made -- and sync,
+  # because finish() powers the guest off seconds later. Without it the rename sits in page cache and
+  # the image boots to a greeter nobody has a password for, which is how a copy of this disk reached
+  # virt-manager unusable.
+  vm_ssh 'sudo mv /root/10-agentarchy.conf /etc/sddm.conf.d/10-agentarchy.conf && sync' >/dev/null 2>&1 ||
     vm_warn "could not restore autologin"
 }
 if (( greeter )); then
