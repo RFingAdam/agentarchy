@@ -42,8 +42,8 @@ manifest is read before `RENAME-PATHS.sed` runs, so it spells the upstream name,
 
 Path renames, applied as a single `sed -E` pass over the list of selected paths. It is one blanket
 rule, `s#omarchy#oal#g`, not a set of delimiter-specific ones: in the pinned tree the upstream name
-is never glued into a longer path token — `find . | grep -oE '[A-Za-z0-9]*omarchy[A-Za-z0-9]*' |
-sort -u` yields exactly one token — so there is nothing a narrower rule would protect, and narrower
+is never glued into a longer path token -- `find . | grep -oE '[A-Za-z0-9]*omarchy[A-Za-z0-9]*' |
+sort -u` yields exactly one token -- so there is nothing a narrower rule would protect, and narrower
 rules did in practice miss `omarchy.sh`, `10-omarchy.conf`, `omarchy_hooks.conf`, `omarchy.webp`
 and `com.omarchy.ytdlp.json`. That last one is load-bearing: Chromium resolves a native-messaging
 host by matching the manifest *filename* against its `"name"` field, which the content rules had
@@ -69,7 +69,7 @@ Binary files skip this pass and are copied byte-for-byte.
 compositor-bound and is dropped. `FORCE-INCLUDE-BIN` lists upstream basenames to keep anyway (a
 script whose only compositor tie is one launch line); every forced script is reported in
 `NEEDS-PORT.txt` whether or not it matches `NEEDS-PORT.regex`. Both regex files are validated
-before use — an empty or malformed pattern would otherwise make the batched `grep` fail open and
+before use -- an empty or malformed pattern would otherwise make the batched `grep` fail open and
 vendor everything.
 
 ### patches/
@@ -98,7 +98,7 @@ names is recorded by hand in `EXCLUDED-ASSETS.md`, because nothing can detect it
 3. **(a) Eyeball every new or changed binary asset.** `git diff --stat` lists them; open each one.
    No gate can see inside an image, so this step is the only thing standing between upstream's
    wordmark and a file called `themes/<x>/backgrounds/oal.webp`. Anything branded gets an `exclude`
-   in `VENDOR-MANIFEST` and a row in `EXCLUDED-ASSETS.md` — not a deletion, which the next
+   in `VENDOR-MANIFEST` and a row in `EXCLUDED-ASSETS.md` -- not a deletion, which the next
    `--apply` would undo. Name-based excludes are not enough on their own: three wallpapers carried
    the wordmark or the logo mark without ever mentioning the upstream project in their filename.
    The whole pre-existing wallpaper set was reviewed by eye on 2026-08-23 and those three removed,
@@ -118,12 +118,12 @@ names is recorded by hand in `EXCLUDED-ASSETS.md`, because nothing can detect it
    `RENAME-PATHS.sed` needs a narrower rule before that path is vendored.
 6. **(d) Confirm the patches applied.** They apply without fuzz or the sync dies, so reaching this
    step means they did. A patch that died has to be regenerated, not force-fitted.
-7. **(e)** `bin/oal-dev-check` — seven `PASS` lines.
+7. **(e)** `bin/oal-dev-check` -- seven `PASS` lines.
 8. Commit, with the old and new sha in the message.
 
 ### Spot checks on file encodings
 
 SVG/UTF-16 spot check done 2026-08-23: one SVG in the vendored set
 (`default/chromium/extensions/yt-dlp/download-video.svg`), sed-safe; no UTF-16 assets. Re-check on
-a PIN bump if `file(1)` starts reporting a wide encoding — `RENAME-MAP.sed` is a byte-oriented
+a PIN bump if `file(1)` starts reporting a wide encoding -- `RENAME-MAP.sed` is a byte-oriented
 `sed` pass and would corrupt a UTF-16 file rather than rename it.

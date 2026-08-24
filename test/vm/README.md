@@ -32,8 +32,8 @@ guest's journal before it stops.
 Two sets of assertions, both fed over ssh so neither needs the checkout synced, and both running
 every check rather than stopping at the first failure:
 
-- `test/vm/assertions.sh` — the install reached a Plasma session, and everything that implies.
-- `test/vm/theme-assertions.sh` — a named theme actually applied: the values in `kdeglobals` match a
+- `test/vm/assertions.sh` -- the install reached a Plasma session, and everything that implies.
+- `test/vm/theme-assertions.sh` -- a named theme actually applied: the values in `kdeglobals` match a
   fresh render of that palette (not merely a scheme *name*, which is how Phase 1's first run passed
   every check while rendering stock Breeze), the icon set matches the theme's light/dark mode, the
   Konsole profile and scheme exist, and the desktop and lock-screen wallpapers name files that exist

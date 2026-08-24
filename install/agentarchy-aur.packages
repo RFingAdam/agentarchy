@@ -1,4 +1,4 @@
-# Agentarchy AUR packages — opt-in only, never required.
+# Agentarchy AUR packages -- opt-in only, never required.
 #
 # Nothing installs this list automatically. Reaching a working Agentarchy desktop uses core/extra
 # only (see agentarchy-base.packages and agentarchy-desktop.packages); a later phase adds

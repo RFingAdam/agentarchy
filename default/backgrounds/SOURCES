@@ -19,12 +19,12 @@
 # large bodies of photography a fork can redistribute and re-tone without asking anyone. Credit is
 # requested rather than required; NOTICE gives it anyway, per derived file.
 #
-# Choosing them is mostly rejection. A wallpaper is empty space with something in one corner, so it
-# has to be dark, one frame, and calm enough to sit behind icons. Two candidates were dropped after
-# rendering all 20 themes and looking at the sheet: southern_ring_nebula is a two-panel NIRCam/MIRI
-# comparison figure and put a seam down the middle of seven themes, and iss040e062704 has the
-# station's robotic arm across the top, which reads as a photograph of a spacecraft rather than a
-# background.
+# Choosing them is mostly rejection, and the rejections are not obvious from a thumbnail. A source
+# has to be dark, calm enough to sit behind icons, and a single frame: NASA publishes a lot of
+# side-by-side instrument comparisons, and one of those puts a seam down the middle of every theme
+# derived from it. Watch for spacecraft hardware too -- a solar array or a robotic arm turns the
+# result into a photograph of a spacecraft rather than a background. Render all the themes and look
+# at the sheet before adding a line here.
 
 carina_nebula | https://images-assets.nasa.gov/image/carina_nebula/carina_nebula~orig.png | 08b88392b4d093ebdfdff7de7bc5cacbdef134c9f2f503ffee2ae39b062e2bcd | center | NASA, ESA, CSA, STScI | public domain (NASA) | https://images.nasa.gov/details/carina_nebula
 eagle_nebula_pillars | https://images-assets.nasa.gov/image/GSFC_20171208_Archive_e000842/GSFC_20171208_Archive_e000842~orig.jpg | 049b096fd781c11bfcda743b7150eebc86d52a25b8b1128964241dc29933ded1 | center | NASA, ESA, Hubble Heritage Team (STScI/AURA) | public domain (NASA) | https://images.nasa.gov/details/GSFC_20171208_Archive_e000842

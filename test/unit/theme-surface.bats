@@ -126,9 +126,9 @@ STUB
 }
 
 @test "the greeter ships no image assets at all" {
-  # It used to ship six: five upstream sprites in one hard-coded colour with no recorded licence,
-  # and a white wordmark PNG. Every one is drawn from the palette now, so anything with an image
-  # extension in this directory is either a regression or a PIN bump quietly reinstating one.
+  # Everything the greeter draws comes from the palette, so an image here cannot follow a theme --
+  # and upstream's, which this replaced, carried no licence either. Anything with an image extension
+  # in this directory is a regression, or a PIN bump reinstating one.
   run find "$SRC/default/sddm/oal" -maxdepth 1 -type f \
     \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.svg' -o -iname '*.webp' \)
   [ -z "$output" ] || { echo "image assets in the greeter: $output"; return 1; }

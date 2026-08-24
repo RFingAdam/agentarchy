@@ -3,8 +3,8 @@
 # oal-dev-gitleaks-worktree is the pre-commit half of the secret gate: it looks at files on disk,
 # because a secret is permanent once it is in history. Its contract is that it scans the set of
 # files that can reach a commit and nothing else -- not the filesystem. That distinction is not
-# cosmetic: gitignored scratch in this repo means multi-gigabyte VM disks, and scanning them
-# OOM-killed the gate (and the session driving it) three times.
+# cosmetic: gitignored scratch in this repo means multi-gigabyte VM disks, and scanning those reads
+# them into memory.
 #
 # The cases below plant a token matched by a rule this file writes, not by gitleaks' default rules.
 # Which strings a given gitleaks build recognises is its business and drifts between versions (the

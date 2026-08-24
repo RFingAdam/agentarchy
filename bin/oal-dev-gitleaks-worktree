@@ -10,12 +10,11 @@
 #   --no-git walks the filesystem, and the filesystem is not the set of files that can reach a
 #   commit. It descends into gitignored scratch, which in this repo means multi-gigabyte VM disks:
 #   .vm/disk.qcow2, .vm-cache/*/disk.qcow2, and another under any .claude/worktrees/*/ a parallel
-#   session left behind. --max-target-megabytes does not save us -- in --no-git mode gitleaks reads
-#   the file before it weighs it -- and neither does .gitleaks.toml's path allowlist, which only
-#   suppresses findings. The gate ballooned past available memory and was OOM-killed three times,
-#   taking the whole Claude session with it each time, the third from a path (.claude/worktrees/)
-#   nobody had thought to allowlist. Enumerating the committable set is the fix that does not need
-#   a new allowlist entry every time a large file appears somewhere new.
+#   session left behind, and reading those is what kills the gate. Neither guard you would reach for
+#   helps: --max-target-megabytes does not apply in --no-git mode, where gitleaks reads a file before
+#   it weighs it, and .gitleaks.toml's path allowlist only suppresses findings, never the read.
+#   Do not fix a recurrence by allowlisting another path -- enumerating the committable set needs no
+#   new entry the next time something large appears somewhere new.
 #
 # `git ls-files --cached --others --exclude-standard` is exactly that set: tracked files plus
 # untracked ones git would offer to add. Paths in the staged tree stay repo-relative, so the path

@@ -13,28 +13,28 @@ with no provenance cannot ship from a public repository, whatever it looks like.
 
 | file | first added | commit | verdict | evidence |
 |---|---|---|---|---|
-| `themes/catppuccin-latte/backgrounds/00-catppuccin-latte.webp` | — | — | OURS | not in upstream history |
-| `themes/catppuccin/backgrounds/00-catppuccin.webp` | — | — | OURS | not in upstream history |
-| `themes/ethereal/backgrounds/00-ethereal.webp` | — | — | OURS | not in upstream history |
-| `themes/everforest/backgrounds/00-everforest.webp` | — | — | OURS | not in upstream history |
-| `themes/flexoki-light/backgrounds/00-flexoki-light.webp` | — | — | OURS | not in upstream history |
-| `themes/gruvbox/backgrounds/00-gruvbox.webp` | — | — | OURS | not in upstream history |
-| `themes/hackerman/backgrounds/00-hackerman.webp` | — | — | OURS | not in upstream history |
-| `themes/kanagawa/backgrounds/00-kanagawa.webp` | — | — | OURS | not in upstream history |
-| `themes/last-horizon/backgrounds/00-last-horizon.webp` | — | — | OURS | not in upstream history |
-| `themes/lumon/backgrounds/00-lumon.webp` | — | — | OURS | not in upstream history |
-| `themes/lupine/backgrounds/00-lupine.webp` | — | — | OURS | not in upstream history |
-| `themes/matte-black/backgrounds/00-matte-black.webp` | — | — | OURS | not in upstream history |
-| `themes/miasma/backgrounds/00-miasma.webp` | — | — | OURS | not in upstream history |
-| `themes/nord/backgrounds/00-nord.webp` | — | — | OURS | not in upstream history |
-| `themes/osaka-jade/backgrounds/00-osaka-jade.webp` | — | — | OURS | not in upstream history |
-| `themes/retro-82/backgrounds/00-retro-82.webp` | — | — | OURS | not in upstream history |
-| `themes/ristretto/backgrounds/00-ristretto.webp` | — | — | OURS | not in upstream history |
-| `themes/rose-pine/backgrounds/00-rose-pine.webp` | — | — | OURS | not in upstream history |
-| `themes/solitude/backgrounds/00-solitude.webp` | — | — | OURS | not in upstream history |
-| `themes/tokyo-night/backgrounds/00-tokyo-night.webp` | — | — | OURS | not in upstream history |
-| `themes/vantablack/backgrounds/00-vantablack.webp` | — | — | OURS | not in upstream history |
-| `themes/white/backgrounds/00-white.webp` | — | — | OURS | not in upstream history |
+| `themes/catppuccin-latte/backgrounds/00-catppuccin-latte.webp` | - | - | OURS | not in upstream history |
+| `themes/catppuccin/backgrounds/00-catppuccin.webp` | - | - | OURS | not in upstream history |
+| `themes/ethereal/backgrounds/00-ethereal.webp` | - | - | OURS | not in upstream history |
+| `themes/everforest/backgrounds/00-everforest.webp` | - | - | OURS | not in upstream history |
+| `themes/flexoki-light/backgrounds/00-flexoki-light.webp` | - | - | OURS | not in upstream history |
+| `themes/gruvbox/backgrounds/00-gruvbox.webp` | - | - | OURS | not in upstream history |
+| `themes/hackerman/backgrounds/00-hackerman.webp` | - | - | OURS | not in upstream history |
+| `themes/kanagawa/backgrounds/00-kanagawa.webp` | - | - | OURS | not in upstream history |
+| `themes/last-horizon/backgrounds/00-last-horizon.webp` | - | - | OURS | not in upstream history |
+| `themes/lumon/backgrounds/00-lumon.webp` | - | - | OURS | not in upstream history |
+| `themes/lupine/backgrounds/00-lupine.webp` | - | - | OURS | not in upstream history |
+| `themes/matte-black/backgrounds/00-matte-black.webp` | - | - | OURS | not in upstream history |
+| `themes/miasma/backgrounds/00-miasma.webp` | - | - | OURS | not in upstream history |
+| `themes/nord/backgrounds/00-nord.webp` | - | - | OURS | not in upstream history |
+| `themes/osaka-jade/backgrounds/00-osaka-jade.webp` | - | - | OURS | not in upstream history |
+| `themes/retro-82/backgrounds/00-retro-82.webp` | - | - | OURS | not in upstream history |
+| `themes/ristretto/backgrounds/00-ristretto.webp` | - | - | OURS | not in upstream history |
+| `themes/rose-pine/backgrounds/00-rose-pine.webp` | - | - | OURS | not in upstream history |
+| `themes/solitude/backgrounds/00-solitude.webp` | - | - | OURS | not in upstream history |
+| `themes/tokyo-night/backgrounds/00-tokyo-night.webp` | - | - | OURS | not in upstream history |
+| `themes/vantablack/backgrounds/00-vantablack.webp` | - | - | OURS | not in upstream history |
+| `themes/white/backgrounds/00-white.webp` | - | - | OURS | not in upstream history |
 | `applications/icons/Basecamp.png` | 2025-06-25 | e7c032c8 | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/Battle.net.png` | 2026-05-19 | b59a8d0b | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/ChatGPT.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
@@ -51,7 +51,7 @@ with no provenance cannot ship from a public repository, whatever it looks like.
 | `applications/icons/YouTube.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/Zoom.png` | 2025-09-13 | cfbc71c1 (#1621) | NO-SOURCE | nothing in the commit or PR |
 | `applications/icons/imv.png` | 2025-06-25 | 8464d587 | NO-SOURCE | nothing in the commit or PR |
-| `applications/icons/oal-discord.png` | — | — | OURS | not in upstream history |
+| `applications/icons/oal-discord.png` | - | - | OURS | not in upstream history |
 | `applications/icons/windows.png` | 2025-10-17 | ccde2126 (#2462) | NO-SOURCE | nothing in the commit or PR |
 
 ## Summary

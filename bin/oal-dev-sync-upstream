@@ -212,7 +212,7 @@ if compgen -G "upstream/patches/*.patch" >/dev/null; then
     # -F0: no fuzz. A patch that only lands by ignoring context is a patch whose context has
     # drifted under it, which is exactly the PIN bump we want to hear about.
     patch -p1 -F0 -d "$stage" --no-backup-if-mismatch -s < "$p" ||
-      oal_dev_die "patch failed (context drift?): $p — regenerate it with oal-dev-upstream-patch"
+      oal_dev_die "patch failed (context drift?): $p -- regenerate it with oal-dev-upstream-patch"
   done
 fi
 

@@ -65,7 +65,7 @@ exclude agents/skills/acceptance-tests.md
 # upstream root icon.png (branding, itself never vendored)
 exclude default/chromium/extensions/copy-url/icon.png
 
-# --- upstream branding / compositor screenshots — never vendored; Phase 2 regenerates previews.
+# --- upstream branding / compositor screenshots -- never vendored; Phase 2 regenerates previews.
 # Gates are text-based and cannot see inside an image, so every "never vendor branding" rule has to
 # live here as a path exclude. themes/*/unlock.png is the upstream wordmark in each theme's colours
 # (checked 2026-08-23: gruvbox spells it out, tokyo-night/vantablack/white are the logo mark), and

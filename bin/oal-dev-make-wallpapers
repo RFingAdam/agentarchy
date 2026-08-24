@@ -9,11 +9,9 @@
 # licence, so they cannot ship from a public repository. A theme with no background is a broken
 # theme, so every palette gets one that can be accounted for line by line.
 #
-# The first version of this drew gradients, and they looked like gradients -- thin next to the
-# photography they replaced, because there was no structure underneath. This version puts structure
-# there: a public-domain photograph (default/backgrounds/SOURCES, NASA, fetched and hash-verified,
-# never committed) is reduced to luminance and re-coloured through a ramp built out of the theme's
-# own palette. The picture keeps its shape; the colour is entirely the theme's. One source therefore
+# A public-domain photograph (default/backgrounds/SOURCES, NASA, fetched and hash-verified, never
+# committed) is reduced to luminance and re-coloured through a ramp built out of the theme's own
+# palette. The picture keeps its shape; the colour is entirely the theme's. One source therefore
 # serves several themes without any of them looking like the same wallpaper.
 #
 # Two deliberate choices in the ramp:

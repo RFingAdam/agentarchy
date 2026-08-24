@@ -39,8 +39,8 @@ gate notice       bin/oal-dev-notice-check --strict
 gate gitleaks     gitleaks detect --no-banner --redact --source . -c .gitleaks.toml
 # The history scan only sees committed blobs; this one reads the files on disk, so a secret is
 # caught before it is committed rather than after (a secret in git history is permanent). It stages
-# the committable file set rather than walking the filesystem -- see the header of the script for
-# why that is not a refinement but the thing that stops the gate OOM-killing the machine.
+# the committable file set rather than walking the filesystem; walking it reads the multi-gigabyte
+# VM images under .vm/ and .vm-cache/ into memory. The script header has the detail.
 gate gitleaks-worktree bin/oal-dev-gitleaks-worktree
 gate vendor-drift bin/oal-dev-sync-upstream --check
 exit $fail
