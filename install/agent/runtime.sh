@@ -25,7 +25,10 @@ else
   if ! curl -fsSL --retry 3 --max-time 300 https://claude.ai/install.sh | bash; then
     log "warning: the agent runtime did not install. Everything else is fine; re-run with"
     log "         'bash \$OAL_PATH/install/agent/runtime.sh' when the network is happier."
-    exit 0
+    # Deliberately not an exit. Everything below this point is ours -- the permission posture, the
+    # tool-call guard, the timer feeding the prompt -- and none of it depends on a third party's
+    # install script having a good afternoon. Bailing here left a machine with the guard shipped and
+    # never registered, which is the one failure mode a guard must not have.
   fi
 fi
 

@@ -208,6 +208,9 @@ if command -v claude >/dev/null; then
   c="$(oal-mcp-status --count)"
   [ "$c" -ge 1 ] && ok "mcp-registered ($c)" || bad mcp-registered "count $c"
 else
+  # Non-fatal, and everything of ours still has to be in place. A failed third-party installer that
+  # also silently skips the guard, the posture and the timer is not "non-fatal", it is half an
+  # install reported as a success.
   printf 'INFO agent runtime absent -- install/agent/runtime.sh is non-fatal by design\n'
 fi
 
