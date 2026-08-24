@@ -59,7 +59,11 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
         the session) to get a screenshot of it. Until then the QML is only structurally tested.
   - [ ] The ISO path installs no greeter palette: `oal-bootstrap.sh` calls `oal-refresh-sddm`, and a
         deferred-provisioning install (Phase 6) never runs it. Decide there whether first boot does.
-  - [ ] Task 5 snapshot tests for all 22 themes
+  - [x] Task 5 snapshot tests for all 22 themes — 66 fixtures under `test/fixtures/themes/`
+        (`bin/oal-dev-make-theme-fixtures`, `--check` in `test/unit/themes.bats`), plus cross-theme
+        invariants a snapshot cannot give you: declared `mode` agrees with background luminance, the
+        five light themes are named not counted, foreground/background contrast has a floor, and the
+        greeter's entry field has a visible edge on every palette.
   - [ ] Task 6 VM: cycle three themes with screenshots
   - [ ] Full-resolution desktop screenshots for README.md, once the VM guest resolution work lands
         (a parallel session is raising it above 1280x800). Shoot the default layout and two or three

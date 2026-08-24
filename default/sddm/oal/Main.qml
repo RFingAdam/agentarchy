@@ -64,6 +64,11 @@ Rectangle {
 
     // The entry field. A failed login turns the border and the dots red; upstream swapped in a
     // second set of sprites to say the same thing.
+    //
+    // The border is the load-bearing part, not the fill: last-horizon and solitude define
+    // lighter_background as their background, so on those two the field is outlined rather than
+    // filled. test/unit/themes.bats holds the invariant that muted never equals background, which
+    // is what keeps the box visible on every palette.
     Rectangle {
       id: entry
       width: 286
