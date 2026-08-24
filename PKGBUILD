@@ -62,10 +62,6 @@ package() {
   # sudoers, sysctl, some of it still Hyprland-shaped) is a per-file decision that Phase 4 owns, so
   # it ships under /usr/share/agentarchy/etc where those decisions can be made against real files.
   install -Dm644 etc/profile.d/oal.sh "$pkgdir/etc/profile.d/oal.sh"
-  # The other file an installed system cannot work without. Upstream seeds shipped configs through
-  # /etc/skel; without this nothing sources default/bash/rc, so the aliases, the functions and the
-  # starship init the themed prompt depends on are all inert.
-  install -Dm644 etc/skel/.bashrc "$pkgdir/etc/skel/.bashrc"
 
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"

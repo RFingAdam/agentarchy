@@ -106,11 +106,22 @@ oal-provision-user --first-install
 # Land on a themed desktop instead of stock Breeze. No Plasma session exists during a bootstrap, so
 # this writes the colour scheme and points kdeglobals at it; the first login reads that. The
 # wallpaper needs a live session and is applied the first time the theme is set inside one.
-# /etc/skel only seeds users created after the package is installed, and the person running this
-# already has a home directory. Idempotent: the marker is the source line itself.
+# Upstream seeds shipped configs through /etc/skel, a mechanism Agentarchy never vendored, so
+# nothing sources default/bash/rc: no aliases, no functions, and no `starship init` -- which leaves
+# the themed prompt rendered to disk and never read.
+#
+# Appended rather than packaged. /etc/skel/.bashrc belongs to the `bash` package, and shipping our
+# own is a hard file conflict that fails the install outright. Appended rather than replaced, too:
+# overwriting another package's file earns a .pacnew on every bash update and throws away whatever
+# Arch put there. Both writes are idempotent; the source line is its own marker.
 log "Wiring the shell"
+oal_rc_line='[ -r /usr/share/agentarchy/default/bash/rc ] && . /usr/share/agentarchy/default/bash/rc'
 if ! grep -qF 'agentarchy/default/bash/rc' ~/.bashrc 2>/dev/null; then
-  printf '\n# Agentarchy\n[ -r /usr/share/agentarchy/default/bash/rc ] && . /usr/share/agentarchy/default/bash/rc\n' >>~/.bashrc
+  printf '\n# Agentarchy\n%s\n' "$oal_rc_line" >>~/.bashrc
+fi
+# And for users created after this point, who never see the line above.
+if ! sudo grep -qF 'agentarchy/default/bash/rc' /etc/skel/.bashrc 2>/dev/null; then
+  printf '\n# Agentarchy\n%s\n' "$oal_rc_line" | sudo tee -a /etc/skel/.bashrc >/dev/null
 fi
 
 log "Applying the default theme"
