@@ -64,7 +64,20 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
         invariants a snapshot cannot give you: declared `mode` agrees with background luminance, the
         five light themes are named not counted, foreground/background contrast has a floor, and the
         greeter's entry field has a visible edge on every palette.
-  - [ ] Task 6 VM: cycle three themes with screenshots
+  - [x] Task 6 VM: cycle three themes with screenshots — `test/vm/golden-path` now runs eight stages
+        and PASSes in 352 s. `test/vm/theme-assertions.sh` checks 12 things per theme against a fresh
+        render of that palette (not just the scheme *name*); 36/36 green across tokyo-night, gruvbox
+        and catppuccin-latte. Artefacts: `.vm/artifacts/20260823-201709/`.
+  - [x] ~~The greeter has never been seen~~ — seen 2026-08-23. It renders from `theme.conf`, drawn
+        entirely from the palette. Getting a true picture of it took three fixes, all of which were
+        the harness lying rather than the greeter failing: renaming the autologin drop-in inside
+        `/etc/sddm.conf.d/` did not disable it, `pgrep -f sddm-greeter` matched the ssh command line
+        carrying its own pattern, and a `loginctl` check counted this session's ssh login as a
+        desktop session. The stage now proves what it photographed — a greeter on seat0, no seat0
+        session for the install user, and a frame that differs from the last desktop shot.
+  - [ ] Desktop icon **labels** are white with a shadow, which is hard to read on the light themes
+        (see `theme-catppuccin-latte-guest.png`). Plasma's folder view picks that, not our colour
+        scheme. Phase 3 owns the desktop layout, so decide it there.
   - [ ] Full-resolution desktop screenshots for README.md, once the VM guest resolution work lands
         (a parallel session is raising it above 1280x800). Shoot the default layout and two or three
         themes with `test/vm/vm-shot --guest`, and keep them out of git history bloat: one webp each,

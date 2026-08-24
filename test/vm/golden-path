@@ -5,11 +5,13 @@
 # Usage: golden-path [--keep] [--theme NAME] [--timeout SECONDS]
 #
 #   --keep           leave the VM running afterwards (default: shut it down)
-#   --theme NAME     theme to apply in the live session (default: tokyo-night)
+#   --theme LIST     comma-separated themes to cycle in the live session
+#                    (default: tokyo-night,gruvbox,catppuccin-latte -- the last one light)
+#   --no-greeter     skip the login-screen stage (which costs one extra reboot)
 #   --timeout N      seconds to wait for ssh after a boot or reboot (default 300)
 #
-# Evidence lands in .vm/artifacts/<timestamp>/: bootstrap.log, assertions.txt, the two screenshots
-# and a timings file. Nothing here runs in CI -- there is no VM on a GitHub runner -- so this is the
+# Evidence lands in .vm/artifacts/<timestamp>/: bootstrap.log, assertions.txt, a screenshot pair per
+# theme, theme-<slug>.txt beside each, the greeter shot, and a timings file. Nothing here runs in CI -- there is no VM on a GitHub runner -- so this is the
 # command a human (or an agent with a host) runs before calling a phase done.
 set -euo pipefail
 # shellcheck source=test/vm/lib.sh
@@ -17,14 +19,16 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
 
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 keep=0
-theme="tokyo-night"
+themes="tokyo-night,gruvbox,catppuccin-latte"
+greeter=1
 timeout=300
 while (($#)); do
   case "$1" in
     --keep) keep=1; shift ;;
-    --theme) theme="${2:-}"; [[ -n "$theme" ]] || vm_die "--theme wants a name"; shift 2 ;;
+    --theme) themes="${2:-}"; [[ -n "$themes" ]] || vm_die "--theme wants a name or a comma-separated list"; shift 2 ;;
+    --no-greeter) greeter=0; shift ;;
     --timeout) timeout="${2:-}"; [[ "$timeout" =~ ^[0-9]+$ ]] || vm_die "--timeout wants seconds"; shift 2 ;;
-    -h | --help) sed -n '2,13p' "$0"; exit 0 ;;
+    -h | --help) sed -n '2,16p' "$0"; exit 0 ;;
     *) vm_die "unknown argument: $1 (see --help)" ;;
   esac
 done
@@ -118,28 +122,121 @@ assertions() { vm_ssh bash -s <"$here/assertions.sh" >"$art/assertions.txt" 2>&1
 stage assert assertions || { cat -- "$art/assertions.txt" >&2; fail assertions; }
 cat -- "$art/assertions.txt" >&2
 
-# --- 6. theme the live session and photograph it --------------------------------------------------
+# --- 6. cycle the themes and photograph each one --------------------------------------------------
 
-# The bootstrap already wrote the colour scheme (assertions check kdeglobals), but the wallpaper
-# needs a running shell, so it is applied here -- after the assertions, so they judge the install.
-theme_live() {
-  vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; oal-theme-set-kde '$theme'"
+# The bootstrap already wrote the colour scheme (the assertions above check kdeglobals), but the
+# wallpaper needs a running shell, so theming happens here -- after the assertions, so those judge
+# the install rather than this. Each theme is applied, checked, and photographed in turn: cycling is
+# the case that finds a half-applied theme, because the second theme has to overwrite the first
+# everywhere, and anything it misses stays visibly on the previous palette.
+IFS=',' read -r -a theme_list <<<"$themes"
+shots=()
+
+theme_cycle() {
+  local slug rc=0
+  for slug in "${theme_list[@]}"; do
+    [[ -n "$slug" ]] || continue
+    printf -- '--- %s ---\n' "$slug" >&2
+    vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; oal-theme-set-kde '$slug'" \
+      >>"$art/theme-$slug.txt" 2>&1 || { vm_warn "applying $slug failed"; rc=1; }
+    sleep 3   # let the wallpaper land before the shutter
+    vm_ssh bash -s -- "$slug" <"$here/theme-assertions.sh" >>"$art/theme-$slug.txt" 2>&1 || rc=1
+    tail -n 20 -- "$art/theme-$slug.txt" >&2
+    "$here/vm-shot" "$art/theme-$slug-qmp.png" || return 1
+    "$here/vm-shot" "$art/theme-$slug-guest.png" --guest || return 1
+    shots+=("$art/theme-$slug-qmp.png" "$art/theme-$slug-guest.png")
+  done
+  return "$rc"
 }
-stage theme theme_live || vm_warn "theming the live session failed; continuing to the screenshots"
+stage themes theme_cycle || fail "theme cycle (see $art/theme-*.txt)"
 
-shots() {
-  sleep 3   # let the wallpaper transition finish before the shutter
-  "$here/vm-shot" "$art/desktop-qmp.png" && "$here/vm-shot" "$art/desktop-guest.png" --guest
+# --- 7. the login screen ---------------------------------------------------------------------------
+
+# Autologin means nobody -- including every run before this one -- has ever seen the greeter. Turn it
+# off, reboot into SDDM, photograph it, put it back. The QMP screendump is the only way to capture
+# this: there is no session to run spectacle in.
+greeter_shot() {
+  # Out of the directory, not renamed inside it: SDDM reads every file it finds in a conf.d, not
+  # only *.conf, so a .off suffix leaves autologin exactly as enabled as it was.
+  vm_ssh 'sudo mv /etc/sddm.conf.d/10-agentarchy.conf /root/10-agentarchy.conf' >/dev/null 2>&1 || return 1
+  vm_ssh 'sudo systemctl reboot' >/dev/null 2>&1 || true
+  sleep 10
+  vm_wait_ssh "$timeout" || return 1
+
+  # The bracket keeps pgrep from matching the ssh command line that carries this very pattern --
+  # without it the wait returns instantly, every time, and the shutter fires on the old frame.
+  local i greeter=0
+  for ((i = 0; i < 30; i++)); do
+    if vm_ssh "pgrep -f '[s]ddm-greeter' >/dev/null" >/dev/null 2>&1; then greeter=1; break; fi
+    sleep 4
+  done
+  (( greeter )) || { vm_warn "no sddm-greeter process after 120s"; return 1; }
+  sleep 5   # the process exists before it has painted
+
+  # What is on the screen, asked of logind rather than inferred. If autologin were still in force
+  # the screenshot below would be the desktop -- which is exactly what happened the first time this
+  # stage ran, and neither file size nor mean brightness noticed.
+  #
+  # Scoped to seat0, the physical display: the install user always has sessions here, because this
+  # check arrives over ssh and ssh sessions are seatless. Counting those instead of seat0 ones is
+  # the second way this stage got it wrong.
+  if ! vm_ssh bash -s -- "$VM_USER" <<'ATGREETER'
+set -u
+sessions="$(loginctl list-sessions --no-legend 2>/dev/null)"
+mine="$(awk -v u="$1" '$3 == u && $4 == "seat0"' <<<"$sessions" | wc -l)"
+greeters="$(awk '$4 == "seat0" && $6 == "greeter"' <<<"$sessions" | wc -l)"
+[[ $mine -eq 0 && $greeters -ge 1 ]] || { printf '%s\n' "$sessions"; exit 1; }
+ATGREETER
+  then
+    vm_warn "seat0 is not showing a greeter (autologin still on, or the greeter never started)"
+    return 1
+  fi
+
+  "$here/vm-shot" "$art/greeter-qmp.png" || return 1
+
+  # And it has to look different from the desktop we last photographed. Byte size and mean brightness
+  # cannot tell a login screen from the desktop behind it; a pixel count can.
+  local last="$art/theme-${theme_list[-1]}-qmp.png"
+  if [[ -f $last ]]; then
+    local differing
+    differing="$(magick compare -metric AE "$art/greeter-qmp.png" "$last" null: 2>&1 || true)"
+    # AE reports large counts in scientific notation (1.024e+06), which no integer test matches --
+    # left as-is, the comparison silently skips itself on exactly the runs it is meant to judge.
+    differing="$(awk '{ printf "%.0f", $1 + 0 }' <<<"$differing" 2>/dev/null || echo 0)"
+    if (( differing < 10000 )); then
+      vm_warn "the greeter shot differs from $(basename -- "$last") by only $differing pixels"
+      return 1
+    fi
+  fi
+  shots+=("$art/greeter-qmp.png")
+
+  # Put autologin back, so a --keep VM is left the way the install made it.
+  vm_ssh 'sudo mv /root/10-agentarchy.conf /etc/sddm.conf.d/10-agentarchy.conf' >/dev/null 2>&1 ||
+    vm_warn "could not restore autologin"
 }
-stage shots shots || fail screenshots
+if (( greeter )); then
+  stage greeter greeter_shot || fail "greeter screenshot"
+fi
 
-# A screenshot is only evidence if it is a real frame; a black or 1 KB image means the compositor
-# never rendered, which has happened and passed every other check.
-for shot in "$art/desktop-qmp.png" "$art/desktop-guest.png"; do
+# --- 8. are the screenshots real? -------------------------------------------------------------------
+
+# A screenshot is only evidence if it is a real frame; a black image means the compositor never
+# rendered, which has happened and passed every other check.
+#
+# Not measured in bytes. A file size floor was the first thing here and it rejected the greeter at
+# 17 KB -- flat colour and a wordmark compress to a fraction of a photographic wallpaper, and a
+# threshold that admits both admits an empty frame too. Unique colours is the measure that actually
+# separates "something was drawn" from "nothing was": a blank or failed capture has one or two.
+for shot in "${shots[@]}"; do
   bytes="$(stat -c %s -- "$shot")"
-  mean="$(magick identify -format '%[mean]' "$shot" 2>/dev/null || echo 0)"
-  printf '%s %s bytes mean=%s\n' "$(basename -- "$shot")" "$bytes" "$mean" >&2
-  (( bytes > 50000 )) || fail "screenshot $(basename -- "$shot") is only $bytes bytes"
+  # The || true is not decoration: identify's -format emits no trailing newline, so read hits EOF
+  # and returns non-zero even though it assigned everything -- and under set -e that ends the run
+  # with no message at all, which is exactly how this loop first "passed".
+  read -r geom colours mean < <(magick identify -format '%wx%h %k %[mean]' "$shot" 2>/dev/null || echo '0x0 0 0') || true
+  printf '%s %s %s colours mean=%s (%s bytes)\n' "$(basename -- "$shot")" "$geom" "$colours" "$mean" "$bytes" >&2
+  [[ $geom =~ ^([0-9]+)x([0-9]+)$ ]] && (( BASH_REMATCH[1] >= 640 && BASH_REMATCH[2] >= 480 )) ||
+    fail "screenshot $(basename -- "$shot") is $geom"
+  (( colours > 16 )) || fail "screenshot $(basename -- "$shot") has only $colours colours -- nothing was drawn"
   awk -v m="$mean" 'BEGIN { exit !(m > 1000) }' || fail "screenshot $(basename -- "$shot") is a blank frame (mean $mean)"
 done
 

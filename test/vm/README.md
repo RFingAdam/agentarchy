@@ -17,16 +17,35 @@ test/vm/vm-down         # stop it (--purge also throws the disk away)
 Those are the pieces. The whole phase gate is one command on top of them:
 
 ```
-test/vm/golden-path            # pristine image -> bootstrap -> reboot -> assertions -> screenshots
-test/vm/golden-path --keep     # ...and leave the VM up afterwards
+test/vm/golden-path                       # image -> bootstrap -> reboot -> assertions -> themes -> greeter
+test/vm/golden-path --keep                # ...and leave the VM up afterwards
+test/vm/golden-path --theme nord          # cycle one theme instead of the default three
+test/vm/golden-path --no-greeter          # skip the login screen (saves a reboot)
 ```
 
-`golden-path` runs six timed stages (boot, sync, bootstrap, reboot, session, assert) and writes
-everything it learned to `.vm/artifacts/<timestamp>/`: `bootstrap.log`, `assertions.txt`,
-`timings.txt`, `desktop-qmp.png`, `desktop-guest.png`. A failure prints the stage that failed, the
-tail of the boot console and the guest's journal before it stops. The assertions themselves live in
-`test/vm/assertions.sh`, which runs inside the guest (fed over ssh, so it does not need the checkout
-to be synced) and always runs every check rather than stopping at the first failure.
+`golden-path` runs eight timed stages -- boot, sync, bootstrap, reboot, session, assert, themes,
+greeter -- and writes everything it learned to `.vm/artifacts/<timestamp>/`: `bootstrap.log`,
+`assertions.txt`, `timings.txt`, a `theme-<slug>.txt` and a screenshot pair per theme, and
+`greeter-qmp.png`. A failure prints the stage that failed, the tail of the boot console and the
+guest's journal before it stops.
+
+Two sets of assertions, both fed over ssh so neither needs the checkout synced, and both running
+every check rather than stopping at the first failure:
+
+- `test/vm/assertions.sh` — the install reached a Plasma session, and everything that implies.
+- `test/vm/theme-assertions.sh` — a named theme actually applied: the values in `kdeglobals` match a
+  fresh render of that palette (not merely a scheme *name*, which is how Phase 1's first run passed
+  every check while rendering stock Breeze), the icon set matches the theme's light/dark mode, the
+  Konsole profile and scheme exist, and the desktop and lock-screen wallpapers name files that exist
+  inside that theme's directory.
+
+Cycling three themes rather than applying one is deliberate: the second theme has to overwrite the
+first everywhere, and anything it misses stays visibly on the previous palette. The default list
+ends on a light theme (`catppuccin-latte`) because light is where a dark-shell assumption shows.
+
+The greeter stage exists because autologin means nobody ever sees the login screen. It moves the
+autologin drop-in aside, reboots into SDDM, takes a QMP screendump -- the only capture that works
+with no session to run spectacle in -- and puts the drop-in back.
 
 The whole loop, from nothing to a running guest you can talk to:
 
