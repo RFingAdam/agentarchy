@@ -1,0 +1,13 @@
+# An example overlay catalog. Every server here is FICTIONAL.
+#
+# The names are invented on purpose. A public example built from a real private catalog with the
+# URLs stripped still publishes the shape of it -- what exists, what it is for, and that it is
+# yours -- which is most of what you were keeping private.
+#
+# Same format as default/mcp/CATALOG:
+#   id | kind | package | args | visibility | profiles | description
+
+sig-gen        | uvx | example-mcp-siggen    |                | hardware   | lab | Drive a signal generator over SCPI
+spectrum       | uvx | example-mcp-spectrum  |                | hardware   | lab | Sweep a spectrum analyser and pull traces
+field-solver   | uvx | example-mcp-solver    |                | commercial | sim | Run a solver that needs a seat licence
+house-rules    | npx | @example/house-rules  | $HOME/rules    | private    | lab | An internal server from a private registry

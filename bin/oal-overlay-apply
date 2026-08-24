@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# oal:summary=Apply a personal overlay: catalogs and settings this distribution does not ship
+# oal:args=<path-or-git-url> [--refresh]
+# oal:examples=oal-overlay-apply ~/work/my-overlay | oal-overlay-apply git@github.com:me/oal-overlay.git
+#
+# An overlay is a directory, usually a private git repository, holding the parts of a setup that
+# belong to a person rather than to a distribution: MCP catalogs for private, licence-gated or
+# hardware-bound servers, and machine-specific settings.
+#
+# It is applied DECLARATIVELY. This command reads known files and acts on them; it does not execute
+# anything the overlay contains. Cloning a repository and running a script out of it is precisely the
+# shape agent/hooks/rules blocks when an agent tries it, and it would be incoherent to ship a guard
+# against downloaded code while offering a command that does exactly that. If an overlay needs to run
+# something, its owner runs it, having read it.
+set -euo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export OAL_PATH
+store="${XDG_DATA_HOME:-$HOME/.local/share}/oal/overlay"
+
+die() { echo "oal-overlay-apply: $*" >&2; exit 1; }
+
+case "${1:-}" in
+  -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
+  "") sed -n '2,4p' "$0" >&2; exit 2 ;;
+esac
+source_ref="$1"
+refresh=0
+[[ ${2:-} == --refresh ]] && refresh=1
+
+if [[ -d $source_ref ]]; then
+  overlay="$(cd "$source_ref" && pwd)"
+else
+  command -v git >/dev/null || die "git is needed to fetch an overlay from a URL"
+  mkdir -p -- "$(dirname "$store")"
+  if [[ -d $store/.git ]]; then
+    (( refresh )) && git -C "$store" pull --ff-only >/dev/null 2>&1 ||
+      echo "overlay already cloned at $store (use --refresh to update)"
+  else
+    git clone --depth 1 "$source_ref" "$store" >/dev/null 2>&1 || die "could not clone $source_ref"
+  fi
+  overlay="$store"
+fi
+[[ -d $overlay ]] || die "no overlay at $source_ref"
+
+applied=0
+
+# --- MCP catalogs ---------------------------------------------------------------------------------
+shopt -s nullglob
+for catalog in "$overlay"/*.catalog "$overlay"/mcp/*.catalog; do
+  oal-mcp-import "$catalog" && applied=$((applied + 1))
+done
+
+# --- anything else it carries, named but not run ----------------------------------------------------
+for unhandled in "$overlay"/apply.sh "$overlay"/secrets.age "$overlay"/repos.manifest; do
+  [[ -e $unhandled ]] || continue
+  echo "note: $(basename "$unhandled") is present and was NOT applied -- this command does not"
+  echo "      execute overlay contents or handle secrets. Read it, then run it yourself."
+done
+
+if (( applied == 0 )); then
+  echo "nothing to apply: an overlay supplies *.catalog files (see docs/overlay.md)"
+  exit 0
+fi
+echo "applied $applied catalog(s) from $overlay"

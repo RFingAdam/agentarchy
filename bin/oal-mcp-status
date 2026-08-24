@@ -33,7 +33,7 @@ while read -r id; do
   [[ -n $id ]] || continue
   row="$(oal_mcp_row "$id")"
   if [[ -n $row ]]; then
-    IFS=$'\x1f' read -r _ _ _ _ _ origin description <<<"$row"
+    IFS=$'\x1f' read -r _ _ _ _ _ _ origin description <<<"$row"
     printf '%-22s %-8s %s\n' "$id" "$origin" "$description"
   else
     # Registered but not in any catalog we know: someone added it by hand. Say so rather than

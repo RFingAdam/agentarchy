@@ -33,11 +33,13 @@ STUB
 # --- the catalog is data, so it gets checked like data -------------------------------------------
 
 @test "every catalog row is complete and well formed" {
-  while IFS='|' read -r id kind package args profiles description; do
+  while IFS='|' read -r id kind package args visibility profiles description; do
     id="$(xargs <<<"$id")"
     [[ -n $id && $id != \#* ]] || continue
     [[ $(xargs <<<"$kind") =~ ^(uvx|npx)$ ]] || { echo "$id: kind '$kind'"; return 1; }
     [[ -n $(xargs <<<"$package") ]] || { echo "$id: no package"; return 1; }
+    [[ $(xargs <<<"$visibility") =~ ^(public|private|hardware|commercial)$ ]] ||
+      { echo "$id: visibility '$visibility'"; return 1; }
     [[ -n $(xargs <<<"$profiles") ]] || { echo "$id: no profile"; return 1; }
     [[ -n $(sed -e 's/^ *//' -e 's/ *$//' <<<"$description") ]] || { echo "$id: no description"; return 1; }
   done < <(grep -v '^[[:space:]]*#' "$SRC/default/mcp/CATALOG" | grep '|')
@@ -141,7 +143,7 @@ STUB
 
 @test "an imported catalog is usable and stays marked as imported" {
   cat >"$BATS_TEST_TMPDIR/rf-lab.catalog" <<'CAT'
-spectrum-sim | uvx | example-spectrum-sim |  | lab | Sweep a simulated analyser
+spectrum-sim | uvx | example-spectrum-sim |  | public | lab | Sweep a simulated analyser
 CAT
   mcp import "$BATS_TEST_TMPDIR/rf-lab.catalog"
   [ "$status" -eq 0 ]
@@ -156,7 +158,7 @@ CAT
 
 @test "a malformed imported catalog is refused with the row named" {
   cat >"$BATS_TEST_TMPDIR/bad.catalog" <<'CAT'
-broken | wasm | some-package |  | lab | Not a kind we can run
+broken | wasm | some-package |  | public | lab | Not a kind we can run
 CAT
   mcp import "$BATS_TEST_TMPDIR/bad.catalog"
   [ "$status" -ne 0 ]
@@ -165,7 +167,7 @@ CAT
 
 @test "forgetting a catalog leaves registered servers alone" {
   cat >"$BATS_TEST_TMPDIR/rf-lab.catalog" <<'CAT'
-spectrum-sim | uvx | example-spectrum-sim |  | lab | Sweep a simulated analyser
+spectrum-sim | uvx | example-spectrum-sim |  | public | lab | Sweep a simulated analyser
 CAT
   mcp import "$BATS_TEST_TMPDIR/rf-lab.catalog"
   mcp install spectrum-sim
@@ -174,4 +176,81 @@ CAT
   grep -qx spectrum-sim "$MCP_REG"
   mcp status
   [[ $output == *"spectrum-sim"*"external"* ]]
+}
+
+# --- visibility ---------------------------------------------------------------------------------
+
+@test "a profile install skips what cannot work here, with a reason" {
+  cat >"$BATS_TEST_TMPDIR/lab.catalog" <<'CAT'
+bench-psu | uvx | example-bench-psu |  | hardware | lab | Needs an instrument on the bench
+open-one  | uvx | example-open-one  |  | public   | lab | Ordinary public server
+CAT
+  mcp import "$BATS_TEST_TMPDIR/lab.catalog"
+  mcp install --profile lab
+  [ "$status" -eq 0 ]
+  [[ $output == *"bench-psu: skipped (hardware"* ]]
+  grep -qx open-one "$MCP_REG"
+  ! grep -qx bench-psu "$MCP_REG"
+}
+
+@test "naming a non-public server explicitly still installs it" {
+  # Skipping in bulk is a convenience. Refusing outright would be this repository deciding what
+  # hardware is on someone's bench.
+  cat >"$BATS_TEST_TMPDIR/lab.catalog" <<'CAT'
+bench-psu | uvx | example-bench-psu |  | hardware | lab | Needs an instrument on the bench
+CAT
+  mcp import "$BATS_TEST_TMPDIR/lab.catalog"
+  mcp install bench-psu
+  [ "$status" -eq 0 ]
+  grep -qx bench-psu "$MCP_REG"
+}
+
+@test "this repository ships exactly one catalog" {
+  # A private catalog committed here by accident is the failure this whole split exists to prevent.
+  # docs/examples is exempt: its servers are fictional, which is the point of the example.
+  run bash -c "cd '$SRC' && git ls-files | grep -E '(CATALOG|[.]catalog)\$' | grep -v '^docs/examples/'"
+  [ "$output" = "default/mcp/CATALOG" ] || { echo "unexpected catalogs: $output"; return 1; }
+}
+
+@test "the example overlay catalog names nothing real" {
+  # Every package in it must be obviously invented. An example built from a real private catalog
+  # with the URLs stripped still publishes what exists and who it belongs to.
+  while IFS='|' read -r id kind package rest; do
+    id="$(xargs <<<"$id")"
+    [[ -n $id && $id != \#* ]] || continue
+    [[ $(xargs <<<"$package") == *example* ]] ||
+      { echo "$id: package '$package' does not look fictional"; return 1; }
+  done < <(grep -v '^[[:space:]]*#' "$SRC/docs/examples/overlay-example/lab-instruments.catalog" | grep '|')
+}
+
+@test "a catalog of the wrong width is refused, not silently mis-read" {
+  # Adding the visibility column shifted every later field. A six-column row still splits without
+  # error: visibility takes the profile, profiles takes the description, and the catalog imports
+  # cleanly and then matches nothing. Refusing beats importing something that quietly does nothing.
+  cat >"$BATS_TEST_TMPDIR/old.catalog" <<'CAT'
+legacy | uvx | example-legacy |  | lab | The old six-field shape
+CAT
+  mcp import "$BATS_TEST_TMPDIR/old.catalog"
+  [ "$status" -ne 0 ]
+  [[ $output == *"6 fields, expected 7"* ]]
+}
+
+@test "an unknown visibility is refused" {
+  cat >"$BATS_TEST_TMPDIR/odd.catalog" <<'CAT'
+odd | uvx | example-odd |  | secret | lab | Not a visibility we know
+CAT
+  mcp import "$BATS_TEST_TMPDIR/odd.catalog"
+  [ "$status" -ne 0 ]
+  [[ $output == *"visibility 'secret'"* ]]
+}
+
+@test "a catalog is not half-imported when a later row is bad" {
+  cat >"$BATS_TEST_TMPDIR/mixed.catalog" <<'CAT'
+good | uvx | example-good |  | public | lab | Fine
+bad  | wasm | example-bad |  | public | lab | Not a kind we can run
+CAT
+  mcp import "$BATS_TEST_TMPDIR/mixed.catalog"
+  [ "$status" -ne 0 ]
+  mcp list --profile lab
+  [[ $output != *"good"* ]]
 }
