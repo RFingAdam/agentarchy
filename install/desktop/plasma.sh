@@ -16,7 +16,7 @@ packages_file="$OAL_INSTALL/agentarchy-desktop.packages"
 # One package per line, '#' comments and blank lines stripped. pacman reads the list on stdin, and
 # a failure here must stop the install: a half-installed desktop is worse than a clear error.
 sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$packages_file" |
-  pacman -S --needed --noconfirm -
+  pacman -S --needed --noconfirm --disable-download-timeout -
 
 systemctl enable sddm.service
 systemctl enable NetworkManager.service

@@ -66,10 +66,15 @@ log "Bootstrapping Agentarchy from $checkout as $user"
 # The cloud image and any older install ship a keyring too old to verify current packages, and a
 # signature failure here looks like a corrupt mirror. Refresh it before anything else.
 log "Refreshing the Arch keyring"
-sudo pacman -Sy --noconfirm archlinux-keyring
+# --disable-download-timeout on every pacman call here: pacman aborts a transaction when a mirror
+# drops under 1 byte/sec for ten seconds, and a mirror that stalls mid-sync takes the whole install
+# down with it ("Operation too slow", nothing installed). That is a reasonable default for someone
+# watching a terminal and a bad one for an unattended installer -- two golden-path runs died on it
+# in a row, at different points in the package set, on a mirror that was otherwise reachable.
+sudo pacman -Sy --noconfirm --disable-download-timeout archlinux-keyring
 
 log "Updating the system and installing build tools"
-sudo pacman -Syu --needed --noconfirm base-devel git
+sudo pacman -Syu --needed --noconfirm --disable-download-timeout base-devel git
 
 log "Building and installing the agentarchy package"
 (
@@ -80,7 +85,7 @@ log "Building and installing the agentarchy package"
 
 log "Installing the Agentarchy base package set"
 sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$checkout/install/agentarchy-base.packages" |
-  sudo pacman -S --needed --noconfirm -
+  sudo pacman -S --needed --noconfirm --disable-download-timeout -
 
 if [[ ${OAL_SKIP_DESKTOP:-0} == 1 ]]; then
   log "OAL_SKIP_DESKTOP=1 -- package installed, stopping before the system and user steps"
