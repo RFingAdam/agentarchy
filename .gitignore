@@ -1,3 +1,9 @@
+# working notes, not part of the distribution: per-phase implementation plans, the design spec,
+# the task ledger and the corrections log. They are written for whoever is building this, not for
+# whoever is installing it, and they carry owner-actions addressed to a person by name.
+tasks/
+docs/superpowers/
+
 # build / sync scratch
 .sync/
 .superpowers/
