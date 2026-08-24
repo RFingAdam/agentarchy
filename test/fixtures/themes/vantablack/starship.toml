@@ -13,9 +13,13 @@
 add_newline = true
 palette = "oal"
 
+# The frame is dark_foreground, not muted. muted is the palette's "barely there" role, and against a
+# near-black ground it does not read at all -- the two-line structure disappears and the corners look
+# like stray characters. dark_foreground is the role for subordinate but legible, which is what a
+# frame is.
 format = """
-[╭](fg:#7a7a7a) $directory$git_branch$git_status$cmd_duration
-[╰](fg:#7a7a7a) $custom$character"""
+[╭](fg:#505050) $directory$git_branch$git_status$cmd_duration
+[╰](fg:#505050) $custom$character"""
 
 [palettes.oal]
 ground = "#000000"
