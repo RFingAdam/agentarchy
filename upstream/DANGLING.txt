@@ -54,7 +54,6 @@ bin/oal-system-reboot -> oal-hyprland-window-close-all
 bin/oal-system-shutdown -> oal-hyprland-window-close-all
 bin/oal-system-sleep-monitor -> oal-system-sleep-lock
 bin/oal-theme-bg-set -> oal-shell
-bin/oal-theme-set -> oal-restart-hyprctl
 bin/oal-theme-set -> oal-shell
 bin/oal-toggle-notification-silencing -> oal-shell
 bin/oal-toggle-touchpad -> oal-toggle-input-device

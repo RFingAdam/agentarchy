@@ -43,12 +43,41 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
         tooling port) should walk the tree and decide. Nothing on the golden path needs them today.
 - [ ] Phase 2 — Theme engine, all 22 themes (+ wallpaper licence audit)
       (plan: docs/superpowers/plans/2026-08-23-phase-2-theme-engine.md)
-  - [ ] Task 1 trace provenance of 68 wallpapers + application icons → `docs/asset-audit.md`
-  - [ ] Task 2 act on it: keep what is documented, generate palette wallpapers for the rest, NOTICE real
-  - [ ] Task 3 `plasma.colors.tpl` + `konsole.colorscheme.tpl` as templates
-  - [ ] Task 4 SDDM, lock screen, icons, light/dark, and the `oal-theme-set` port-or-drop audit
-  - [ ] Task 5 snapshot tests for all 22 themes
-  - [ ] Task 6 VM: cycle three themes with screenshots
+  - [x] Task 1 trace provenance of 68 wallpapers + application icons → `docs/asset-audit.md`
+        (`bin/oal-dev-asset-provenance`; findings in `docs/asset-audit-findings.md` — not one carried a licence)
+  - [x] Task 2 act on it: all 68 removed, 22 palette wallpapers generated, NOTICE gate is `--strict`
+  - [x] Task 3 `plasma.colors.tpl` + `konsole.colorscheme.tpl` as templates, rendered by
+        `bin/oal-theme-render`; `oal-theme-set-kde` drops from 144 lines to 92
+  - [x] Task 4 SDDM, lock screen, icons, light/dark, and the `oal-theme-set` port-or-drop audit
+        (`docs/theme-hooks.md`). Found and fixed: `oal-theme-set` never called `oal-theme-set-kde`,
+        so a theme switch after install left the desktop, icons and lock screen behind (patch 0012).
+        The greeter was inert too — nothing installed `10-theme.conf` or the theme directory; it is
+        installed now (`install/desktop/plasma.sh`, `oal-bootstrap.sh`) and its five upstream sprites
+        were dropped as unaccounted assets, replaced by QML drawn from the palette.
+  - [ ] **Not yet seen by a human**: the greeter renders from `theme.conf` and no VM has booted into
+        it — autologin skips the login screen, so Task 6's VM run has to disable autologin (or lock
+        the session) to get a screenshot of it. Until then the QML is only structurally tested.
+  - [ ] The ISO path installs no greeter palette: `oal-bootstrap.sh` calls `oal-refresh-sddm`, and a
+        deferred-provisioning install (Phase 6) never runs it. Decide there whether first boot does.
+  - [x] Task 5 snapshot tests for all 22 themes — 66 fixtures under `test/fixtures/themes/`
+        (`bin/oal-dev-make-theme-fixtures`, `--check` in `test/unit/themes.bats`), plus cross-theme
+        invariants a snapshot cannot give you: declared `mode` agrees with background luminance, the
+        five light themes are named not counted, foreground/background contrast has a floor, and the
+        greeter's entry field has a visible edge on every palette.
+  - [x] Task 6 VM: cycle three themes with screenshots — `test/vm/golden-path` now runs eight stages
+        and PASSes in 352 s. `test/vm/theme-assertions.sh` checks 12 things per theme against a fresh
+        render of that palette (not just the scheme *name*); 36/36 green across tokyo-night, gruvbox
+        and catppuccin-latte. Artefacts: `.vm/artifacts/20260823-201709/`.
+  - [x] ~~The greeter has never been seen~~ — seen 2026-08-23. It renders from `theme.conf`, drawn
+        entirely from the palette. Getting a true picture of it took three fixes, all of which were
+        the harness lying rather than the greeter failing: renaming the autologin drop-in inside
+        `/etc/sddm.conf.d/` did not disable it, `pgrep -f sddm-greeter` matched the ssh command line
+        carrying its own pattern, and a `loginctl` check counted this session's ssh login as a
+        desktop session. The stage now proves what it photographed — a greeter on seat0, no seat0
+        session for the install user, and a frame that differs from the last desktop shot.
+  - [ ] Desktop icon **labels** are white with a shadow, which is hard to read on the light themes
+        (see `theme-catppuccin-latte-guest.png`). Plasma's folder view picks that, not our colour
+        scheme. Phase 3 owns the desktop layout, so decide it there.
   - [ ] Full-resolution desktop screenshots for README.md, once the VM guest resolution work lands
         (a parallel session is raising it above 1280x800). Shoot the default layout and two or three
         themes with `test/vm/vm-shot --guest`, and keep them out of git history bloat: one webp each,

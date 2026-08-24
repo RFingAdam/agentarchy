@@ -1,0 +1,126 @@
+# Plasma colour scheme, generated from a theme's colors.toml.
+#
+# Rendered by bin/oal-theme-render, which supplies the scheme name on top of the palette. The
+# vendored template pass (oal-theme-set-templates) also renders every template in this directory into
+# the staged theme directory; it knows nothing about scheme names, so its copy of this file keeps that
+# one placeholder unsubstituted and nothing reads it. bin/oal-theme-set-kde renders this file itself
+# and writes the result where KDE looks for it.
+#
+# Mapping (from the design spec): background to Window and View, lighter_background to the raised
+# surfaces, accent to focus/hover and the active titlebar, red/green/yellow/blue to
+# Negative/Positive/Neutral/Link, muted to ForegroundInactive.
+
+[Colors:Button]
+BackgroundNormal=60,56,54
+BackgroundAlternate=40,40,40
+DecorationFocus=125,174,163
+DecorationHover=125,174,163
+ForegroundNormal=212,190,152
+ForegroundInactive=102,92,84
+ForegroundActive=125,174,163
+ForegroundLink=125,174,163
+ForegroundVisited=211,134,155
+ForegroundNegative=234,105,98
+ForegroundNeutral=216,166,87
+ForegroundPositive=169,182,101
+
+[Colors:Complementary]
+BackgroundNormal=30,30,30
+BackgroundAlternate=22,22,22
+DecorationFocus=125,174,163
+DecorationHover=125,174,163
+ForegroundNormal=212,190,152
+ForegroundInactive=102,92,84
+ForegroundActive=125,174,163
+ForegroundLink=125,174,163
+ForegroundVisited=211,134,155
+ForegroundNegative=234,105,98
+ForegroundNeutral=216,166,87
+ForegroundPositive=169,182,101
+
+[Colors:Header]
+BackgroundNormal=60,56,54
+BackgroundAlternate=40,40,40
+DecorationFocus=125,174,163
+DecorationHover=125,174,163
+ForegroundNormal=212,190,152
+ForegroundInactive=102,92,84
+ForegroundActive=125,174,163
+ForegroundLink=125,174,163
+ForegroundVisited=211,134,155
+ForegroundNegative=234,105,98
+ForegroundNeutral=216,166,87
+ForegroundPositive=169,182,101
+
+[Colors:Selection]
+BackgroundNormal=80,73,69
+BackgroundAlternate=80,73,69
+DecorationFocus=125,174,163
+DecorationHover=125,174,163
+ForegroundNormal=212,190,152
+ForegroundInactive=102,92,84
+ForegroundActive=125,174,163
+ForegroundLink=125,174,163
+ForegroundVisited=211,134,155
+ForegroundNegative=234,105,98
+ForegroundNeutral=216,166,87
+ForegroundPositive=169,182,101
+
+[Colors:Tooltip]
+BackgroundNormal=60,56,54
+BackgroundAlternate=40,40,40
+DecorationFocus=125,174,163
+DecorationHover=125,174,163
+ForegroundNormal=212,190,152
+ForegroundInactive=102,92,84
+ForegroundActive=125,174,163
+ForegroundLink=125,174,163
+ForegroundVisited=211,134,155
+ForegroundNegative=234,105,98
+ForegroundNeutral=216,166,87
+ForegroundPositive=169,182,101
+
+[Colors:View]
+BackgroundNormal=40,40,40
+BackgroundAlternate=30,30,30
+DecorationFocus=125,174,163
+DecorationHover=125,174,163
+ForegroundNormal=212,190,152
+ForegroundInactive=102,92,84
+ForegroundActive=125,174,163
+ForegroundLink=125,174,163
+ForegroundVisited=211,134,155
+ForegroundNegative=234,105,98
+ForegroundNeutral=216,166,87
+ForegroundPositive=169,182,101
+
+[Colors:Window]
+BackgroundNormal=40,40,40
+BackgroundAlternate=30,30,30
+DecorationFocus=125,174,163
+DecorationHover=125,174,163
+ForegroundNormal=212,190,152
+ForegroundInactive=102,92,84
+ForegroundActive=125,174,163
+ForegroundLink=125,174,163
+ForegroundVisited=211,134,155
+ForegroundNegative=234,105,98
+ForegroundNeutral=216,166,87
+ForegroundPositive=169,182,101
+
+[General]
+ColorScheme=OAL Gruvbox
+Name=OAL Gruvbox
+accentColorFromWallpaper=false
+shadeSortColumn=true
+
+[KDE]
+contrast=4
+
+[WM]
+activeBackground=125,174,163
+activeForeground=40,40,40
+activeBlend=125,174,163
+inactiveBackground=40,40,40
+inactiveForeground=102,92,84
+inactiveBlend=40,40,40

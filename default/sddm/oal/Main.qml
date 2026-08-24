@@ -1,3 +1,17 @@
+// Agentarchy SDDM greeter.
+//
+// Native, not vendored (upstream/VENDOR-MANIFEST). Upstream's version drew the lock, the entry field
+// and the password dots as five PNGs in a single hard-coded colour, which meant the greeter could
+// only ever look like one theme -- and on the five light themes it would have been light on light.
+// Everything here is drawn from the palette instead, so there are no image assets to keep in step
+// with 22 themes (the logo is Agentarchy's own, supplied in Phase 1).
+//
+// Colours arrive through theme.conf, rendered per theme by bin/oal-theme-render from
+// default/themed/sddm.theme.conf.tpl. Every read falls back to a literal: a greeter is the one
+// screen that must render even when its configuration is missing, because the alternative is a
+// machine nobody can log into. The theme.conf that ships in this directory is the empty upstream
+// one, so those fallbacks are the live path until bin/oal-refresh-sddm renders a real palette in.
+
 import QtQuick 2.0
 import SddmComponents 2.0
 
@@ -5,7 +19,12 @@ Rectangle {
   id: root
   width: 640
   height: 480
-  color: "#1a1b26"
+  color: config.background || "#1a1b26"
+
+  readonly property color fieldColor: config.lighter_background || "#24283b"
+  readonly property color textColor: config.foreground || "#a9b1d6"
+  readonly property color idleBorder: config.muted || "#414868"
+  readonly property color failColor: config.red || "#f7768e"
 
   property string currentUser: userModel.lastUser
   property bool loginFailed: false
@@ -43,74 +62,69 @@ Rectangle {
       anchors.horizontalCenter: parent.horizontalCenter
     }
 
-    Row {
+    // The entry field. A failed login turns the border and the dots red; upstream swapped in a
+    // second set of sprites to say the same thing.
+    //
+    // The border is the load-bearing part, not the fill: last-horizon and solitude define
+    // lighter_background as their background, so on those two the field is outlined rather than
+    // filled. test/unit/themes.bats holds the invariant that muted never equals background, which
+    // is what keeps the box visible on every palette.
+    Rectangle {
+      id: entry
+      width: 286
+      height: 48
+      radius: 6
       anchors.horizontalCenter: parent.horizontalCenter
-      spacing: 15
+      color: root.fieldColor
+      border.width: 2
+      border.color: root.loginFailed ? root.failColor : root.idleBorder
 
-      Image {
-        source: root.loginFailed ? "lock-failed.png" : "lock.png"
-        width: 34
-        height: 38
-        fillMode: Image.PreserveAspectFit
+      Row {
+        anchors.left: parent.left
+        anchors.leftMargin: 20
         anchors.verticalCenter: parent.verticalCenter
-      }
+        spacing: 5
 
-      Item {
-        width: entry.width
-        height: entry.height
+        Repeater {
+          model: Math.min(password.text.length, 21)
 
-        Image {
-          id: entry
-          source: root.loginFailed ? "entry-failed.png" : "entry.png"
-          anchors.centerIn: parent
-        }
-
-        Row {
-          anchors.left: parent.left
-          anchors.leftMargin: 20
-          anchors.verticalCenter: parent.verticalCenter
-          spacing: 5
-
-          Repeater {
-            model: Math.min(password.text.length, 21)
-
-            Image {
-              source: "bullet.png"
-              width: 7
-              height: 7
-            }
+          Rectangle {
+            width: 7
+            height: 7
+            radius: width / 2
+            color: root.loginFailed ? root.failColor : root.textColor
           }
         }
+      }
 
-        TextInput {
-          id: password
-          anchors.fill: parent
-          anchors.leftMargin: 20
-          anchors.rightMargin: 20
-          verticalAlignment: TextInput.AlignVCenter
-          echoMode: TextInput.Password
-          font.family: "JetBrainsMono Nerd Font"
-          font.pixelSize: 24
-          font.letterSpacing: 5
-          passwordCharacter: "\u2022"
-          color: "transparent"
-          selectionColor: "transparent"
-          selectedTextColor: "transparent"
-          cursorDelegate: Item {}
-          focus: true
+      // Invisible on purpose: it takes the keystrokes, and the dots above render the length.
+      // Drawing the text as well would double every character.
+      TextInput {
+        id: password
+        anchors.fill: parent
+        anchors.leftMargin: 20
+        anchors.rightMargin: 20
+        verticalAlignment: TextInput.AlignVCenter
+        echoMode: TextInput.Password
+        font.pixelSize: 24
+        font.letterSpacing: 5
+        passwordCharacter: "•"
+        color: "transparent"
+        selectionColor: "transparent"
+        selectedTextColor: "transparent"
+        cursorDelegate: Item {}
+        focus: true
 
-          onTextChanged: root.loginFailed = false
+        onTextChanged: root.loginFailed = false
 
-          Keys.onPressed: {
-            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-              sddm.login(root.currentUser, password.text, root.sessionIndex)
-              event.accepted = true
-            }
+        Keys.onPressed: {
+          if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+            sddm.login(root.currentUser, password.text, root.sessionIndex)
+            event.accepted = true
           }
         }
       }
     }
-
   }
 
   Component.onCompleted: password.forceActiveFocus()

@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# oal:summary=Regenerate the committed per-theme snapshots under test/fixtures/themes
+# Usage: oal-dev-make-theme-fixtures [--check]
+#   --check  regenerate into a temp tree and diff against the committed fixtures (what the test does)
+#
+# One directory per theme, holding what KDE and SDDM actually read: the Plasma colour scheme, the
+# Konsole scheme and the greeter palette, each rendered from that theme's colors.toml by
+# bin/oal-theme-render.
+#
+# The point is not that these files are correct -- nothing here can know that -- but that changing
+# them is deliberate. A palette edit, a template edit, or a change to how oal-theme-color derives a
+# shade a theme does not define, lands as a diff across all 22 themes instead of as a surprise on
+# the one theme somebody happened to look at. When the diff is intended, run this with no arguments
+# and commit the result.
+set -euo pipefail
+export LC_ALL=C
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+root="$(oal_dev_root)" || exit 1; cd "$root"
+
+check=0
+for a in "$@"; do case "$a" in --check) check=1 ;; *) oal_dev_die "unknown arg $a" ;; esac; done
+
+# The three templates Phase 2 owns. The terminal and editor templates are upstream's, rendered by
+# upstream's own theme-set pass, and snapshotting all sixteen would bury the KDE surface in noise.
+templates=(plasma.colors konsole.colorscheme sddm.theme.conf)
+
+committed="$root/test/fixtures/themes"
+dest="$committed"
+if (( check )); then
+  dest="$(mktemp -d)"
+  trap 'rm -rf -- "$dest"' EXIT
+else
+  # Drop stale directories for themes that no longer exist, rather than leaving fixtures for them.
+  [[ -d $committed ]] && find "$committed" -mindepth 1 -delete
+fi
+
+for dir in themes/*/; do
+  slug="$(basename "$dir")"
+  mkdir -p "$dest/$slug"
+  for tpl in "${templates[@]}"; do
+    OAL_PATH="$root" "$root/bin/oal-theme-render" "$tpl" --file "$dir/colors.toml" >"$dest/$slug/$tpl"
+  done
+done
+
+count="$(find "$dest" -type f | wc -l)"
+if (( check )); then
+  diff -ru "$committed" "$dest" ||
+    oal_dev_die "theme fixtures are stale; rerun bin/oal-dev-make-theme-fixtures and commit"
+  oal_dev_log "theme fixtures match ($count files)"
+else
+  oal_dev_log "wrote $count fixtures under test/fixtures/themes"
+fi

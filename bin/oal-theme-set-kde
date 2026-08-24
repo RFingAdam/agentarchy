@@ -56,41 +56,18 @@ colors_file="$theme_dir/colors.toml"
 title="$(echo "$slug" | tr '-' ' ' | sed -E 's/(^| )([a-z])/\1\u\2/g')"
 scheme_name="OAL $title"
 
-# The palette, resolved by the shared parser every other colors.toml consumer uses (aliases, legacy
-# colorN names, derived shades and the light/dark mode detection all live there, not here).
-declare -A C
-while IFS=$'\t' read -r key value; do
-  C[$key]="$value"
-done < <("$bin_dir/oal-theme-color" --file "$colors_file" --all)
+# The two files KDE reads are templates now (default/themed/plasma.colors.tpl and
+# konsole.colorscheme.tpl), rendered by oal-theme-render. The mapping from palette to widget colour
+# lives in exactly one place, a user can override either template in ~/.config/oal/themed/, and this
+# command is left doing what only it can do: putting the results where KDE looks and telling the
+# session about them.
 
-rgb() {
-  local key="$1" fallback="${2:-}" hex
-  hex="${C[$key]:-${C[$fallback]:-}}"
-  [[ -n $hex ]] || { echo "oal-theme-set-kde: theme '$slug' defines neither $key nor $fallback" >&2; exit 1; }
-  hex="${hex#\#}"
-  printf '%d,%d,%d' "0x${hex:0:2}" "0x${hex:2:2}" "0x${hex:4:2}"
-}
-
-# One colour block, in the key order every Breeze section uses.
-colors_section() {
-  local section="$1" background="$2" alternate="$3"
-  cat <<SECTION
-[$section]
-BackgroundNormal=$background
-BackgroundAlternate=$alternate
-DecorationFocus=$(rgb accent)
-DecorationHover=$(rgb accent)
-ForegroundNormal=$(rgb foreground)
-ForegroundInactive=$(rgb muted dark_foreground)
-ForegroundActive=$(rgb accent)
-ForegroundLink=$(rgb blue accent)
-ForegroundVisited=$(rgb magenta accent)
-ForegroundNegative=$(rgb red)
-ForegroundNeutral=$(rgb yellow)
-ForegroundPositive=$(rgb green)
-
-SECTION
-}
+# Light or dark decides the parts of the desktop a colour scheme does not reach: the icon set here,
+# and the greeter palette oal-refresh-sddm renders. oal-theme-color owns the resolution (explicit
+# `mode`, legacy `theme_type`, a light.mode marker, then background luminance for user themes), so
+# every consumer agrees on the answer for a given theme.
+mode="$("$bin_dir/oal-theme-color" --file "$colors_file" mode)"
+[[ $mode == light || $mode == dark ]] || mode=dark
 
 scheme_dir="$out_dir/color-schemes"
 konsole_dir="$out_dir/konsole"
@@ -98,47 +75,8 @@ scheme_file="$scheme_dir/$scheme_name.colors"
 konsole_file="$konsole_dir/$scheme_name.colorscheme"
 mkdir -p "$scheme_dir" "$konsole_dir"
 
-{
-  colors_section "Colors:Button" "$(rgb lighter_background background)" "$(rgb background)"
-  colors_section "Colors:Complementary" "$(rgb dark_background background)" "$(rgb darker_background background)"
-  colors_section "Colors:Header" "$(rgb lighter_background background)" "$(rgb background)"
-  colors_section "Colors:Selection" "$(rgb selection accent)" "$(rgb selection accent)"
-  colors_section "Colors:Tooltip" "$(rgb lighter_background background)" "$(rgb background)"
-  colors_section "Colors:View" "$(rgb background)" "$(rgb dark_background background)"
-  colors_section "Colors:Window" "$(rgb background)" "$(rgb dark_background background)"
-  cat <<GENERAL
-[General]
-ColorScheme=$scheme_name
-Name=$scheme_name
-accentColorFromWallpaper=false
-shadeSortColumn=true
-
-[KDE]
-contrast=4
-
-[WM]
-activeBackground=$(rgb accent)
-activeForeground=$(rgb background)
-activeBlend=$(rgb accent)
-inactiveBackground=$(rgb background)
-inactiveForeground=$(rgb muted dark_foreground)
-inactiveBlend=$(rgb background)
-GENERAL
-} >"$scheme_file"
-
-# Konsole reads the same sixteen ANSI colours the terminal templates do: ColorN is colorN and
-# ColorNIntense is color(N+8), which is what oal-theme-color already resolves for every theme.
-{
-  printf '[Background]\nColor=%s\n\n' "$(rgb background)"
-  printf '[BackgroundIntense]\nColor=%s\n\n' "$(rgb dark_background background)"
-  printf '[Foreground]\nColor=%s\n\n' "$(rgb foreground)"
-  printf '[ForegroundIntense]\nColor=%s\n\n' "$(rgb bright_foreground foreground)"
-  for i in 0 1 2 3 4 5 6 7; do
-    printf '[Color%d]\nColor=%s\n\n' "$i" "$(rgb "color$i")"
-    printf '[Color%dIntense]\nColor=%s\n\n' "$i" "$(rgb "color$((i + 8))" "color$i")"
-  done
-  printf '[General]\nBlur=false\nColorRandomization=false\nDescription=%s\nOpacity=1\nWallpaper=\n' "$scheme_name"
-} >"$konsole_file"
+"$bin_dir/oal-theme-render" plasma.colors --file "$colors_file" --name "$scheme_name" >"$scheme_file"
+"$bin_dir/oal-theme-render" konsole.colorscheme --file "$colors_file" --name "$scheme_name" >"$konsole_file"
 
 echo "wrote $scheme_file"
 echo "wrote $konsole_file"
@@ -158,6 +96,7 @@ seed_kdeglobals() {
   local group="" line key value
   while IFS= read -r line; do
     case "$line" in
+      '#'*) ;;
       \[*\]) group="${line#[}"; group="${group%]}" ;;
       *=*)
         [[ -n $group ]] || continue
@@ -180,6 +119,17 @@ else
   echo "skipping colour scheme: Plasma is not installed"
 fi
 
+# The icon set is not part of a colour scheme, so it is what still reads as the wrong desktop once
+# everything else is retinted: dark icons on a light theme, or the reverse. Breeze ships exactly two
+# and both are already installed. The themes' own icons.theme files name Yaru variants that are
+# AUR-only on Arch and are deliberately not honoured -- docs/theme-hooks.md carries that ruling.
+if command -v kwriteconfig6 >/dev/null; then
+  icon_theme=breeze-dark
+  [[ $mode == light ]] && icon_theme=breeze
+  kwriteconfig6 --file kdeglobals --group Icons --key Theme "$icon_theme"
+  echo "icons: $icon_theme (theme mode: $mode)"
+fi
+
 background="$(find -L "$theme_dir/backgrounds" -maxdepth 1 -type f \
   \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) 2>/dev/null | sort | head -1)"
 if [[ -z $background ]]; then
@@ -192,6 +142,17 @@ else
   # The wallpaper lives in the containment config of a running shell; there is no supported way to
   # preseed it from an install, so it waits for the first oal-theme-set-kde inside a session.
   echo "no running Plasma session: wallpaper deferred (run oal-theme-set-kde again after login)"
+fi
+
+# The lock screen takes its colours from kdeglobals like everything else, but its wallpaper is a
+# setting of its own. Unlike the desktop's -- which lives in the containment config of a running
+# shell -- it is a plain config key, so it can be written with no session at all. That makes the
+# lock screen the one surface a fresh install gets completely right before anyone logs in.
+if [[ -n $background ]] && command -v kwriteconfig6 >/dev/null; then
+  kwriteconfig6 --file kscreenlockerrc \
+    --group Greeter --group Wallpaper --group org.kde.image --group General \
+    --key Image "$background"
+  echo "lock screen wallpaper set to $background"
 fi
 
 # Konsole picks its scheme up from the profile, not from the colour scheme, so point the default
@@ -207,3 +168,10 @@ if command -v kwriteconfig6 >/dev/null; then
 else
   echo "skipping konsole profile: kwriteconfig6 not installed"
 fi
+
+# The greeter is the one surface this command cannot reach: its theme lives under /usr/share/sddm,
+# writable only by root, and a theme switch is not worth a sudo prompt. oal-bootstrap.sh renders it
+# during install, where it is already root. Afterwards it is a deliberate step -- said out loud,
+# because a login screen that silently stayed on the old palette is how you find out at the next
+# reboot.
+echo "login screen unchanged: run 'oal-refresh-sddm $slug' to retint it (asks for sudo)"

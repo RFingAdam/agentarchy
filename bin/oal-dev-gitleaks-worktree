@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# oal:summary=Scan not-yet-committed files for secrets (the pre-commit half of the gitleaks gate)
+# Usage: oal-dev-gitleaks-worktree [extra gitleaks args]
+#
+# The history gate (`gitleaks detect` proper) only sees committed blobs. This one has to see the
+# files on disk, so a secret is caught before it is committed rather than after -- a secret in git
+# history is permanent.
+#
+# Why it stages a copy instead of `gitleaks detect --no-git --source .`:
+#   --no-git walks the filesystem, and the filesystem is not the set of files that can reach a
+#   commit. It descends into gitignored scratch, which in this repo means multi-gigabyte VM disks:
+#   .vm/disk.qcow2, .vm-cache/*/disk.qcow2, and another under any .claude/worktrees/*/ a parallel
+#   session left behind. --max-target-megabytes does not save us -- in --no-git mode gitleaks reads
+#   the file before it weighs it -- and neither does .gitleaks.toml's path allowlist, which only
+#   suppresses findings. The gate ballooned past available memory and was OOM-killed three times,
+#   taking the whole Claude session with it each time, the third from a path (.claude/worktrees/)
+#   nobody had thought to allowlist. Enumerating the committable set is the fix that does not need
+#   a new allowlist entry every time a large file appears somewhere new.
+#
+# `git ls-files --cached --others --exclude-standard` is exactly that set: tracked files plus
+# untracked ones git would offer to add. Paths in the staged tree stay repo-relative, so the path
+# allowlist in .gitleaks.toml matches the same things it always did.
+set -euo pipefail
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+root="$(oal_dev_root)" || exit 1; cd "$root"
+
+command -v gitleaks >/dev/null || oal_dev_die "gitleaks is not installed"
+
+stage="$(mktemp -d)"
+trap 'rm -rf -- "$stage"' EXIT
+
+# The -f test drops entries git lists but the disk does not have: a tracked file deleted in the
+# working tree, and directory-shaped entries. tar would abort on those and take the gate with it.
+git ls-files -z --cached --others --exclude-standard \
+  | while IFS= read -r -d '' f; do [[ -f "$f" ]] && printf '%s\0' "$f"; done \
+  | tar --null --files-from=- --create --file=- \
+  | tar --extract --file=- --directory="$stage"
+
+gitleaks detect --no-git --no-banner --redact --source "$stage" -c "$root/.gitleaks.toml" "$@"

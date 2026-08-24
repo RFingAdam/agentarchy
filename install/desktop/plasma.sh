@@ -31,6 +31,18 @@ systemctl set-default graphical.target
 # there is nothing to gain by taking that risk. Session name is the file stem of
 # /usr/share/wayland-sessions/plasma.desktop.
 install -d -m 0755 /etc/sddm.conf.d
+
+# Point SDDM at Agentarchy's greeter. etc/sddm.conf.d/10-theme.conf is vendored and says exactly
+# this, but nothing installs the etc/ tree yet (Phase 4 decides that per subtree), so the greeter
+# theme has been named by a file no SDDM ever read. Written here because this script already owns
+# the display manager's configuration. The theme directory itself, and its palette, arrive with
+# oal-refresh-sddm from oal-bootstrap.sh -- rendering it needs a theme name this script does not
+# have.
+cat > /etc/sddm.conf.d/10-theme.conf <<'CONF'
+[Theme]
+Current=oal
+CONF
+chmod 0644 /etc/sddm.conf.d/10-theme.conf
 if [[ -n ${OAL_INSTALL_USER:-} ]]; then
   cat > /etc/sddm.conf.d/10-agentarchy.conf <<CONF
 [Autologin]

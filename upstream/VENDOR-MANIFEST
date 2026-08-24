@@ -30,6 +30,21 @@ exclude default/themed/shell.toml.tpl
 exclude themes/*/shell.lock.toml
 exclude default/sddm/*/logo.png
 exclude default/sddm/hyprland.lua
+# The greeter itself is Agentarchy's now, and its five sprites are gone. Upstream draws the lock,
+# the entry field and the password dots as PNGs in one hard-coded colour (#C0CAF5, tokyo-night's
+# bright_foreground), which cannot follow a palette: on the five light themes it would be light on
+# light. They are also unaccounted assets of exactly the class docs/asset-audit-findings.md rules
+# on -- vendored bytes, no licence, absent from NOTICE, and outside that audit's wallpaper scope --
+# so they are dropped rather than re-published. Main.qml is excluded with them because it exists to
+# place them; ours draws the same greeter from theme.conf, rendered per theme from the palette.
+# Globs here match upstream paths, before RENAME-PATHS.sed turns the directory into sddm/oal --
+# hence the wildcard, same as the logo.png line above.
+exclude default/sddm/*/Main.qml
+exclude default/sddm/*/lock.png
+exclude default/sddm/*/lock-failed.png
+exclude default/sddm/*/entry.png
+exclude default/sddm/*/entry-failed.png
+exclude default/sddm/*/bullet.png
 # The greeter drop-in exists only to point SDDM's Wayland greeter at that hyprland.lua. Agentarchy
 # decided the other way in install/desktop/plasma.sh: the greeter stays on SDDM's X11 default (the
 # Wayland greeter is experimental upstream) and autologin skips it entirely. Vendoring a config that

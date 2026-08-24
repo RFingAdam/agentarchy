@@ -103,6 +103,10 @@ oal-provision-user --first-install
 log "Applying the default theme"
 oal-theme-set-kde "${OAL_DEFAULT_THEME:-tokyo-night}"
 
+# The greeter is the one surface that needs root, and an install is the last moment we have it
+# without asking. After this, retinting the login screen is a deliberate `oal-refresh-sddm <theme>`.
+oal-refresh-sddm "${OAL_DEFAULT_THEME:-tokyo-night}"
+
 log "Done"
 cat <<'NEXT'
 

@@ -431,12 +431,6 @@ default/plymouth/oal.plymouth
 default/plymouth/oal.script
 default/plymouth/progress_bar.png
 default/plymouth/progress_box.png
-default/sddm/oal/Main.qml
-default/sddm/oal/bullet.png
-default/sddm/oal/entry-failed.png
-default/sddm/oal/entry.png
-default/sddm/oal/lock-failed.png
-default/sddm/oal/lock.png
 default/sddm/oal/metadata.desktop
 default/sddm/oal/theme.conf
 default/snapper/root
