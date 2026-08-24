@@ -54,6 +54,18 @@ STUB
   done
 }
 
+@test "the catalog resolves with OAL_PATH unset, from any directory" {
+  # OAL_PATH is only exported into login shells, and these commands run from ssh, scripts and
+  # systemd units. The library therefore derives the tree from its own location -- and got that
+  # wrong once in a way no unit test saw, because the developer's shell had OAL_PATH set: it used
+  # BASH_SOURCE[1], the *caller's* file, which is the library itself whenever one of its functions
+  # calls another. On a real install the catalog came back empty.
+  cd /tmp
+  run env -u OAL_PATH "$SRC/bin/oal-mcp-list"
+  [ "$status" -eq 0 ]
+  grep -q '^git ' <<<"$output" || { echo "empty or wrong catalog:"; echo "$output"; return 1; }
+}
+
 @test "profiles resolve to servers that exist" {
   for p in minimal dev; do
     mcp list --profile "$p"

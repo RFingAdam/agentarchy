@@ -4,13 +4,18 @@
 # Not in bin/ on purpose: PKGBUILD symlinks every bin/* onto PATH except oal-dev-*, so a library
 # living there would become a command called oal-mcp-lib.sh.
 
+# Resolved once, here, from this file's own location: lib.sh lives at $OAL_PATH/default/mcp/lib.sh,
+# so the tree root is three directories up. Computed at source time and not inside a function --
+# BASH_SOURCE[1] is the *caller's* file, which is this same file whenever one library function calls
+# another, and the path then resolves a level too deep. That version worked everywhere OAL_PATH
+# happened to be exported and returned an empty catalog on a real installed system.
+_oal_mcp_lib="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+_oal_mcp_root="$(cd "$_oal_mcp_lib/../.." && pwd)"
+
 oal_mcp_path() {
   # OAL_PATH is exported by /etc/profile.d/oal.sh for login shells only, and these commands are
-  # routinely run from ssh and from scripts. Derive it the way the other native commands do.
-  if [[ -n ${OAL_PATH:-} ]]; then printf '%s' "$OAL_PATH"; return; fi
-  local bin_dir
-  bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[1]}")")" && pwd)"
-  printf '%s' "$(dirname "$bin_dir")"
+  # routinely run from ssh and from scripts, so it cannot be relied on.
+  printf '%s' "${OAL_PATH:-$_oal_mcp_root}"
 }
 
 oal_mcp_die() { echo "${0##*/}: $*" >&2; exit 1; }
