@@ -92,6 +92,13 @@ exclude themes/*/hyprland.lua
 # STARSHIP_CONFIG points at. Delivered to ~/.config it would be read by nothing while looking like
 # the file to edit, which is worse than not shipping it.
 exclude config/starship.toml
+# The menu. Both are clients for oal-shell, upstream's Quickshell IPC, which is excluded above --
+# they exit 127 on this tree rather than doing anything. Reimplemented natively on fuzzel, which
+# preserves oal-menu-select's contract exactly (glyph/label/subtext in, label out) while depending on
+# a 200 KB Wayland picker instead of a compositor shell. Excluded rather than patched because none
+# of the original body survives. See docs/menu.md.
+exclude bin/omarchy-menu
+exclude bin/omarchy-menu-select
 # --- three themes dropped 2026-08-23, on the "what will nobody use" question.
 # Agentarchy ships its own palette as the default now (themes/agentarchy, native), and the light
 # ones were the least defensible of the inherited set. lupine and flexoki-light are niche. rose-pine

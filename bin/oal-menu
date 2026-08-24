@@ -1,52 +1,89 @@
-#!/bin/bash
-
-# oal:summary=Control the Agentarchy menu (toggle / summon / close / refresh)
-# oal:args=[toggle|summon|close|refresh|ping] [route]
-# oal:examples=oal menu | oal menu toggle system | oal menu summon style.theme | oal menu refresh
-
-# Thin wrapper around the standard plugin IPC surface. The menu is the
-# first-party `oal.menu` plugin; routes are passed as JSON payload.
-
+#!/usr/bin/env bash
+# oal:summary=The Agentarchy menu
+# oal:args=[route]
+# oal:examples=oal menu | oal-menu theme | oal-menu agent
+#
+# A tree, walked with oal-menu-select. Upstream's version was nine lines around a call to a
+# Quickshell plugin this distribution does not ship, so it exited 127 on every invocation.
+#
+# Every entry here runs a command that exists on this tree. That is a deliberate constraint rather
+# than a coincidence: an entry that silently does nothing is worse than an absent one, and the whole
+# inherited menu was entries of exactly that kind. test/unit/menu.bats enforces it.
 set -euo pipefail
 
-verb="${1-toggle}"
-route="${2-root}"
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export OAL_PATH
 
-menu_payload() {
-  jq -nc --arg menu "$1" '{ menu: $menu }'
+pick() { oal-menu-select "$@"; }
+
+menu_theme() {
+  local themes=() name d chosen
+  for d in "$OAL_PATH"/themes/*/; do
+    name="$(basename "$d")"
+    themes+=("$(printf '\t%s' "$name")")
+  done
+  chosen="$(printf '%s\n' "${themes[@]}" | pick Theme)" || return 0
+  oal-theme-set "$chosen"
 }
 
-case "$verb" in
-  toggle)
-    exec oal-shell shell toggle oal.menu "$(menu_payload "$route")"
-    ;;
-  summon)
-    exec oal-shell shell summon oal.menu "$(menu_payload "$route")"
-    ;;
-  close)
-    exec oal-shell shell hide oal.menu
-    ;;
-  refresh | ping)
-    exec oal-shell shell call oal.menu "$verb" "{}"
-    ;;
-  -h | --help | help)
-    cat <<USAGE
-Usage: oal menu [verb] [route]
+menu_layout() {
+  local chosen
+  chosen="$(printf '%s\n' $'\tubuntu\ttop bar and a dock' $'\tmint\tone taskbar along the bottom' | pick Layout)" || return 0
+  oal-layout-set "${chosen%%$'\t'*}"
+}
 
-Verbs:
-  toggle [route]   Open the menu at <route>, or close it if already open. Default verb.
-  summon [route]   Always open the menu (no close-if-visible toggle).
-  close            Close the menu if it is visible.
-  refresh          Re-parse the menu JSONC files.
-  ping             Health check.
+menu_agent() {
+  local chosen p
+  chosen="$(printf '%s\n' \
+    $'\tposture\tread-only, confirmed, or permissive' \
+    $'\tservers\twhich MCP servers are registered' | pick Agent)" || return 0
+  case "${chosen%%$'\t'*}" in
+    posture)
+      p="$(printf '%s\n' \
+        $'\tscoped\tthe default: writes are confirmed' \
+        $'\tuntrusted\teverything is confirmed' \
+        $'\ttrusted\tpermissive' | pick Posture)" || return 0
+      oal-agent-profile "${p%%$'\t'*}"
+      ;;
+    servers) oal-mcp-status | pick MCP >/dev/null || true ;;
+  esac
+}
 
-Route is an item id (e.g. setup.power) or alias (e.g. power). Defaults to
-"root", which opens the top-level menu.
-USAGE
-    exit 0
+menu_system() {
+  local chosen
+  chosen="$(printf '%s\n' \
+    $'\tlock\tlock the session' \
+    $'\tlogout\tend the session' \
+    $'\treboot\trestart the machine' \
+    $'\tshutdown\tpower off' | pick System)" || return 0
+  case "${chosen%%$'\t'*}" in
+    lock) loginctl lock-session ;;
+    logout) qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logout ;;
+    reboot) qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logoutAndReboot ;;
+    shutdown) qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logoutAndShutdown ;;
+  esac
+}
+
+route="${1:-root}"
+case "$route" in
+  theme) menu_theme ;;
+  layout) menu_layout ;;
+  agent) menu_agent ;;
+  system) menu_system ;;
+  -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
+  root)
+    chosen="$(printf '%s\n' \
+      $'\tTheme\tcolours, wallpaper, and everything themed' \
+      $'\tLayout\tpanels and dock' \
+      $'\tAgent\tposture and MCP servers' \
+      $'\tSystem\tlock, log out, restart' | pick Agentarchy)" || exit 0
+    case "${chosen%%$'\t'*}" in
+      Theme) menu_theme ;;
+      Layout) menu_layout ;;
+      Agent) menu_agent ;;
+      System) menu_system ;;
+    esac
     ;;
-  *)
-    echo "oal-menu: unknown verb '$verb'. Try 'oal menu --help'." >&2
-    exit 2
-    ;;
+  *) echo "oal-menu: no route '$route' (try theme, layout, agent, system)" >&2; exit 1 ;;
 esac

@@ -20,4 +20,12 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 
+# Meta+Space opens the menu. Bound here because kglobalshortcutsrc is only read by a running
+# kglobalaccel, and because a shortcut the user has since changed must not be reset at every login --
+# same once-only reasoning as the layout above.
+if command -v kwriteconfig6 >/dev/null; then
+  kwriteconfig6 --file kglobalshortcutsrc --group services --group oal-menu.desktop \
+    --key _launch "Meta+Space\tnone\tAgentarchy Menu" 2>/dev/null || true
+fi
+
 exec oal-layout-set "${OAL_LAYOUT:-ubuntu}"

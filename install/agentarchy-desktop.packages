@@ -56,6 +56,11 @@ qt6-tools
 kde-cli-tools
 systemsettings
 
+# --- the menu
+# fuzzel backs oal-menu-select: a Wayland-native picker, ~200 KB, themed from the current palette
+# like everything else. The alternative was reviving a compositor shell to get a menu back.
+fuzzel
+
 # --- desktop applications
 dolphin
 konsole

@@ -21,13 +21,11 @@ bin/oal-install-gaming-steam
 bin/oal-install-service-1password
 bin/oal-install-service-signal
 bin/oal-install-service-spotify
-bin/oal-menu
 bin/oal-menu-clipboard
 bin/oal-menu-emoji
 bin/oal-menu-emoji-insert
 bin/oal-menu-images
 bin/oal-menu-input
-bin/oal-menu-select
 bin/oal-menu-timezone
 bin/oal-migrate-notify
 bin/oal-notification-dismiss

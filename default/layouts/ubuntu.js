@@ -35,6 +35,7 @@ dock.floating = true;
 var tasks = dock.addWidget("org.kde.plasma.icontasks");
 tasks.currentConfigGroup = ["General"];
 tasks.writeConfig("launchers", [
+  "applications:oal-menu.desktop",
   "applications:org.kde.konsole.desktop",
   "applications:org.kde.dolphin.desktop",
   "applications:org.kde.kate.desktop",
