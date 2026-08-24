@@ -35,8 +35,16 @@ setup() {
 @test "without a graphical session it refuses instead of half-applying" {
   # Applying a preset removes every panel. Doing that with no session to apply it to would be the
   # worst of both: the arrangement gone and nothing put back.
-  run env -u WAYLAND_DISPLAY -u DISPLAY OAL_PATH="$SRC" XDG_STATE_HOME="$XDG_STATE_HOME" \
-    "$SRC/bin/oal-layout-set" ubuntu
+  # PATH is stripped as well as the display variables. A developer's machine has qdbus6 and CI does
+  # not, so with the checks in the wrong order this passed locally and failed in CI on the message
+  # rather than the behaviour -- which is exactly the difference this test exists to catch.
+  local bare="$BATS_TEST_TMPDIR/bare"
+  mkdir -p "$bare"
+  for c in bash env sed cat printf mkdir readlink dirname basename; do
+    p="$(command -v "$c" 2>/dev/null)" && ln -sf "$p" "$bare/$c"
+  done
+  run env -u WAYLAND_DISPLAY -u DISPLAY PATH="$bare" OAL_PATH="$SRC" \
+    XDG_STATE_HOME="$XDG_STATE_HOME" "$SRC/bin/oal-layout-set" ubuntu
   [ "$status" -ne 0 ]
   [[ $output == *"no graphical session"* ]]
   [ ! -e "$XDG_STATE_HOME/oal/layout" ]
