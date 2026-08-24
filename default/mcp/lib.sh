@@ -27,7 +27,7 @@ oal_mcp_state() { printf '%s' "${XDG_STATE_HOME:-$HOME/.local/state}/oal/mcp"; }
 # --- catalog ------------------------------------------------------------------------------------
 
 # Print every catalog row, one per line, fields separated by US (0x1f).
-#   id, kind, package, args, profiles, origin, description
+#   id, kind, package, args, visibility, profiles, origin, description
 # origin is "shipped" for default/mcp/CATALOG and the file's basename for anything imported.
 #
 # Not tab-separated. Tab is IFS whitespace, so bash collapses a run of them into one delimiter, and
@@ -40,13 +40,14 @@ oal_mcp_catalog() {
     [[ -f $file ]] || continue
     origin=shipped
     [[ $file == "$path/default/mcp/CATALOG" ]] || origin="$(basename "$file" .catalog)"
-    local id kind package args profiles description
-    while IFS='|' read -r id kind package args profiles description; do
+    local id kind package args visibility profiles description
+    while IFS='|' read -r id kind package args visibility profiles description; do
       id="$(xargs <<<"$id")"
       [[ -n $id && $id != \#* ]] || continue
-      printf '%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\n' \
+      printf '%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\n' \
         "$id" "$(xargs <<<"$kind")" "$(xargs <<<"$package")" "$(xargs <<<"$args")" \
-        "$(xargs <<<"$profiles")" "$origin" "$(sed -e 's/^ *//' -e 's/ *$//' <<<"$description")"
+        "$(xargs <<<"${visibility:-public}")" "$(xargs <<<"$profiles")" "$origin" \
+        "$(sed -e 's/^ *//' -e 's/ *$//' <<<"$description")"
     done < <(grep -v '^[[:space:]]*#' "$file" | grep '|')
   done
 }

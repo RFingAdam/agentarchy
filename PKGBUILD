@@ -63,6 +63,18 @@ package() {
   # it ships under /usr/share/agentarchy/etc where those decisions can be made against real files.
   install -Dm644 etc/profile.d/oal.sh "$pkgdir/etc/profile.d/oal.sh"
 
+  # config/ is ~/.config, seeded through /etc/skel -- which is upstream's whole delivery model for
+  # per-user defaults: useradd -m copies it for a new user, and oal-reinstall-configs replays it over
+  # an existing one with `cp -af /etc/skel/. ~/`. Agentarchy vendored the config trees and never
+  # populated skel, so none of it reached a home directory: ghostty, kitty, alacritty and foot each
+  # `include` a file the theme engine renders on every theme change, and those includes were in
+  # configs nobody had.
+  #
+  # .bashrc is deliberately not here. /etc/skel/.bashrc belongs to the `bash` package and shipping
+  # one is a hard file conflict; oal-bootstrap.sh appends the source line instead.
+  install -d "$pkgdir/etc/skel/.config"
+  cp -a config/. "$pkgdir/etc/skel/.config/"
+
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
 

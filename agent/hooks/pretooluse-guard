@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# PreToolUse guard: classify every tool call the agent makes, and refuse the ones that cannot be
+# taken back. Wired by install/agent/runtime.sh; rules live in agent/hooks/rules.
+#
+# Reads the hook payload on stdin and answers on stdout with a permission decision.
+#
+# FAIL CLOSED. Every path that cannot reach a confident decision denies. A guard that allows when it
+# is confused is not a guard -- it is a guard-shaped thing that reports success while the one case it
+# existed for goes through. jq missing, rules unreadable, payload unparseable, profile nonsense: all
+# deny, all logged.
+#
+# The three tiers:
+#   block    refused outright. No override token. Reserved for what has no legitimate agent use.
+#   confirm  refused unless the call carries CONFIRM-<8 hex>, matching the convention the rest of
+#            this toolchain already uses, so a person opts in per call rather than per session.
+#   allow    permitted and recorded.
+#
+# Anything unmatched takes the default for the active oal-agent-profile: untrusted confirms,
+# scoped and trusted allow. That is what makes the posture a machine setting.
+set -uo pipefail
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/oal"
+audit_dir="$state_dir/claude-audit"
+here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+rules="$here/rules"
+
+# Answer and exit. Every exit from this script goes through here, so nothing can leave without
+# being logged.
+# Answer and exit. Every exit goes through here, so nothing leaves without being logged.
+#
+# The audit line carries the matched pattern; the JSON reason does not. Reasons are interpolated into
+# a JSON string, and the patterns are regexes full of backslashes -- putting one in the reason
+# produced output the runtime could not parse, which is a guard that fails open in the most confusing
+# way available. The log is tab-separated and has no such problem, so that is where the detail goes.
+decide() { # decide <allow|deny|ask> <tier> <tool> <reason> [pattern]
+  local decision="$1" tier="$2" tool="$3" reason="$4" pattern="${5:-}" ts
+  printf -v ts '%(%Y-%m-%dT%H:%M:%S%z)T' -1
+  mkdir -p -- "$audit_dir" 2>/dev/null &&
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$ts" "$decision" "$tier" "$tool" "$reason" "$pattern" \
+      >>"$audit_dir/${ts:0:7}.log" 2>/dev/null
+  # Reasons are written here, never taken from input, so this stays a fixed vocabulary.
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' \
+    "$decision" "$reason"
+  exit 0
+}
+
+command -v jq >/dev/null || decide deny fail-closed unknown "jq is not installed, so this call cannot be classified"
+[[ -r $rules ]] || decide deny fail-closed unknown "rule set unreadable, so nothing can be classified"
+
+# One jq, not two. This runs before every tool call the agent makes, and each fork is paid every
+# time: the first version spawned jq twice and then xargs, sed and grep once per rule -- fifty-odd
+# processes and 334 ms a call, which is a tax on everything the agent does.
+payload="$(cat)"
+parsed="$(jq -r '[(.tool_name // ""), ([.tool_input // {} | .. | strings] | join(" "))] | @tsv' <<<"$payload" 2>/dev/null)"
+[[ -n $parsed ]] || decide deny fail-closed unknown "payload could not be parsed"
+IFS=$'\t' read -r tool input <<<"$parsed"
+[[ -n $tool ]] || decide deny fail-closed unknown "payload has no tool_name"
+
+profile=scoped
+[[ -r $state_dir/agent-profile ]] && read -r profile <"$state_dir/agent-profile"
+case "$profile" in
+  trusted | scoped | untrusted) ;;
+  *) decide deny fail-closed "$tool" "the configured agent profile is not one this guard knows" ;;
+esac
+
+# CONFIRM-<8 hex>, the token shape the rest of this toolchain already uses.
+has_token=0
+[[ $input =~ CONFIRM-[0-9a-fA-F]{8} ]] && has_token=1
+
+while IFS='|' read -r tier rule_tool pattern; do
+  tier="${tier//[[:space:]]/}"
+  [[ -n $tier && $tier != \#* ]] || continue
+  rule_tool="${rule_tool//[[:space:]]/}"
+  # Trim with parameter expansion rather than sed: one fork per rule is twenty-two forks per call.
+  pattern="${pattern#"${pattern%%[![:space:]]*}"}"
+  pattern="${pattern%"${pattern##*[![:space:]]}"}"
+  [[ -n $pattern ]] || continue
+  [[ $rule_tool == "*" || $rule_tool == "$tool" ]] || continue
+  # bash's own ERE, so no grep either.
+  [[ $input =~ $pattern ]] || continue
+
+  case "$tier" in
+    block)
+      decide deny block "$tool" "refused by a block rule: this call cannot be taken back" "$pattern"
+      ;;
+    confirm)
+      (( has_token )) && decide allow confirm-token "$tool" "confirmed by token" "$pattern"
+      [[ $profile == trusted ]] && decide allow confirm-trusted "$tool" "allowed by the trusted profile" "$pattern"
+      decide ask confirm "$tool" "needs confirmation, or a CONFIRM-<8 hex> token in the call" "$pattern"
+      ;;
+    allow)
+      decide allow rule "$tool" "allowed by rule" "$pattern"
+      ;;
+    *)
+      decide deny fail-closed "$tool" "the rule set contains a tier this guard does not know" "$tier"
+      ;;
+  esac
+done < <(grep -v '^[[:space:]]*#' "$rules" | grep '|')
+
+[[ $profile == untrusted ]] &&
+  decide ask default-untrusted "$tool" "the untrusted profile confirms every call no rule covers"
+decide allow default "$tool" "no rule matched"

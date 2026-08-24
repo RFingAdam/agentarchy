@@ -34,17 +34,32 @@ name="$(basename "$file")"; name="${name%.catalog}"
 [[ $name =~ ^[A-Za-z0-9_-]+$ ]] || oal_mcp_die "catalog name must be kebab or snake case: '$name'"
 [[ $name != shipped ]] || oal_mcp_die "'shipped' is reserved for default/mcp/CATALOG"
 
+# Validate every row before copying anything. A catalog that half-imports is worse than one that
+# does not import at all.
+trim() { local s="$1"; s="${s#"${s%%[![:space:]]*}"}"; printf '%s' "${s%"${s##*[![:space:]]}"}"; }
+
 rows=0
-while IFS='|' read -r id kind package _ profiles _; do
-  id="$(xargs <<<"$id")"
+while IFS= read -r line; do
+  # The whole line first, so the field count can be checked before any field is trusted. A row of the
+  # wrong width splits without error and puts every value in its neighbour's slot -- a profile read
+  # as a visibility, a description read as a profile -- and the catalog then silently does nothing.
+  IFS='|' read -r -a parts <<<"$line"
+  id="$(trim "${parts[0]:-}")"
   [[ -n $id && $id != \#* ]] || continue
   rows=$((rows + 1))
-  case "$(xargs <<<"$kind")" in
+
+  (( ${#parts[@]} == 7 )) ||
+    oal_mcp_die "$file: '$id' has ${#parts[@]} fields, expected 7 (id|kind|package|args|visibility|profiles|description)"
+
+  case "$(trim "${parts[1]}")" in
     uvx | npx) ;;
-    *) oal_mcp_die "$file: '$id' has kind '$(xargs <<<"$kind")' (expected uvx or npx)" ;;
+    *) oal_mcp_die "$file: '$id' has kind '$(trim "${parts[1]}")' (expected uvx or npx)" ;;
   esac
-  [[ -n $(xargs <<<"$package") ]] || oal_mcp_die "$file: '$id' has no package"
-  [[ -n $(xargs <<<"$profiles") ]] || oal_mcp_die "$file: '$id' names no profile"
+  [[ -n $(trim "${parts[2]}") ]] || oal_mcp_die "$file: '$id' has no package"
+  [[ $(trim "${parts[4]}") =~ ^(public|private|hardware|commercial)$ ]] ||
+    oal_mcp_die "$file: '$id' has visibility '$(trim "${parts[4]}")' (public, private, hardware or commercial)"
+  [[ -n $(trim "${parts[5]}") ]] || oal_mcp_die "$file: '$id' names no profile"
+  [[ -n $(trim "${parts[6]}") ]] || oal_mcp_die "$file: '$id' has no description"
 done < <(grep -v '^[[:space:]]*#' "$file" | grep '|')
 (( rows )) || oal_mcp_die "$file: no catalog rows found"
 

@@ -1,12 +1,16 @@
 # MCP servers this distribution knows how to install. Read by bin/oal-mcp-*.
 #
-# Format, pipe-separated:  id | kind | package | args | profiles | description
+# Format, pipe-separated:  id | kind | package | args | visibility | profiles | description
 #
 #   kind      uvx (Python, run by uv) or npx (Node). Both are already installed by
 #             install/agentarchy-base.packages, so neither adds a dependency.
 #   args      arguments the server needs, or empty. $HOME is the only expansion
 #             permitted -- a data file that can expand arbitrary shell is a data file
 #             that can run arbitrary shell.
+#   visibility  public, private, hardware or commercial. Anything but public is skipped by a
+#             profile install and reported with a reason, rather than attempted and failed --
+#             a private registry, an absent instrument or a missing licence is not a bug to
+#             surface as an install error. Naming such a server explicitly still installs it.
 #   profiles  comma-separated; oal-mcp-install --profile takes one of these names.
 #   package   the exact registry name. Every entry here was checked against
 #             registry.npmjs.org or pypi.org before it was added -- a catalog whose
@@ -21,13 +25,13 @@
 # ones, not a curated set that reflects one person's work. Opinionated defaults are
 # good; an opinionated *catalogue* is a lock-in.
 
-filesystem | npx | @modelcontextprotocol/server-filesystem | $HOME | minimal,dev | Read and write files under paths you name
-git | uvx | mcp-server-git |  | minimal,dev | Read, search and inspect a git repository
-fetch | uvx | mcp-server-fetch |  | minimal,dev | Retrieve a URL and convert it to text
-time | uvx | mcp-server-time |  | minimal,dev | Current time and timezone conversion
-memory | npx | @modelcontextprotocol/server-memory |  | dev | A knowledge graph the agent can persist notes into
-sequential-thinking | npx | @modelcontextprotocol/server-sequential-thinking |  | dev | Structured step-by-step reasoning
-github | npx | @modelcontextprotocol/server-github |  | dev | Issues, pull requests and code search on GitHub
-sqlite | uvx | mcp-server-sqlite |  | dev | Query and inspect a SQLite database
-playwright | npx | @playwright/mcp |  | dev | Drive a real browser: navigate, click, read, screenshot
-context7 | npx | @upstash/context7-mcp |  | dev | Up-to-date library and framework documentation
+filesystem | npx | @modelcontextprotocol/server-filesystem | $HOME | public | minimal,dev | Read and write files under paths you name
+git | uvx | mcp-server-git |  | public | minimal,dev | Read, search and inspect a git repository
+fetch | uvx | mcp-server-fetch |  | public | minimal,dev | Retrieve a URL and convert it to text
+time | uvx | mcp-server-time |  | public | minimal,dev | Current time and timezone conversion
+memory | npx | @modelcontextprotocol/server-memory |  | public | dev | A knowledge graph the agent can persist notes into
+sequential-thinking | npx | @modelcontextprotocol/server-sequential-thinking |  | public | dev | Structured step-by-step reasoning
+github | npx | @modelcontextprotocol/server-github |  | public | dev | Issues, pull requests and code search on GitHub
+sqlite | uvx | mcp-server-sqlite |  | public | dev | Query and inspect a SQLite database
+playwright | npx | @playwright/mcp |  | public | dev | Drive a real browser: navigate, click, read, screenshot
+context7 | npx | @upstash/context7-mcp |  | public | dev | Up-to-date library and framework documentation

@@ -18,11 +18,11 @@ while (($#)); do
 done
 
 registered="$(oal_mcp_registered)"
-printf '%-22s %-4s %-9s %-8s %s\n' ID ON PROFILES ORIGIN DESCRIPTION
-while IFS=$'\x1f' read -r id kind package args profiles origin description; do
+printf '%-22s %-4s %-11s %-9s %-8s %s\n' ID ON PROFILES VISIBILITY ORIGIN DESCRIPTION
+while IFS=$'\x1f' read -r id kind package args visibility profiles origin description; do
   [[ -z $profile || ",$profiles," == *",$profile,"* ]] || continue
   on=" "
   grep -qx -- "$id" <<<"$registered" && on="yes"
   [[ $installed_only -eq 0 || $on == yes ]] || continue
-  printf '%-22s %-4s %-9s %-8s %s\n' "$id" "$on" "$profiles" "$origin" "$description"
+  printf '%-22s %-4s %-11s %-9s %-8s %s\n' "$id" "$on" "$profiles" "$visibility" "$origin" "$description"
 done < <(oal_mcp_catalog)

@@ -85,3 +85,21 @@ meta() {
   grep -q 'etc/profile.d/oal.sh "\$pkgdir/etc/profile.d/oal.sh"' "$PKGBUILD"
   [ -f "$SRC/etc/profile.d/oal.sh" ]
 }
+
+@test "the package seeds ~/.config through /etc/skel" {
+  # config/ only reaches a home directory if the package puts it in /etc/skel: that is upstream's
+  # delivery model, and oal-reinstall-configs replays the same tree with `cp -af /etc/skel/. ~/`.
+  # Vendoring the config trees without populating skel means shipping them nowhere, which is what
+  # happened -- four terminal configs `include` a themed file and none of them was ever installed.
+  grep -q 'etc/skel/.config' "$SRC/PKGBUILD"
+  grep -q 'cp -a config/\. ' "$SRC/PKGBUILD"
+}
+
+@test "the package does not try to own /etc/skel/.bashrc" {
+  # It belongs to the `bash` package. Shipping one is a hard file conflict and the install fails
+  # outright; oal-bootstrap.sh appends the source line instead.
+  # Non-comment lines only: the PKGBUILD explains in a comment why this file is not shipped, and a
+  # naive grep matches the explanation and fails on a correct file.
+  run bash -c "grep -v '^[[:space:]]*#' '$SRC/PKGBUILD' | grep -cE 'skel/[.]bashrc'"
+  [ "$output" = "0" ]
+}
