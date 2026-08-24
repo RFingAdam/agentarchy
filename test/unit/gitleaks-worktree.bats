@@ -5,27 +5,36 @@
 # files that can reach a commit and nothing else -- not the filesystem. That distinction is not
 # cosmetic: gitignored scratch in this repo means multi-gigabyte VM disks, and scanning them
 # OOM-killed the gate (and the session driving it) three times.
+#
+# The cases below plant a token matched by a rule this file writes, not by gitleaks' default rules.
+# Which strings a given gitleaks build recognises is its business and drifts between versions (the
+# AWS example key these cases first used is flagged locally and ignored by 8.21.2 in CI); which
+# files it is handed is ours, and that is what is under test.
 
 setup() {
   command -v gitleaks >/dev/null || skip "gitleaks is not installed"
   REPO="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
 
   # A standalone repo, so a case can leave a "secret" lying around without touching the real tree.
-  # It needs upstream/PIN (that is how oal_dev_root finds a root) and a copy of the two scripts.
+  # It needs upstream/PIN -- that is how oal_dev_root finds a root -- and a copy of the two scripts.
   SCRATCH="$BATS_TEST_TMPDIR/repo"
   mkdir -p "$SCRATCH/bin" "$SCRATCH/upstream"
   cp "$REPO/bin/oal-dev-lib.sh" "$REPO/bin/oal-dev-gitleaks-worktree" "$SCRATCH/bin/"
-  cp "$REPO/.gitleaks.toml" "$SCRATCH/.gitleaks.toml"
   echo 0000000000000000000000000000000000000000 >"$SCRATCH/upstream/PIN"
+  cat >"$SCRATCH/.gitleaks.toml" <<'TOML'
+[[rules]]
+id = "oal-planted-token"
+description = "the token test/unit/gitleaks-worktree.bats plants; nothing real has this shape"
+regex = '''OAL_PLANTED_TOKEN_[A-Z0-9]{10}'''
+TOML
+
   git -C "$SCRATCH" init -q
   git -C "$SCRATCH" config user.email oal@example.invalid
   git -C "$SCRATCH" config user.name oal
   git -C "$SCRATCH" add -A
   git -C "$SCRATCH" commit -qm base
 
-  # Assembled at run time rather than stored: a committed file holding a whole AWS key trips
-  # GitHub's push protection, and the point here is the scanner's behaviour, not the string.
-  leak() { printf 'aws_access_key_id = %s%s\n' AKIA IOSFODNN7EXAMPLE >"$1"; }
+  leak() { printf 'token = %s%s\n' OAL_PLANTED_TOKEN_ 9XQ2VBN4KD >"$1"; }
   gate() { (cd "$SCRATCH" && bin/oal-dev-gitleaks-worktree "$@"); }
 }
 
