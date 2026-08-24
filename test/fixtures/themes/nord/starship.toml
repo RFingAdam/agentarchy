@@ -1,0 +1,73 @@
+# Starship prompt, generated from a theme's colors.toml.
+#
+# The eighteenth themed template. Rendered by oal-theme-set-templates into
+# ~/.local/state/oal/current/theme/starship.toml, which config/starship/starship.toml points at, so
+# the prompt retints on every theme change with no per-theme prompt config to maintain.
+#
+# The look is deliberate. No powerline arrows and no segmented grey blocks -- that silhouette is what
+# reads as a decade-old desktop, and it spends the whole line on chrome. Two quiet lines instead:
+# context above, state and caret below, with the accent used once rather than on every segment. The
+# separators are thin box-drawing characters, which every monospace font has, so the prompt does not
+# collapse into replacement glyphs when a Nerd Font is missing.
+
+add_newline = true
+palette = "oal"
+
+format = """
+[╭](fg:#4c566a) $directory$git_branch$git_status$cmd_duration
+[╰](fg:#4c566a) $custom$character"""
+
+[palettes.oal]
+ground = "#2e3440"
+muted = "#4c566a"
+fg = "#d8dee9"
+accent = "#81a1c1"
+ok = "#a3be8c"
+warn = "#ebcb8b"
+bad = "#bf616a"
+info = "#81a1c1"
+
+[directory]
+style = "fg:#d8dee9"
+format = "[$path]($style)[$read_only]( fg:#bf616a)"
+truncation_length = 3
+truncate_to_repo = true
+read_only = " ro"
+
+[git_branch]
+style = "fg:#4c566a"
+format = "  [$branch]($style)"
+
+[git_status]
+style = "fg:#ebcb8b"
+format = "[$all_status$ahead_behind]($style)"
+conflicted = " !"
+untracked = " ?"
+modified = " *"
+staged = " +"
+renamed = " r"
+deleted = " x"
+stashed = " s"
+ahead = " ^${count}"
+behind = " v${count}"
+diverged = " ^${ahead_count}v${behind_count}"
+
+# Only when something took long enough that you would have wondered.
+[cmd_duration]
+min_time = 2000
+style = "fg:#4c566a"
+format = "  [$duration]($style)"
+
+# The agent line. oal-agent-hud reads a cached state file and never the network, so this cannot
+# stall the prompt; it prints nothing at all when there is no agent runtime or no fresh state.
+[custom.agent]
+command = "oal-agent-hud"
+when = true
+shell = ["bash", "--noprofile", "--norc"]
+style = "fg:#81a1c1"
+format = "[$output]($style) "
+
+[character]
+success_symbol = "[❯](fg:#81a1c1)"
+error_symbol = "[❯](fg:#bf616a)"
+vimcmd_symbol = "[❮](fg:#a3be8c)"

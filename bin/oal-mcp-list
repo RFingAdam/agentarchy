@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# oal:summary=List the MCP servers this system knows how to install
+# oal:args=[--profile <name>] [--installed]
+# oal:examples=oal-mcp-list | oal-mcp-list --profile dev
+set -euo pipefail
+# shellcheck source=default/mcp/lib.sh
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../default/mcp/lib.sh"
+
+profile=""
+installed_only=0
+while (($#)); do
+  case "$1" in
+    --profile) profile="${2:?--profile wants a name}"; shift 2 ;;
+    --installed) installed_only=1; shift ;;
+    -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
+    *) oal_mcp_die "unknown argument: $1" ;;
+  esac
+done
+
+registered="$(oal_mcp_registered)"
+printf '%-22s %-4s %-9s %-8s %s\n' ID ON PROFILES ORIGIN DESCRIPTION
+while IFS=$'\x1f' read -r id kind package args profiles origin description; do
+  [[ -z $profile || ",$profiles," == *",$profile,"* ]] || continue
+  on=" "
+  grep -qx -- "$id" <<<"$registered" && on="yes"
+  [[ $installed_only -eq 0 || $on == yes ]] || continue
+  printf '%-22s %-4s %-9s %-8s %s\n' "$id" "$on" "$profiles" "$origin" "$description"
+done < <(oal_mcp_catalog)

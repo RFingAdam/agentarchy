@@ -7,10 +7,10 @@ Plasma 6** instead of Hyprland.
 
 ![Agentarchy on its default theme](docs/screenshots/desktop-agentarchy.webp)
 
-> **Status: pre-alpha, and the third clause of that tagline is a plan, not a feature.** There is no
-> agent layer yet. If you are looking for a reason to install this today over Omarchy or stock Arch,
-> there isn't one. What exists is below, stated plainly, because a README that describes the roadmap
-> in the present tense is how projects waste people's evenings.
+> **Status: pre-alpha.** What is described below exists and is tested. Anything that does not is on
+> the [issue tracker](https://github.com/RFingAdam/agentarchy/issues) rather than in this paragraph,
+> because a README that describes the roadmap in the present tense is how projects waste people's
+> evenings.
 
 ## What actually works today
 
@@ -54,15 +54,43 @@ underneath the shell, and most of it has no route to the screen until the menu a
 
 So: the theme engine is real and working. The rest is inherited machinery waiting for a front end.
 
-## What is supposed to make it worth using
+## Agents are part of the OS, not something you bolt on
 
-Three things together, of which two exist:
+This is the part worth switching for, and the part no other distribution does.
 
-1. **Omarchy's opinionated tooling** -- done, if not yet surfaced.
-2. **A desktop you drive with a mouse** -- done. Plasma 6, Ubuntu-style or Mint-style layout.
-3. **An agentic engineering runtime at first login** -- *not built.* This is the only part no other
-   distribution offers, and it is the reason the project exists. Until it lands, Agentarchy is a
-   KDE respin of somebody else's tooling and should be described that way.
+**MCP servers are managed like packages** -- not a JSON file you hand-edit and hope you got right:
+
+```bash
+oal-mcp-list                     # the catalog, and what is already registered
+oal-mcp-install --profile dev    # install and register a set
+oal-mcp-status                   # what is registered, and where it came from
+oal-mcp-remove playwright        # not a one-way door
+```
+
+The shipped catalog is small and vendor-neutral on purpose: the reference servers and a few widely
+used ones. Nothing is installed by default. `oal-mcp-import` registers a catalog of your own, so
+private, licence-gated or hardware-bound servers need no change here and never appear in this
+repository.
+
+**The permission posture is a machine setting.** `oal-agent-profile trusted|scoped|untrusted`, with
+`scoped` the default: reading and searching are free, writing and installing are confirmed, and every
+posture refuses to read `.env` files and private keys. Enforcement at the tool-call boundary is
+[issue #6](https://github.com/RFingAdam/agentarchy/issues/6).
+
+**The prompt shows what the agent is doing** -- model, posture, MCP servers registered, and how much
+of today's limit is gone. It is rendered from the same `colors.toml` as the desktop, so it follows
+the theme:
+
+```
+╭ ~/projects/agentarchy  main *
+╰ opus-5  scoped  9 mcp  38%  ❯
+```
+
+It reads a cached file and never the network, and prints nothing at all when there is nothing to say.
+A prompt that stalls is worse than a prompt that is quiet.
+
+**Still a plan:** the engineering MCP catalog that layers on top of this -- RF, EMC, PCB and lab-test
+servers -- which is what the tagline's third clause points at.
 
 ## Why the commands are called `oal-*`
 

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.age)",
+      "Read(./**/id_rsa)",
+      "Read(./**/id_ed25519)"
+    ]
+  }
+}

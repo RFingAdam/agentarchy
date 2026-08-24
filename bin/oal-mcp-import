@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# oal:summary=Register a catalog of MCP servers this distribution does not ship
+# oal:args=<file.catalog> | --list | --forget <name>
+# oal:examples=oal-mcp-import ~/work/rf-lab.catalog | oal-mcp-import --list
+#
+# The extension point. Agentarchy ships the mechanism and a small vendor-neutral catalog; anything
+# private, licence-gated or hardware-bound belongs in a catalog of your own, and importing it must
+# not require a change to this repository. Imported entries stay marked as such everywhere they
+# appear, so it is always clear which servers the distribution vouches for.
+set -euo pipefail
+# shellcheck source=default/mcp/lib.sh
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../default/mcp/lib.sh"
+
+dir="$(oal_mcp_state)/imported"
+
+case "${1:-}" in
+  -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
+  --list)
+    shopt -s nullglob
+    for f in "$dir"/*.catalog; do printf '%-24s %s rows\n' "$(basename "$f" .catalog)" "$(grep -c '|' "$f")"; done
+    exit 0 ;;
+  --forget)
+    name="${2:?--forget wants a catalog name}"
+    [[ -f "$dir/$name.catalog" ]] || oal_mcp_die "no imported catalog called '$name'"
+    rm -f -- "$dir/$name.catalog"
+    echo "forgot $name (registered servers are untouched; use oal-mcp-remove for those)"
+    exit 0 ;;
+  "") sed -n '2,4p' "$0" >&2; exit 2 ;;
+esac
+
+file="$1"
+[[ -f $file ]] || oal_mcp_die "no such file: $file"
+name="$(basename "$file")"; name="${name%.catalog}"
+[[ $name =~ ^[A-Za-z0-9_-]+$ ]] || oal_mcp_die "catalog name must be kebab or snake case: '$name'"
+[[ $name != shipped ]] || oal_mcp_die "'shipped' is reserved for default/mcp/CATALOG"
+
+rows=0
+while IFS='|' read -r id kind package _ profiles _; do
+  id="$(xargs <<<"$id")"
+  [[ -n $id && $id != \#* ]] || continue
+  rows=$((rows + 1))
+  case "$(xargs <<<"$kind")" in
+    uvx | npx) ;;
+    *) oal_mcp_die "$file: '$id' has kind '$(xargs <<<"$kind")' (expected uvx or npx)" ;;
+  esac
+  [[ -n $(xargs <<<"$package") ]] || oal_mcp_die "$file: '$id' has no package"
+  [[ -n $(xargs <<<"$profiles") ]] || oal_mcp_die "$file: '$id' names no profile"
+done < <(grep -v '^[[:space:]]*#' "$file" | grep '|')
+(( rows )) || oal_mcp_die "$file: no catalog rows found"
+
+mkdir -p -- "$dir"
+cp -- "$file" "$dir/$name.catalog"
+echo "imported $name ($rows servers). Nothing installed: run oal-mcp-install or oal-mcp-list --profile <name>"

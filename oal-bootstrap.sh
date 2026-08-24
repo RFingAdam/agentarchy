@@ -16,6 +16,7 @@
 #   OAL_CHECKOUT=<dir>      where to clone (default ~/.local/share/oal/checkout)
 #   OAL_SKIP_DESKTOP=1      build and install the package, then stop before touching the system
 #   OAL_SKIP_MISE=1         skip the mise tool installs (defaulted on, see below)
+#   OAL_SKIP_AGENT=1        skip installing the coding-agent runtime
 set -euo pipefail
 
 readonly REPO_URL="https://github.com/RFingAdam/agentarchy"
@@ -107,6 +108,12 @@ oal-provision-user --first-install
 # wallpaper needs a live session and is applied the first time the theme is set inside one.
 log "Applying the default theme"
 oal-theme-set-kde "${OAL_DEFAULT_THEME:-agentarchy}"
+
+# The agent runtime, the permission posture, and the timer feeding the prompt's agent line. Runs as
+# the user because the runtime installs into the home directory and self-updates. Non-fatal by
+# design: see install/agent/runtime.sh.
+log "Installing the agent runtime"
+bash "$checkout/install/agent/runtime.sh"
 
 # The greeter is the one surface that needs root, and an install is the last moment we have it
 # without asking. After this, retinting the login screen is a deliberate `oal-refresh-sddm <theme>`.

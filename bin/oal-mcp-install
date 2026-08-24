@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# oal:summary=Install and register MCP servers with the agent runtime
+# oal:args=<id>... | --profile <name>
+# oal:examples=oal-mcp-install git fetch | oal-mcp-install --profile dev
+set -euo pipefail
+# shellcheck source=default/mcp/lib.sh
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../default/mcp/lib.sh"
+
+ids=()
+while (($#)); do
+  case "$1" in
+    --profile)
+      profile="${2:?--profile wants a name}"; shift 2
+      mapfile -t found < <(oal_mcp_catalog | awk -F'\x1f' -v p=",$profile," 'index(","$5",", p) { print $1 }')
+      ((${#found[@]})) || oal_mcp_die "no servers in profile '$profile' (try oal-mcp-list)"
+      ids+=("${found[@]}")
+      ;;
+    -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
+    -*) oal_mcp_die "unknown argument: $1" ;;
+    *) ids+=("$1"); shift ;;
+  esac
+done
+((${#ids[@]})) || { sed -n '2,4p' "$0" >&2; exit 2; }
+
+oal_mcp_runtime_available ||
+  oal_mcp_die "no agent runtime on PATH -- install one first (see install/agent/), or OAL_SKIP_AGENT=1 was set at install"
+
+registered="$(oal_mcp_registered)"
+rc=0
+for id in "${ids[@]}"; do
+  row="$(oal_mcp_row "$id")"
+  [[ -n $row ]] || { echo "unknown server: $id (try oal-mcp-list)" >&2; rc=1; continue; }
+  if grep -qx -- "$id" <<<"$registered"; then
+    echo "$id: already registered"
+    continue
+  fi
+  IFS=$'\x1f' read -r _ kind package args _ _ _ <<<"$row"
+  # Word-splitting the expanded args is the point: a catalog row carries a small argument list.
+  # shellcheck disable=SC2046
+  if oal_mcp_register "$id" "$kind" "$package" $(oal_mcp_expand_args "$args"); then
+    echo "$id: registered"
+  else
+    echo "$id: registration failed" >&2
+    rc=1
+  fi
+done
+exit $rc

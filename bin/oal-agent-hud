@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# oal:summary=One line of agent state for the shell prompt
+# oal:args=[--refresh]
+# oal:examples=oal-agent-hud | oal-agent-hud --refresh
+#
+# Prints something like:  opus-5  scoped  9 mcp  38%
+#
+# This runs on every prompt, so the rule that matters more than what it shows is what it must never
+# do: no network, no python, no agent CLI. It reads one small JSON file and stops. `--refresh` is the
+# side that does the slow work, and a systemd --user timer owns it (install/agent/).
+#
+# When the state file is missing, unreadable or stale, this prints nothing and exits 0. A prompt is
+# not the place to report that a cache is cold.
+set -uo pipefail
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/oal"
+state="$state_dir/agent-hud.json"
+# Older than this and the numbers are lies. The timer refreshes well inside it.
+max_age=900
+
+profile_now() {
+  local f="$state_dir/agent-profile"
+  [[ -r $f ]] && tr -d '[:space:]' <"$f" || echo scoped
+}
+
+if [[ ${1:-} == --refresh ]]; then
+  mkdir -p -- "$state_dir"
+  model="" pct=""
+  if command -v oal-agent-usage-claude >/dev/null; then
+    # --limits-only is the cheap path; it still may touch the network, which is exactly why the
+    # prompt never calls this branch.
+    usage="$(timeout 20 oal-agent-usage-claude --limits-only 2>/dev/null || true)"
+    if [[ -n $usage ]] && command -v jq >/dev/null; then
+      model="$(jq -r '(.model // .default_model // empty) | tostring' <<<"$usage" 2>/dev/null || true)"
+      pct="$(jq -r '(.limits.five_hour.utilization // .utilization // empty) | tostring' <<<"$usage" 2>/dev/null || true)"
+    fi
+  fi
+  mcp=0
+  command -v oal-mcp-status >/dev/null && mcp="$(oal-mcp-status --count 2>/dev/null || echo 0)"
+  # The timestamp goes in the file so the read path can judge staleness without a stat(1).
+  printf -v now '%(%s)T' -1
+  tmp="$(mktemp)"
+  printf '{"ts":%s,"model":"%s","mcp":%s,"pct":"%s"}\n' "$now" "${model:-}" "${mcp:-0}" "${pct:-}" >"$tmp"
+  mv -- "$tmp" "$state"
+  exit 0
+fi
+
+# --- the hot path: this runs on every prompt ------------------------------------------------------
+#
+# No external commands from here down. Not one. The first version used sed to pull four fields and
+# stat to check the age, and cost 39 ms a prompt -- six forks for a line of text, on every keystroke
+# that redraws. Builtins only brings it under a millisecond, and the whole point of caching to a file
+# is lost if reading the file is itself expensive.
+
+[[ -r $state ]] || exit 0
+read -r body <"$state" || exit 0
+
+# Bash regex over the whole record, once, rather than a parser per field.
+[[ $body =~ \"ts\":([0-9]+) ]] || exit 0
+printf -v now '%(%s)T' -1
+(( now - BASH_REMATCH[1] < max_age )) || exit 0
+
+model=""; mcp=""; pct=""
+[[ $body =~ \"model\":\"([^\"]*)\" ]] && model="${BASH_REMATCH[1]}"
+[[ $body =~ \"mcp\":([0-9]+) ]] && mcp="${BASH_REMATCH[1]}"
+[[ $body =~ \"pct\":\"([^\"]*)\" ]] && pct="${BASH_REMATCH[1]}"
+
+profile=scoped
+[[ -r $state_dir/agent-profile ]] && read -r profile <"$state_dir/agent-profile"
+
+line="${model#claude-}"
+[[ -n $line ]] && line+="  "
+line+="$profile"
+[[ -n $mcp && $mcp != 0 ]] && line+="  $mcp mcp"
+[[ -n $pct ]] && line+="  ${pct%%.*}%"
+
+printf '%s\n' "$line"
