@@ -6,7 +6,7 @@
 #
 #   --keep           leave the VM running afterwards (default: shut it down)
 #   --theme LIST     comma-separated themes to cycle in the live session
-#                    (default: tokyo-night,gruvbox,catppuccin-latte -- the last one light)
+#                    (default: agentarchy,gruvbox,white -- ours first, and the last one light)
 #   --no-greeter     skip the login-screen stage (which costs one extra reboot)
 #   --timeout N      seconds to wait for ssh after a boot or reboot (default 300)
 #
@@ -19,7 +19,7 @@ source "$(dirname -- "${BASH_SOURCE[0]}")/lib.sh"
 
 here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 keep=0
-themes="tokyo-night,gruvbox,catppuccin-latte"
+themes="agentarchy,gruvbox,white"
 greeter=1
 timeout=300
 while (($#)); do
@@ -163,8 +163,8 @@ greeter_shot() {
   sleep 10
   vm_wait_ssh "$timeout" || return 1
 
-  # The bracket keeps pgrep from matching the ssh command line that carries this very pattern --
-  # without it the wait returns instantly, every time, and the shutter fires on the old frame.
+  # Keep the bracket. pgrep -f matches full command lines, including the ssh command carrying this
+  # pattern, so an unbracketed version always matches itself and the wait returns instantly.
   local i greeter=0
   for ((i = 0; i < 30; i++)); do
     if vm_ssh "pgrep -f '[s]ddm-greeter' >/dev/null" >/dev/null 2>&1; then greeter=1; break; fi
@@ -173,13 +173,13 @@ greeter_shot() {
   (( greeter )) || { vm_warn "no sddm-greeter process after 120s"; return 1; }
   sleep 5   # the process exists before it has painted
 
-  # What is on the screen, asked of logind rather than inferred. If autologin were still in force
-  # the screenshot below would be the desktop -- which is exactly what happened the first time this
-  # stage ran, and neither file size nor mean brightness noticed.
+  # What is on the screen, asked of logind rather than inferred. With autologin still in force the
+  # screenshot below is of the desktop, and neither file size nor mean brightness can tell that from
+  # a greeter.
   #
-  # Scoped to seat0, the physical display: the install user always has sessions here, because this
-  # check arrives over ssh and ssh sessions are seatless. Counting those instead of seat0 ones is
-  # the second way this stage got it wrong.
+  # Scope it to seat0, the physical display. The install user always has sessions on this box --
+  # this check arrives over ssh, and ssh sessions are seatless -- so counting sessions rather than
+  # seat0 sessions passes on a machine that autologged straight in.
   if ! vm_ssh bash -s -- "$VM_USER" <<'ATGREETER'
 set -u
 sessions="$(loginctl list-sessions --no-legend 2>/dev/null)"
@@ -211,9 +211,9 @@ ATGREETER
   shots+=("$art/greeter-qmp.png")
 
   # Put autologin back, so the disk this run leaves behind is the one the install made -- and sync,
-  # because finish() powers the guest off seconds later. Without it the rename sits in page cache and
-  # the image boots to a greeter nobody has a password for, which is how a copy of this disk reached
-  # virt-manager unusable.
+  # because finish() powers the guest off seconds later. Without the sync the rename is still in page
+  # cache when the power goes, and any copy of the resulting image boots to a greeter that a
+  # cloud-image install has no password for.
   vm_ssh 'sudo mv /root/10-agentarchy.conf /etc/sddm.conf.d/10-agentarchy.conf && sync' >/dev/null 2>&1 ||
     vm_warn "could not restore autologin"
 }

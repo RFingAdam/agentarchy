@@ -1,4 +1,4 @@
-# Agentarchy base packages — the headless layer: CLI, services, no GUI.
+# Agentarchy base packages -- the headless layer: CLI, services, no GUI.
 #
 # Native to Agentarchy, not vendored: upstream's lists name a Hyprland/Quickshell desktop and carry
 # AUR-only and nonexistent packages. Everything here is in core/extra, so a default install never

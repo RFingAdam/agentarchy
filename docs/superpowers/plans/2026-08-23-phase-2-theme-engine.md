@@ -1,12 +1,12 @@
-# Phase 2 — Theme engine and the asset audit: Implementation Plan
+# Phase 2 -- Theme engine and the asset audit: Implementation Plan
 
 Spec: `docs/superpowers/specs/2026-08-22-agentarchy-design.md` (Phase 2 section, and the theming table at
 "Plasma colour scheme" / "Light/dark" / "Wallpaper / lock / SDDM" / "Ghostty / Konsole"). The spec is binding;
 this plan is its argument.
 
 Phase 1 shipped one theme applied through a deliberately minimal `oal-theme-set-kde`: a colour scheme, a Konsole
-scheme, and a wallpaper for the running session. Phase 2 makes that the whole surface — every theme, every
-consumer, both directions of light/dark — and settles the question the repository is currently public with
+scheme, and a wallpaper for the running session. Phase 2 makes that the whole surface -- every theme, every
+consumer, both directions of light/dark -- and settles the question the repository is currently public with
 unanswered: where 68 wallpapers came from and whether we may ship them.
 
 ## Global constraints
@@ -84,7 +84,7 @@ Wire the consumers Phase 1 left: the SDDM greeter theme (`oal-refresh-sddm` alre
 the lock screen (`kscreenlockerrc` Greeter wallpaper), the icon theme from `themes/*/icons.theme`, and light/dark so
 `mode = "light"` produces a light desktop rather than a light palette on a dark shell. `oal-theme-set` is vendored
 and Hyprland-shaped: audit its 15 `post_theme_commands`, port what applies to KDE, exclude what does not, and record
-each decision — this is the same "port or drop" ruling Phase 1 made for the channel cluster.
+each decision -- this is the same "port or drop" ruling Phase 1 made for the channel cluster.
 
 ## Task 5: Every theme, tested
 
@@ -100,13 +100,13 @@ rather than tokyo-night alone, and a light-theme case (`white`, `catppuccin-latt
 
 Cycle three themes in the live session (`tokyo-night` → `gruvbox` → `catppuccin-latte`, the last one light) and after
 each: `kdeglobals` ColorScheme *and* its colours, the wallpaper path, the Konsole scheme, the icon theme. Screenshot
-each. The screenshots are the deliverable — Phase 1's Task 6 proved that every assertion can pass while the desktop
+each. The screenshots are the deliverable -- Phase 1's Task 6 proved that every assertion can pass while the desktop
 still looks wrong.
 
 ## Verification (end-to-end)
 
-1. `bin/oal-dev-check` — 7 gates.
-2. `test/vm/golden-path` — green, with the Task 6 theme cycle included.
+1. `bin/oal-dev-check` -- 7 gates.
+2. `test/vm/golden-path` -- green, with the Task 6 theme cycle included.
 3. `docs/asset-audit.md` accounts for every file in `themes/*/backgrounds/` and `applications/icons/`, and `NOTICE`
    carries no `UNAUDITED` row.
 4. Human check: Adam looks at the three theme screenshots.

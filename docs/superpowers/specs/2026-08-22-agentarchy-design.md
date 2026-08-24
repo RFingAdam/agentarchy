@@ -1,4 +1,4 @@
-# Agentarchy — an Omarchy-derived, agent-first Arch distro for people who use a mouse
+# Agentarchy -- an Omarchy-derived, agent-first Arch distro for people who use a mouse
 
 > Project name: **Agentarchy**. The joke ("opinions are like…") lives in the terminal: every command is `oal-*`.
 
@@ -6,7 +6,7 @@
 
 Omarchy (basecamp/omarchy, MIT) is a beautiful, opinionated Arch setup: 22 palette-driven themes, a system menu,
 ~430 `omarchy-*` scripts (update/migrate/snapshot/install-*/hw-*), an offline ISO with an archinstall-based
-orchestrator, Limine + btrfs + snapper, SDDM, plymouth. Its interaction model is keyboard-only Hyprland tiling —
+orchestrator, Limine + btrfs + snapper, SDDM, plymouth. Its interaction model is keyboard-only Hyprland tiling:
 no title bars, no taskbar, no minimize, no desktop icons. Adam likes everything *except* that, and comes from
 Ubuntu/GNOME. Goal: a **public repo** (`RFingAdam/agentarchy`) that keeps Arch + Omarchy's themes, menu,
 tooling and install machinery, swaps the desktop for a familiar mouse-first one (two layouts: Ubuntu-style and
@@ -27,11 +27,11 @@ Two read-only research passes (7 agents + an Opus critic) established the load-b
 - **Theme system**: `themes/<name>/colors.toml` is a flat schema (`mode`, `accent`, `selection`, `muted`,
   `background`/`dark_`/`darker_`/`lighter_background`, `foreground`/`dark_`/`light_`/`bright_foreground`, `red
   yellow orange green cyan blue magenta brown`, `bright_*`). `omarchy-theme-set` renders `default/themed/*.tpl`
-  (17 templates; 14 agnostic — ghostty/alacritty/foot/kitty/btop/neovim/vscode/obsidian/chromium/claude/pi/helix/
+  (17 templates; 14 agnostic -- ghostty/alacritty/foot/kitty/btop/neovim/vscode/obsidian/chromium/claude/pi/helix/
   tmux…; only `hyprland.lua.tpl`, `hyprland-preview-share-picker.css.tpl`, `shell.toml.tpl` are compositor-bound),
   atomically swaps `~/.local/state/omarchy/current/theme`, then pushes colors to the shell over IPC.
 - **Hyprland can't be a stacking desktop** without fighting it; a real DE is the honest answer. **KDE Plasma 6.7**
-  (Arch extra; 6.8 in Oct 2026 drops X11 — design Wayland-only) gives both layouts natively via Look-and-Feel
+  (Arch extra; 6.8 in Oct 2026 drops X11 -- design Wayland-only) gives both layouts natively via Look-and-Feel
   packages (no extensions to break), `.colors` schemes are plain INI generatable from a palette, Konsole
   colorschemes map 1:1 to 16 ANSI colors, KWin has built-in tiling + Krohnkite, Spectacle/Klipper replace
   grim/cliphist (KWin has no wlr-screencopy), KWin implements wlr-layer-shell (rofi 2.0 in Arch extra is native
@@ -70,7 +70,7 @@ Two read-only research passes (7 agents + an Opus critic) established the load-b
 
 ## Architecture
 
-### Repo `agentarchy` (today: the empty dir `~/projects/github/opinions-are-like` — Phase 0 creates
+### Repo `agentarchy` (today: the empty dir `~/projects/github/opinions-are-like` -- Phase 0 creates
 `~/projects/github/agentarchy` and the session moves there; the old empty dir is removed)
 
 ```
@@ -128,7 +128,7 @@ omacut omawrite tensaku ttfx`). Add: `plasma-desktop plasma-workspace kwin kscre
 powerdevil kde-gtk-config breeze-gtk xdg-desktop-portal-kde sddm sddm-kcm dolphin konsole spectacle ark gwenview
 okular kate plasma-systemmonitor print-manager kwallet-pam kdeplasma-addons rofi` (exact set validated by
 `pacman -Si` in Phase 1; start from `plasma-meta` minus bloat). Keep: ghostty, nvim (LazyVim via upstream's
-`config/nvim` equivalent — upstream moved it to the `omarchy-nvim` package; OAL vendors a plain LazyVim seed),
+`config/nvim` equivalent -- upstream moved it to the `omarchy-nvim` package; OAL vendors a plain LazyVim seed),
 btop, lazygit, lazydocker, docker, chromium, nautilus→**dolphin**, fonts (`ttf-jetbrains-mono-nerd-basic`,
 `noto-*`, `ttf-ia-writer`, `woff2-font-awesome`), plymouth, limine, snapper, ufw, tailscale, pipewire, fcitx5.
 
@@ -140,9 +140,9 @@ renamed). Replace the Quickshell IPC block with `oal-theme-set-kde`:
 | Output | Mechanism |
 |---|---|
 | Plasma colour scheme | render `plasma.colors.tpl` → `~/.local/share/color-schemes/OAL <Name>.colors` (map: `background`→Window/View BackgroundNormal + WM inactive; `lighter_background`→Button/Header; `foreground`→ForegroundNormal; `accent`→DecorationFocus/Hover/ForegroundActive/WM activeBackground; red/green/yellow/blue→Negative/Positive/Neutral/Link; `selection`→Selection; `muted`→ForegroundInactive); `plasma-apply-colorscheme "OAL <Name>"` (KWin decorations + Breeze-GTK follow via kde-gtk-config) |
-| Light/dark | `mode` from colors.toml → `kwriteconfig6 --file kdeglobals --group General --key ColorScheme`; verify `xdg-desktop-portal-kde` reports dark/light for custom scheme names (flagged uncertain) — fallback: name schemes "OAL <Name> Dark/Light" |
+| Light/dark | `mode` from colors.toml → `kwriteconfig6 --file kdeglobals --group General --key ColorScheme`; verify `xdg-desktop-portal-kde` reports dark/light for custom scheme names (flagged uncertain) -- fallback: name schemes "OAL <Name> Dark/Light" |
 | Wallpaper / lock / SDDM | `plasma-apply-wallpaperimage`; `kscreenlockerrc [Greeter][Wallpaper][org.kde.image][General] Image=`; `sddm-theme.conf.user.tpl` → `/usr/share/sddm/themes/oal/theme.conf.user` via a polkit/sudoers rule created at install (upstream already runs `omarchy-refresh-sddm` as root) |
-| Icons | `icons.theme` → `kwriteconfig6 --file kdeglobals --group Icons --key Theme` (Yaru variants stay — upstream already installs Yaru; fallback Papirus) |
+| Icons | `icons.theme` → `kwriteconfig6 --file kdeglobals --group Icons --key Theme` (Yaru variants stay -- upstream already installs Yaru; fallback Papirus) |
 | Ghostty / Konsole | vendored `ghostty.conf.tpl` + new `konsole.colorscheme.tpl` (Color0-7 + Intense = 16 ANSI) + `oal-restart-terminal` |
 | btop, neovim, VS Code, Obsidian, Chromium policy colour, Claude, tmux, helix, keyboard RGB | vendored handlers unchanged |
 | Dropped | `shell.toml.tpl`, `hyprland*.tpl`, `omarchy-theme-set-gnome` (replaced by the KDE path) |
@@ -186,7 +186,7 @@ exposed as a panel launcher (`.desktop` in the dock) so it is mouse-reachable. P
 - Migrations: start empty; same runner, own marker dir; `oal-update` = snapshot → `pacman -Sy oal` (or git
   `makepkg` on the git channel) → migrate. Channels: `main`/`rc`/`dev` = git branches of this repo.
 
-### Agent layer (`agent/`, `install/agent/`, `bin/oal-agent-*`, `bin/oal-project-init`) — public & generic
+### Agent layer (`agent/`, `install/agent/`, `bin/oal-agent-*`, `bin/oal-project-init`) -- public & generic
 
 - Runtime: Claude Code (official installer, self-updating), `gh`, `uv`, nodejs/npm, docker (+group), tailscale,
   syncthing, jq (**hard dependency**), age, ripgrep/fd/bat/eza/lazygit/lazydocker/tmux/zsh/git-delta; optional
@@ -222,7 +222,7 @@ Fork `omacom-io/omarchy-iso@quattro`. Changes: branding; `builder/build-iso.sh` 
 build `agentarchy` from `--local-source ../agentarchy` (no `[omarchy]` repo/GPG key; our own signing key later),
 offline mirror from `oal-base/other.packages` + `builder/archinstall.packages`; orchestrator `phases_impl.py`:
 package names, `oal-apply-system`/`oal-provision-user`, `configure_login` → `Session=plasma`, new **Layout**
-question in the configurator (`configs/airootfs/root/configurator` — inspect its tech first; it is not a
+question in the configurator (`configs/airootfs/root/configurator` -- inspect its tech first; it is not a
 submodule), drop `omarchy-nvim`/`mise` Node tarball unless kept. Keep Limine, snapper, hibernation, ufw, ssh/
 tailscale provisioning. Tests: `test/all` (unit), `oal-iso-boot`, `test/integration` (QEMU/KVM + QMP screendump
 + tesseract OCR, 8 GB RAM, `--reuse-base`) run on this host. GitHub-hosted runners can't hold the offline mirror
@@ -237,9 +237,9 @@ sharing `themes/` (re-adds `shell.lock.toml`/`shell.toml.tpl` for that session o
 
 ## Phases (each = one PR; each ends with the VM golden path green; Sonnet unless noted)
 
-### Phase 0 — Bootstrap
+### Phase 0 -- Bootstrap
 Create `~/projects/github/agentarchy` (remove the empty `opinions-are-like` dir); `git init`; MIT LICENSE; NOTICE
-(Omarchy attribution, theme/wallpaper credits section); README ("Agentarchy — Omarchy's taste, your mouse, your
+(Omarchy attribution, theme/wallpaper credits section); README ("Agentarchy -- Omarchy's taste, your mouse, your
 agents"; the `oal` = "opinions are like…" explanation; "not affiliated with Basecamp/Omarchy"); CLAUDE.md/AGENTS.md;
 `docs/superpowers/specs/2026-08-22-agentarchy-design.md` (this plan as the design spec); `tasks/todo.md` (phase checklist + owner-actions)
 + `tasks/lessons.md`; `.editorconfig`/`.gitignore`. `upstream/PIN=2c247e39…`, `VENDOR-MANIFEST`, `RENAME-MAP`,
@@ -247,7 +247,7 @@ agents"; the `oal` = "opinions are like…" explanation; "not affiliated with Ba
 shellcheck, bats, gitleaks, vendor-drift, branding-grep (no `omarchy` outside `upstream/`, NOTICE, docs/compat),
 notice-check (every `themes/*/backgrounds/*` listed in NOTICE).
 
-### Phase 1 — Package + bootstrap + VM golden path (Opus: PKGBUILD/apply/provision; Sonnet: VM harness, packages)
+### Phase 1 -- Package + bootstrap + VM golden path (Opus: PKGBUILD/apply/provision; Sonnet: VM harness, packages)
 `test/vm/`: libvirt domain from the official Arch ISO with an automated `archinstall` JSON (Limine, btrfs, no LUKS,
 user `oal`, sshd) → snapshot "vanilla" → `oal-bootstrap.sh` over SSH → assertions (`loginctl` wayland session,
 `plasmashell` + `kwin_wayland` alive, SDDM autologin `Session=plasma`, `oal-version`, theme dir symlinked). Measured
@@ -256,39 +256,39 @@ fonts), SDDM theme rebranded, Ghostty/Dolphin/Spectacle defaults, one layout (mi
 applied through a minimal `oal-theme-set-kde`. Early spikes logged here: `plasma-apply-lookandfeel --resetLayout`
 semantics, portal dark/light for custom scheme names, rofi layer-shell on KWin.
 
-### Phase 2 — Theme engine, all 22 themes (Opus)
+### Phase 2 -- Theme engine, all 22 themes (Opus)
 `plasma.colors.tpl`, `konsole.colorscheme.tpl`, SDDM/lock handling, icons mapping, light/dark, `oal-theme-*`
 complete; fixture snapshot tests for every theme; VM: cycle 3 themes, assert `kdeglobals` ColorScheme + wallpaper.
 **Asset audit**: table of all `themes/*/backgrounds/*` with source/licence (upstream git log/PRs; Catppuccin/Nord/
-Gruvbox/Tokyo Night/Rose Pine/Kanagawa/Everforest/Flexoki are MIT palettes — names kept with attribution);
+Gruvbox/Tokyo Night/Rose Pine/Kanagawa/Everforest/Flexoki are MIT palettes -- names kept with attribution);
 unlicensed wallpapers replaced (Unsplash/CC0) or dropped; `omarchy.ttf` excluded; NOTICE updated.
 
-### Phase 3 — Layouts, shortcut parity, OAL Menu (Sonnet: LnF/shortcuts; Opus: menu)
+### Phase 3 -- Layouts, shortcut parity, OAL Menu (Sonnet: LnF/shortcuts; Opus: menu)
 Both LnF packages; `oal-layout-set`; installer/first-run prompt; `kglobalshortcutsrc` + `.desktop` shortcuts
 (Super, Ctrl+Alt+T, PrintScreen, Super+E, Super+L, Meta+W, Meta+T); KWin defaults; `oal-install-krohnkite`.
 `oal-menu` rofi renderer with `when`/`checked`/`action`, KCM-based Setup, panel entry. VM screenshots of both
-layouts attached to the PR (Spectacle inside VM, copied out) — **Adam eyeballs the look** (owner-action).
+layouts attached to the PR (Spectacle inside VM, copied out) -- **Adam eyeballs the look** (owner-action).
 
-### Phase 4 — System tooling port (Sonnet; Opus for update/snapshot)
+### Phase 4 -- System tooling port (Sonnet; Opus for update/snapshot)
 Vendored bucket B verified script-by-script (shellcheck + smoke in VM), capture scripts on Spectacle/portal,
 clipboard on Klipper, `oal-update` end-to-end against a local git remote + `pacman -U` rebuilt package, migration
 runner test (marker/skip semantics), channel switching, `oal-hw-*` docs marked "inherited, untested on OAL".
 
-### Phase 5 — Agent layer + overlay contract (Opus: security hook/wizard; Sonnet: templates/docs)
+### Phase 5 -- Agent layer + overlay contract (Opus: security hook/wizard; Sonnet: templates/docs)
 `install/agent/`, `agent/` templates, `oal-project-init`, `oal-agent-setup`, `oal-agent-profile`,
 `oal-overlay-apply` + `docs/overlay.md` + redacted example overlay; bats for the PreToolUse blocker (block/confirm/
 allow cases, jq-missing → fail-closed); VM: fresh login → wizard runs → `claude --version`, hooks registered.
 
-### Phase 6 — ISO (Opus)
+### Phase 6 -- ISO (Opus)
 Fork iso repo; branding; package build from local source; manifests; orchestrator rename + `Session=plasma` +
 Layout step; local Docker build on this host; `oal-iso-boot` smoke; `test/integration` full install; boot the
 installed image and re-run Phase-1 assertions. Artifact hosting decision recorded (owner-action).
 
-### Phase 7 — Plugins, cliamp, Quickshell-compat spike, Hyprland add-on (Opus spike; Sonnet CLI)
+### Phase 7 -- Plugins, cliamp, Quickshell-compat spike, Hyprland add-on (Opus spike; Sonnet CLI)
 `oal-plugin-*` lifecycle + validator messaging + command-output widget; compatibility matrix in docs;
 `oal-install-cliamp`; Quickshell-under-KWin spike (time-boxed, result documented either way); `oal-install-hyprland`.
 
-### Phase 8 — Public release hygiene
+### Phase 8 -- Public release hygiene
 `human-voice` pass; `ip-hygiene` full-history audit; supported-hardware matrix + disclaimer; issue/contribution
 policy (inherit upstream's "we won't add X" stance explicitly); docs site from `manual/`; `v0.1.0` tag.
 
@@ -296,7 +296,7 @@ policy (inherit upstream's "we won't add X" stance explicitly); docs site from `
 
 ## Verification (end-to-end)
 
-1. **Unit** (CI): shellcheck on `bin/` + `install/`; bats — theme renderer (fixture diff per theme), migration
+1. **Unit** (CI): shellcheck on `bin/` + `install/`; bats -- theme renderer (fixture diff per theme), migration
    runner, security hook, rename completeness, menu JSONC evaluator.
 2. **VM golden path** (`test/vm/run.sh`, libvirt/KVM here): vanilla Arch → `oal-bootstrap.sh` → SSH assertions;
    theme cycle; layout switch; `oal-update`; screenshots for review.
@@ -318,6 +318,6 @@ policy (inherit upstream's "we won't add X" stance explicitly); docs site from `
 
 - `plasma-apply-lookandfeel --resetLayout` exact behaviour (Phase 1 spike on live Plasma 6.7).
 - `xdg-desktop-portal-kde` dark/light reporting for custom scheme names (Phase 1 spike; naming fallback ready).
-- rofi 2.0 layer-shell behaviour on KWin (anchors/keyboard grab) — fallback `kdialog`/plasmoid.
-- The ISO configurator's implementation (`configs/airootfs/root/configurator`) — read before Phase 6 estimates.
+- rofi 2.0 layer-shell behaviour on KWin (anchors/keyboard grab) -- fallback `kdialog`/plasmoid.
+- The ISO configurator's implementation (`configs/airootfs/root/configurator`) -- read before Phase 6 estimates.
 - Whether `omarchy-nvim`'s LazyVim config is worth vendoring vs a plain LazyVim starter (decide in Phase 1).

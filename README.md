@@ -1,17 +1,54 @@
 # Agentarchy
 
-**Omarchy's taste. Your mouse. Your agents.**
+**Omarchy's tooling. A mouse-first desktop. Agents, eventually.**
 
-Agentarchy is an Arch Linux distribution derived from [Omarchy](https://omarchy.org): the same
-palette-driven themes, system menu, update/migration tooling and offline ISO — on a **KDE Plasma 6**
-desktop you can drive with a mouse (Ubuntu-style or Mint-style layout, your pick), with a
-**Claude Code / agentic engineering runtime** ready at first login.
+Agentarchy is an Arch Linux distribution derived from [Omarchy](https://omarchy.org), on **KDE
+Plasma 6** instead of Hyprland.
 
-> Status: pre-alpha. Nothing here is installable yet. Follow `tasks/todo.md` for progress.
+> **Status: pre-alpha, and the third clause of that tagline is a plan, not a feature.** There is no
+> agent layer yet. If you are looking for a reason to install this today over Omarchy or stock Arch,
+> there isn't one. What exists is below, stated plainly, because a README that describes the roadmap
+> in the present tense is how projects waste people's evenings.
+
+## What actually works today
+
+- A vanilla Arch cloud image becomes an installed, themed Plasma 6 Wayland session in about
+  **six minutes**, unattended and reproducibly -- `test/vm/golden-path` proves it on every change,
+  with assertions and screenshots.
+- **The theme engine.** One `colors.toml` per theme drives 17 application templates: switching a
+  theme retints Plasma, Konsole, the SDDM greeter, the lock screen, the icon set, VS Code, helix,
+  btop, tmux, foot and the rest, in one command. 20 themes ship; the default is ours.
+- Wallpapers derived from public-domain photography and recoloured per palette, with every file
+  accounted for in `NOTICE`.
+
+## What came from Omarchy, and why you cannot see it
+
+668 files and 302 `oal-*` commands: the theme engine (33), application installers (25), hardware
+helpers (24), update and removal tooling (40), the system menu (10), plus audio, Plymouth,
+notification and package wrappers.
+
+None of it is visible on the desktop yet, and that is worth explaining rather than glossing.
+Everything **visible** in Omarchy is Hyprland and Quickshell -- the bar, the launcher, the window
+management, the on-screen menus. All of it was deliberately left behind (121 excluded scripts,
+`shell/**`, `config/hypr/**`), because none of it applies to Plasma. What was kept is the layer
+underneath the shell, and most of it has no route to the screen until the menu and layout land.
+83 commands still need porting; `upstream/NEEDS-PORT.txt` lists them.
+
+So: the theme engine is real and working. The rest is inherited machinery waiting for a front end.
+
+## What is supposed to make it worth using
+
+Three things together, of which two exist:
+
+1. **Omarchy's opinionated tooling** -- done, if not yet surfaced.
+2. **A desktop you drive with a mouse** -- done. Plasma 6, Ubuntu-style or Mint-style layout.
+3. **An agentic engineering runtime at first login** -- *not built.* This is the only part no other
+   distribution offers, and it is the reason the project exists. Until it lands, Agentarchy is a
+   KDE respin of somebody else's tooling and should be described that way.
 
 ## Why the commands are called `oal-*`
 
-Opinions are like… — everyone's got one. Omarchy is proudly opinionated; so are we, just
+Opinions are like... -- everyone's got one. Omarchy is proudly opinionated; so are we, just
 differently. Every Agentarchy command starts with `oal-` (`oal-theme-set`, `oal-menu`,
 `oal-update`). Config lives in `~/.config/oal`, state in `~/.local/state/oal`.
 
@@ -32,7 +69,7 @@ independent project, not affiliated with or endorsed by Basecamp or DHH. See `NO
 | `agents/` | agent skills shipped with the distro |
 | `applications/` | `.desktop` launchers and their icons |
 | `themes/` | colour themes (`colors.toml` + assets) |
-| `upstream/` | upstream pin, vendor manifest, rename rules, patches, reports — see `upstream/README.md` |
+| `upstream/` | upstream pin, vendor manifest, rename rules, patches, reports -- see `upstream/README.md` |
 | `test/` | bats unit tests and the VM golden path |
 | `docs/superpowers/` | design spec and per-phase implementation plans |
 

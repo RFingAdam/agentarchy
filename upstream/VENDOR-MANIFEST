@@ -65,7 +65,7 @@ exclude agents/skills/acceptance-tests.md
 # upstream root icon.png (branding, itself never vendored)
 exclude default/chromium/extensions/copy-url/icon.png
 
-# --- upstream branding / compositor screenshots — never vendored; Phase 2 regenerates previews.
+# --- upstream branding / compositor screenshots -- never vendored; Phase 2 regenerates previews.
 # Gates are text-based and cannot see inside an image, so every "never vendor branding" rule has to
 # live here as a path exclude. themes/*/unlock.png is the upstream wordmark in each theme's colours
 # (checked 2026-08-23: gruvbox spells it out, tokyo-night/vantablack/white are the logo mark), and
@@ -88,6 +88,16 @@ exclude **/logo.*
 exclude **/icon.*
 exclude **/logos/**
 exclude themes/*/hyprland.lua
+# --- three themes dropped 2026-08-23, on the "what will nobody use" question.
+# Agentarchy ships its own palette as the default now (themes/agentarchy, native), and the light
+# ones were the least defensible of the inherited set. lupine and flexoki-light are niche. rose-pine
+# is the interesting one: what upstream ships under that name is Rosé Pine *Dawn*, the light variant,
+# while the flagship of that family is dark -- so the name promised the wrong thing. Porting the dark
+# original would mean inventing a green and a blue that Rosé Pine does not define, which is worse
+# than not shipping it, so it goes and a proper port is a candidate to add later (tasks/todo.md).
+exclude themes/lupine/**
+exclude themes/flexoki-light/**
+exclude themes/rose-pine/**
 # Three more wallpapers carry the wordmark or the logo mark but were never named after the upstream
 # project, so no name-based rule could reach them. Caught by looking at the pixels (runbook step (a)
 # in upstream/README.md), which is the only thing that can find this class of file. Listed as path

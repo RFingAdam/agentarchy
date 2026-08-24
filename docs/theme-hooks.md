@@ -2,7 +2,7 @@
 
 `bin/oal-theme-set` is vendored. It was written for a Hyprland desktop with a Quickshell bar, and it
 is the entry point for every theme change on a desktop that has neither. This is the port-or-drop
-ruling for each thing it invokes — the same exercise Phase 1 did for the package channel cluster,
+ruling for each thing it invokes -- the same exercise Phase 1 did for the package channel cluster,
 and the reason a theme change on Agentarchy now reaches KDE at all.
 
 Date: 2026-08-23, Phase 2 Task 4. Upstream at `upstream/PIN`.
@@ -44,14 +44,14 @@ test is what stops the list drifting back out of step on a PIN bump.
 Left exactly as vendored, deliberately, and recorded here so the next reader does not have to work
 it out from the source:
 
-- **`shell_ipc` / `oal-shell`** — `oal-theme-set` drives a cross-fade between the old and new
+- **`shell_ipc` / `oal-shell`** -- `oal-theme-set` drives a cross-fade between the old and new
   wallpapers by handing base64 payloads to `oal-shell`, upstream's Quickshell bar. That command is
   not vendored, so each call is a `timeout 2 oal-shell …` that exits 127 immediately: no hang, no
   effect. The wallpaper itself is applied by `oal-theme-set-kde` through
   `plasma-apply-wallpaperimage`, so nothing is lost but the animation.
-- **`oal-theme-switcher --preload`, `oal-theme-bg-cache`** — warm the Quickshell selector's caches.
+- **`oal-theme-switcher --preload`, `oal-theme-bg-cache`** -- warm the Quickshell selector's caches.
   Harmless, useless, and cheap to leave in place until there is a decision about the selector.
-- **`snapshot_background_path` and the `background` symlink** — still correct. The symlink is what
+- **`snapshot_background_path` and the `background` symlink** -- still correct. The symlink is what
   `oal-theme-bg-*` reads, and it is maintained whether or not a shell is listening.
 
 Phase 7's Quickshell-compatibility spike owns whether any of this becomes real. Until then the
@@ -60,12 +60,12 @@ delete dead calls buys a patch to maintain and nothing else.
 
 ## Two things the themes carry that we do not honour
 
-- **`themes/*/icons.theme`** — all 22 name a `Yaru-*` variant. Yaru is Ubuntu's icon theme; on Arch
+- **`themes/*/icons.theme`** -- all 22 name a `Yaru-*` variant. Yaru is Ubuntu's icon theme; on Arch
   it is AUR-only, and `install/agentarchy-aur.packages` is opt-in by rule, so a default install
   would fall back and look wrong. Icons follow `mode` instead: `breeze` or `breeze-dark`, both
   already installed with the desktop. The files stay in the tree as upstream data. Honouring them
   needs a coloured icon set in core or extra, which is a packaging decision, not a theming one.
-- **`themes/*/keyboard.rgb`** — one theme ships it; see `oal-theme-set-keyboard` above.
+- **`themes/*/keyboard.rgb`** -- one theme ships it; see `oal-theme-set-keyboard` above.
 
 ## The greeter, which is not in this list at all
 

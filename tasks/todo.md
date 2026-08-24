@@ -1,9 +1,9 @@
-# Agentarchy — todo
+# Agentarchy -- todo
 
 Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 
 ## Phases
-- [x] Phase 0 — Bootstrap (plan: docs/superpowers/plans/2026-08-22-phase-0-bootstrap.md)
+- [x] Phase 0 -- Bootstrap (plan: docs/superpowers/plans/2026-08-22-phase-0-bootstrap.md)
   - [x] Task 1 scaffolding
   - [x] Task 2 upstream fetch
   - [x] Task 3 vendor manifest + rename map + sync
@@ -11,10 +11,10 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
   - [x] Task 5 first real vendoring run
   - [x] Task 6 hygiene gates + oal-dev-check
   - [x] Task 7 GitHub Actions CI
-- [x] Phase 1 — Package + bootstrap + VM golden path (plan: docs/superpowers/plans/2026-08-23-phase-1-vm-bootable.md)
+- [x] Phase 1 -- Package + bootstrap + VM golden path (plan: docs/superpowers/plans/2026-08-23-phase-1-vm-bootable.md)
   - [x] Task 1 VM harness (`test/vm/`)
   - [x] Task 2 native package lists + Plasma desktop step
-  - [x] ~~Replace the six `default/pacman/*` files~~ — resolved by **dropping** them instead: they are
+  - [x] ~~Replace the six `default/pacman/*` files~~ -- resolved by **dropping** them instead: they are
         excluded from vendoring, and Agentarchy installs from stock Arch mirrors. It has no repos of its
         own, so there was nothing for a rewritten `pacman.conf` to point at.
   - [ ] The package **channel** cluster is now inert and must not be advertised until a phase gives
@@ -22,14 +22,14 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
         `bin/oal-version-channel` and `bin/oal-refresh-pacman` still implement upstream's stable/rc/edge
         switching against the `default/pacman/*` files that no longer exist, so `oal-refresh-pacman` fails
         at its first `cp`. Decide per command: port to a real Agentarchy repo, or exclude from vendoring.
-        Not urgent — nothing on the golden path calls them (`oal-reinstall-pkgs` was patched off it).
-  - [x] ~~PKGBUILD must not link `bin/oal-dev-*` or `bin/oal-dev-lib.sh` into `/usr/bin`~~ — done in
+        Not urgent -- nothing on the golden path calls them (`oal-reinstall-pkgs` was patched off it).
+  - [x] ~~PKGBUILD must not link `bin/oal-dev-*` or `bin/oal-dev-lib.sh` into `/usr/bin`~~ -- done in
         Task 3 (`76730f4`): the package installs the tree to `/usr/share/agentarchy`, symlinks 300
         `oal-*` commands onto PATH and drops `oal-dev-*` entirely. Verified on the guest: absent from
         both `/usr/bin` and `/usr/share`.
   - [x] Task 3 PKGBUILD + `oal-bootstrap.sh` (vanilla Arch to installed Agentarchy in ~3 min, idempotent)
   - [x] Task 4 boot into Plasma (patches 0003-0009; reboots into a Plasma 6 Wayland session as `oal`)
-  - [x] ~~Supply the Phase 1 replacements listed in `upstream/EXCLUDED-ASSETS.md`~~ — done in Task 5
+  - [x] ~~Supply the Phase 1 replacements listed in `upstream/EXCLUDED-ASSETS.md`~~ -- done in Task 5
         (`126765b`): placeholders in `default/branding/`, copies at the Plymouth and SDDM paths, both
         Chromium extension icons. The greeter row was answered by dropping `etc/sddm.conf.d/10-wayland.conf`
         from vendoring instead: it only pointed SDDM's Wayland greeter at a Hyprland compositor we
@@ -38,42 +38,42 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
   - [x] Task 6 `test/vm/golden-path` + `test/vm/assertions.sh` (21 assertions, 261 s, artefacts)
   - [ ] Only `etc/profile.d/oal.sh` is installed to `/etc`; the other 17 subtrees under `etc/` ship to
         `/usr/share/agentarchy/etc` and are installed nowhere (units, `sudoers.d`, `sysctl.d`,
-        `security/`, `tmpfiles.d`, NetworkManager, plymouth, ...). Each is a per-file decision — some
-        are still Hyprland-shaped, some are in `upstream/NEEDS-PORT.txt` — so **Phase 4** (system
+        `security/`, `tmpfiles.d`, NetworkManager, plymouth, ...). Each is a per-file decision -- some
+        are still Hyprland-shaped, some are in `upstream/NEEDS-PORT.txt` -- so **Phase 4** (system
         tooling port) should walk the tree and decide. Nothing on the golden path needs them today.
-- [ ] Phase 2 — Theme engine, all 22 themes (+ wallpaper licence audit)
+- [ ] Phase 2 -- Theme engine, all 22 themes (+ wallpaper licence audit)
       (plan: docs/superpowers/plans/2026-08-23-phase-2-theme-engine.md)
   - [x] Task 1 trace provenance of 68 wallpapers + application icons → `docs/asset-audit.md`
-        (`bin/oal-dev-asset-provenance`; findings in `docs/asset-audit-findings.md` — not one carried a licence)
+        (`bin/oal-dev-asset-provenance`; findings in `docs/asset-audit-findings.md` -- not one carried a licence)
   - [x] Task 2 act on it: all 68 removed, 22 palette wallpapers generated, NOTICE gate is `--strict`
   - [x] Task 3 `plasma.colors.tpl` + `konsole.colorscheme.tpl` as templates, rendered by
         `bin/oal-theme-render`; `oal-theme-set-kde` drops from 144 lines to 92
   - [x] Task 4 SDDM, lock screen, icons, light/dark, and the `oal-theme-set` port-or-drop audit
         (`docs/theme-hooks.md`). Found and fixed: `oal-theme-set` never called `oal-theme-set-kde`,
         so a theme switch after install left the desktop, icons and lock screen behind (patch 0012).
-        The greeter was inert too — nothing installed `10-theme.conf` or the theme directory; it is
+        The greeter was inert too -- nothing installed `10-theme.conf` or the theme directory; it is
         installed now (`install/desktop/plasma.sh`, `oal-bootstrap.sh`) and its five upstream sprites
         were dropped as unaccounted assets, replaced by QML drawn from the palette.
   - [ ] **Not yet seen by a human**: the greeter renders from `theme.conf` and no VM has booted into
-        it — autologin skips the login screen, so Task 6's VM run has to disable autologin (or lock
+        it -- autologin skips the login screen, so Task 6's VM run has to disable autologin (or lock
         the session) to get a screenshot of it. Until then the QML is only structurally tested.
   - [ ] The ISO path installs no greeter palette: `oal-bootstrap.sh` calls `oal-refresh-sddm`, and a
         deferred-provisioning install (Phase 6) never runs it. Decide there whether first boot does.
-  - [x] Task 5 snapshot tests for all 22 themes — 66 fixtures under `test/fixtures/themes/`
+  - [x] Task 5 snapshot tests for all 22 themes -- 66 fixtures under `test/fixtures/themes/`
         (`bin/oal-dev-make-theme-fixtures`, `--check` in `test/unit/themes.bats`), plus cross-theme
         invariants a snapshot cannot give you: declared `mode` agrees with background luminance, the
         five light themes are named not counted, foreground/background contrast has a floor, and the
         greeter's entry field has a visible edge on every palette.
-  - [x] Task 6 VM: cycle three themes with screenshots — `test/vm/golden-path` now runs eight stages
+  - [x] Task 6 VM: cycle three themes with screenshots -- `test/vm/golden-path` now runs eight stages
         and PASSes in 352 s. `test/vm/theme-assertions.sh` checks 12 things per theme against a fresh
         render of that palette (not just the scheme *name*); 36/36 green across tokyo-night, gruvbox
         and catppuccin-latte. Artefacts: `.vm/artifacts/20260823-201709/`.
-  - [x] ~~The greeter has never been seen~~ — seen 2026-08-23. It renders from `theme.conf`, drawn
+  - [x] ~~The greeter has never been seen~~ -- seen 2026-08-23. It renders from `theme.conf`, drawn
         entirely from the palette. Getting a true picture of it took three fixes, all of which were
         the harness lying rather than the greeter failing: renaming the autologin drop-in inside
         `/etc/sddm.conf.d/` did not disable it, `pgrep -f sddm-greeter` matched the ssh command line
         carrying its own pattern, and a `loginctl` check counted this session's ssh login as a
-        desktop session. The stage now proves what it photographed — a greeter on seat0, no seat0
+        desktop session. The stage now proves what it photographed -- a greeter on seat0, no seat0
         session for the install user, and a frame that differs from the last desktop shot.
   - [ ] Desktop icon **labels** are white with a shadow, which is hard to read on the light themes
         (see `theme-catppuccin-latte-guest.png`). Plasma's folder view picks that, not our colour
@@ -82,20 +82,45 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
         (a parallel session is raising it above 1280x800). Shoot the default layout and two or three
         themes with `test/vm/vm-shot --guest`, and keep them out of git history bloat: one webp each,
         under `docs/screenshots/`, listed in NOTICE as generated by us.
-- [ ] Phase 3 — Layouts, shortcut parity, OAL Menu (default = `ubuntu` top bar + dock, decided 2026-08-23)
-- [ ] Phase 4 — System tooling port
-- [ ] Phase 5 — Agent layer + overlay contract
-- [ ] Phase 6 — ISO
-- [ ] Phase 7 — Plugins, cliamp, Quickshell-compat spike, Hyprland add-on
-- [ ] Phase 8 — Public release hygiene, v0.1.0
+- [x] Phase 2b -- Identity: a palette of our own, wallpapers with a licence, an honest README
+      (plan: the VM look-through, 2026-08-23)
+  - [x] `themes/agentarchy/` -- warm near-black ground, amber signal accent, drawn not borrowed.
+        `OAL_DEFAULT_THEME=agentarchy`, so the greeter, first boot and every screenshot are ours.
+  - [x] Wallpapers are photographs again: three public-domain NASA sources (`default/backgrounds/
+        SOURCES`, fetched and hash-verified, never committed) reduced to luminance and recoloured
+        through a ramp built from each palette. Light themes get dark wallpapers. Every derived file
+        carries its source, credit and licence in NOTICE.
+  - [x] Dropped `lupine`, `flexoki-light` and `rose-pine`; 22 themes → 20, 5 light → 2.
+  - [x] `default/branding/mark.svg` + `bin/oal-dev-make-branding`: an A with a flat top, geometry
+        held as coordinates so the SVG and the PNGs cannot drift. The greeter now ships **no image
+        assets at all** -- its wordmark is palette-coloured text.
+  - [x] README states what works, what came from Omarchy and why none of it is visible, and that the
+        agent runtime is a plan rather than a feature.
+  - [ ] A dark Rosé Pine is a candidate to add back under the correct name. It needs a green and a
+        distinct blue/cyan that Rosé Pine does not define, so it is palette design, not a port.
+  - [ ] The desktop icon labels are still white-with-shadow on every theme (Plasma's folder view,
+        not our colour scheme). Hard to read on light themes. Phase 3 owns the desktop layout.
+- [ ] Phase 3 -- Layouts, shortcut parity, OAL Menu (default = `ubuntu` top bar + dock, decided 2026-08-23)
+- [ ] Phase 4 -- System tooling port
+- [ ] Phase 5 -- Agent layer + overlay contract
+- [ ] Phase 6 -- ISO
+- [ ] Phase 7 -- Plugins, cliamp, Quickshell-compat spike, Hyprland add-on
+- [ ] Phase 8 -- Public release hygiene, v0.1.0
 
 ## Owner-actions (only Adam can do these)
+- [ ] Decide the mascot, or decide there isn't one. A geometric mark ships now; a mascot is a
+      different kind of asset and only two routes produce one worth having. **Commission an
+      illustrator** -- costs money and calendar time, and is the only route that yields something you
+      can hold rights in (ask for full assignment, not a licence). **Generate one** -- costs API
+      credits, and in the US a purely AI-generated image has no human author, so it is not
+      copyrightable and anyone may reuse it; it also has to not look generated, which is the part
+      that usually fails. Blocked on you: it is a spend and a taste call.
 - [~] Create GitHub repos `RFingAdam/agentarchy` and `RFingAdam/agentarchy-iso` and decide visibility
       Status 2026-08-23: `RFingAdam/agentarchy` created and made **public** the same day (Adam's decision; wallpaper/icon provenance audit remains a Phase 2 gate before v0.1.0). Still yours: `agentarchy-iso` repo.
       (private until v0.1.0 is the safe default). Blocked on you: repo ownership/visibility is your call.
       **Keep it private until the Phase 2 wallpaper + application-icon audit is finished** (see NOTICE):
       git history is permanent, so an unlicensed asset pushed once is pushed forever.
-- [x] ~~Settle wallpaper provenance before v0.1.0~~ — done 2026-08-23. No wallpaper had a licence
+- [x] ~~Settle wallpaper provenance before v0.1.0~~ -- done 2026-08-23. No wallpaper had a licence
       (docs/asset-audit-findings.md); all 68 removed, 22 generated ones ship instead, history purged
       with git-filter-repo, and the repository was **deleted and recreated** at the same URL so merged
       pull-request refs could not keep the old blobs reachable. Verified with a fresh mirror clone: 0
@@ -119,11 +144,11 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 - [ ] Confirm the git author identity you want on this public repo (commits currently use your global
       gitconfig email). Blocked on you: it is your identity.
 
-- [x] ~~Fix GitHub Actions billing for the private repo~~ — resolved 2026-08-23 by making the repo public (free Actions minutes); private-repo minutes were exhausted by other work.
+- [x] ~~Fix GitHub Actions billing for the private repo~~ -- resolved 2026-08-23 by making the repo public (free Actions minutes); private-repo minutes were exhausted by other work.
 ## Review log
 (appended at the end of each phase)
 
-### Phase 0 — 2026-08-23
+### Phase 0 -- 2026-08-23
 - vendored: 755 files, excluded 121 bin scripts, 92 need porting (upstream/NEEDS-PORT.txt)
 - final review dropped 96 upstream-branded binary assets (wordmark wallpapers, theme previews,
   unlock/plymouth logos) and the 5 `themes/*/hyprland.lua`; see upstream/EXCLUDED-ASSETS.md
@@ -141,7 +166,7 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
 - tests: 30 bats cases in test/unit
 - open: owner-actions above (GitHub repos not created yet; CI runs once pushed)
 
-### Phase 1 — 2026-08-23
+### Phase 1 -- 2026-08-23
 `test/vm/golden-path` is green: a pristine Arch cloud image becomes an installed Agentarchy that
 reboots into a themed KDE Plasma 6 Wayland session, autologged in as the install user, in **261
 seconds** (boot 53, sync 2, bootstrap 149, reboot 48, session 0, assert 1, theme 0, shots 8).

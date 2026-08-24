@@ -595,11 +595,6 @@ themes/everforest/colors.toml
 themes/everforest/icons.theme
 themes/everforest/neovim.lua
 themes/everforest/vscode.json
-themes/flexoki-light/chromium.theme
-themes/flexoki-light/colors.toml
-themes/flexoki-light/icons.theme
-themes/flexoki-light/neovim.lua
-themes/flexoki-light/vscode.json
 themes/gruvbox/colors.toml
 themes/gruvbox/icons.theme
 themes/gruvbox/neovim.lua
@@ -623,8 +618,6 @@ themes/lumon/colors.toml
 themes/lumon/icons.theme
 themes/lumon/neovim.lua
 themes/lumon/vscode.json
-themes/lupine/colors.toml
-themes/lupine/icons.theme
 themes/matte-black/colors.toml
 themes/matte-black/icons.theme
 themes/matte-black/neovim.lua
@@ -647,11 +640,6 @@ themes/retro-82/neovim.lua
 themes/retro-82/vscode.json
 themes/ristretto/colors.toml
 themes/ristretto/icons.theme
-themes/rose-pine/chromium.theme
-themes/rose-pine/colors.toml
-themes/rose-pine/icons.theme
-themes/rose-pine/neovim.lua
-themes/rose-pine/vscode.json
 themes/solitude/btop.theme
 themes/solitude/colors.toml
 themes/solitude/icons.theme

@@ -1,0 +1,51 @@
+# Agentarchy's own palette, and the one a fresh install lands on.
+#
+# Every other theme here is inherited, which meant nothing on screen belonged to this project. This
+# one is drawn rather than borrowed, and the choices are deliberate:
+#
+#   A warm near-black ground. Almost every dark theme in the set is blue or violet at the bottom
+#   (tokyo-night, catppuccin, kanagawa, nord). Warming the ground instead puts Agentarchy somewhere
+#   nothing else in the list sits, and it stays neutral enough to disappear behind a wallpaper.
+#
+#   One amber signal. A single saturated accent against a desaturated ground is what makes a
+#   desktop legible at a glance -- and amber avoids both the blue everyone uses and the green that
+#   reads as a terminal costume. It is also what the deep-space source imagery the wallpapers derive
+#   from is already full of, so the two agree without being tinted to match.
+#
+#   Everything else stays muted. The ANSI sixteen are desaturated toward the ground so that syntax
+#   highlighting does not compete with the accent.
+#
+# Contrast floors are checked by test/unit/themes.bats: foreground against background, and muted
+# against background so the greeter's entry field keeps a visible edge.
+
+mode = "dark"
+
+accent = "#f0a04b"
+selection = "#33291d"
+muted = "#6b6154"
+
+background = "#151412"
+dark_background = "#100f0d"
+darker_background = "#0b0a09"
+lighter_background = "#211f1c"
+
+foreground = "#cfc9bf"
+dark_foreground = "#7a7268"
+light_foreground = "#ded8cf"
+bright_foreground = "#f2ede5"
+
+red = "#e2574a"
+yellow = "#e6b74a"
+orange = "#e08b3e"
+green = "#93b061"
+cyan = "#4fa8a2"
+blue = "#6b93d6"
+magenta = "#b481cf"
+brown = "#8b6a49"
+
+bright_red = "#f26e60"
+bright_yellow = "#f5cc63"
+bright_green = "#a9c777"
+bright_cyan = "#66c2bb"
+bright_blue = "#86a9e8"
+bright_magenta = "#c99ae0"

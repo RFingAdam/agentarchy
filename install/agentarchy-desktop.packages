@@ -1,4 +1,4 @@
-# Agentarchy desktop packages — KDE Plasma 6 on Wayland.
+# Agentarchy desktop packages -- KDE Plasma 6 on Wayland.
 #
 # Verified in a QEMU/virtio-gpu guest (spike, 2026-08-23): this set boots vanilla Arch to a Plasma
 # Wayland session with SDDM autologin in about 3m20s. Same format and consumer as

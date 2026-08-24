@@ -53,13 +53,18 @@ Rectangle {
     anchors.centerIn: parent
     spacing: 40
 
-    Image {
-      id: logo
-      source: "logo.png"
-      width: Math.min(sourceSize.width, root.width * 0.8)
-      height: sourceSize.width > 0 ? Math.round(width * sourceSize.height / sourceSize.width) : 0
-      fillMode: Image.PreserveAspectFit
+    // Set, not shipped. This was a white PNG: the brightest thing on an otherwise dark screen, and
+    // the one element that could not follow the palette while everything around it did. Drawing it
+    // as text also empties the greeter of image assets entirely -- see upstream/EXCLUDED-ASSETS.md
+    // for why that is the direction of travel here.
+    Text {
+      id: wordmark
       anchors.horizontalCenter: parent.horizontalCenter
+      text: "agentarchy"
+      color: root.textColor
+      font.pixelSize: Math.max(40, Math.round(root.width / 20))
+      font.bold: true
+      font.letterSpacing: 6
     }
 
     // The entry field. A failed login turns the border and the dots red; upstream swapped in a
