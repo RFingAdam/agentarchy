@@ -97,6 +97,11 @@ fi
 # agent layer lands in its own phase and that step becomes a deliberate choice, default it off.
 export OAL_SKIP_MISE="${OAL_SKIP_MISE:-1}"
 
+# Exported, not just defaulted at each use. install/user/theme.sh runs in a separate process and
+# applies the same variable to the eighteen templated configs; if it cannot see an override set
+# here, KDE gets one theme and every terminal, editor and prompt gets another.
+export OAL_DEFAULT_THEME="${OAL_DEFAULT_THEME:-agentarchy}"
+
 log "Applying system configuration (needs root)"
 sudo oal-apply-system --install-user "$user" --first-install
 
@@ -125,7 +130,7 @@ if ! sudo grep -qF 'agentarchy/default/bash/rc' /etc/skel/.bashrc 2>/dev/null; t
 fi
 
 log "Applying the default theme"
-oal-theme-set-kde "${OAL_DEFAULT_THEME:-agentarchy}"
+oal-theme-set-kde "$OAL_DEFAULT_THEME"
 
 # The agent runtime, the permission posture, and the timer feeding the prompt's agent line. Runs as
 # the user because the runtime installs into the home directory and self-updates. Non-fatal by
@@ -135,7 +140,7 @@ bash "$checkout/install/agent/runtime.sh"
 
 # The greeter is the one surface that needs root, and an install is the last moment we have it
 # without asking. After this, retinting the login screen is a deliberate `oal-refresh-sddm <theme>`.
-oal-refresh-sddm "${OAL_DEFAULT_THEME:-agentarchy}"
+oal-refresh-sddm "$OAL_DEFAULT_THEME"
 
 log "Done"
 cat <<'NEXT'

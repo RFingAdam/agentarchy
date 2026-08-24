@@ -137,7 +137,12 @@ theme_cycle() {
   for slug in "${theme_list[@]}"; do
     [[ -n "$slug" ]] || continue
     printf -- '--- %s ---\n' "$slug" >&2
-    vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; oal-theme-set-kde '$slug'" \
+    # oal-theme-set, not oal-theme-set-kde: this is the command a user actually runs, and since
+    # patch 0012 it is the one that drives both halves -- the desktop through oal-theme-set-kde and
+    # the eighteen templated configs through the template pass. Cycling with the KDE command alone
+    # moved the desktop and left every terminal, editor and prompt on the previous theme, which is
+    # exactly the split this stage is here to catch.
+    vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; oal-theme-set '$slug'" \
       >>"$art/theme-$slug.txt" 2>&1 || { vm_warn "applying $slug failed"; rc=1; }
     sleep 3   # let the wallpaper land before the shutter
     vm_ssh bash -s -- "$slug" <"$here/theme-assertions.sh" >>"$art/theme-$slug.txt" 2>&1 || rc=1
@@ -214,6 +219,11 @@ stage agent agent_layer || fail "agent layer (see $art/agent.txt)"
 
 # A terminal, photographed, because the prompt is a visual thing and no assertion covers how it looks.
 prompt_shot() {
+  # Back to the default theme first. The cycle above ends on whichever theme is last in the list, so
+  # without this the one screenshot of the prompt is of an arbitrary theme -- and the list ends light
+  # on purpose, which is the least representative of the twenty.
+  vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; oal-theme-set agentarchy" >/dev/null 2>&1 || true
+  sleep 2
   vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; setsid konsole >/dev/null 2>&1 &" >/dev/null 2>&1 || true
   sleep 8
   "$here/vm-shot" "$art/prompt-guest.png" --guest || return 1
