@@ -142,7 +142,12 @@ theme_cycle() {
     # the eighteen templated configs through the template pass. Cycling with the KDE command alone
     # moved the desktop and left every terminal, editor and prompt on the previous theme, which is
     # exactly the split this stage is here to catch.
-    vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; oal-theme-set '$slug'" \
+    # Through a login shell. oal-theme-set is vendored and reads $OAL_PATH bare, which
+    # /etc/profile.d/oal.sh exports into login shells and an ssh command line does not have -- so a
+    # bare invocation answers "Theme does not exist" for every theme on a perfectly good machine.
+    # A user's terminal is a login shell, so this tests the chain they actually use, profile.d
+    # included, rather than papering over it by exporting the variable here.
+    vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; bash -lc 'oal-theme-set \"$slug\"'" \
       >>"$art/theme-$slug.txt" 2>&1 || { vm_warn "applying $slug failed"; rc=1; }
     sleep 3   # let the wallpaper land before the shutter
     vm_ssh bash -s -- "$slug" <"$here/theme-assertions.sh" >>"$art/theme-$slug.txt" 2>&1 || rc=1
@@ -222,7 +227,7 @@ prompt_shot() {
   # Back to the default theme first. The cycle above ends on whichever theme is last in the list, so
   # without this the one screenshot of the prompt is of an arbitrary theme -- and the list ends light
   # on purpose, which is the least representative of the twenty.
-  vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; oal-theme-set agentarchy" >/dev/null 2>&1 || true
+  vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; bash -lc 'oal-theme-set agentarchy'" >/dev/null 2>&1 || true
   sleep 2
   vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; setsid konsole >/dev/null 2>&1 &" >/dev/null 2>&1 || true
   sleep 8
