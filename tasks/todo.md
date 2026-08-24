@@ -43,9 +43,11 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
         tooling port) should walk the tree and decide. Nothing on the golden path needs them today.
 - [ ] Phase 2 — Theme engine, all 22 themes (+ wallpaper licence audit)
       (plan: docs/superpowers/plans/2026-08-23-phase-2-theme-engine.md)
-  - [ ] Task 1 trace provenance of 68 wallpapers + application icons → `docs/asset-audit.md`
-  - [ ] Task 2 act on it: keep what is documented, generate palette wallpapers for the rest, NOTICE real
-  - [ ] Task 3 `plasma.colors.tpl` + `konsole.colorscheme.tpl` as templates
+  - [x] Task 1 trace provenance of 68 wallpapers + application icons → `docs/asset-audit.md`
+        (`bin/oal-dev-asset-provenance`; findings in `docs/asset-audit-findings.md` — not one carried a licence)
+  - [x] Task 2 act on it: all 68 removed, 22 palette wallpapers generated, NOTICE gate is `--strict`
+  - [x] Task 3 `plasma.colors.tpl` + `konsole.colorscheme.tpl` as templates, rendered by
+        `bin/oal-theme-render`; `oal-theme-set-kde` drops from 144 lines to 92
   - [ ] Task 4 SDDM, lock screen, icons, light/dark, and the `oal-theme-set` port-or-drop audit
   - [ ] Task 5 snapshot tests for all 22 themes
   - [ ] Task 6 VM: cycle three themes with screenshots
