@@ -62,6 +62,13 @@ scheme_name="OAL $title"
 # command is left doing what only it can do: putting the results where KDE looks and telling the
 # session about them.
 
+# Light or dark decides the parts of the desktop a colour scheme does not reach: the icon set here,
+# and the greeter palette oal-refresh-sddm renders. oal-theme-color owns the resolution (explicit
+# `mode`, legacy `theme_type`, a light.mode marker, then background luminance for user themes), so
+# every consumer agrees on the answer for a given theme.
+mode="$("$bin_dir/oal-theme-color" --file "$colors_file" mode)"
+[[ $mode == light || $mode == dark ]] || mode=dark
+
 scheme_dir="$out_dir/color-schemes"
 konsole_dir="$out_dir/konsole"
 scheme_file="$scheme_dir/$scheme_name.colors"
@@ -112,6 +119,17 @@ else
   echo "skipping colour scheme: Plasma is not installed"
 fi
 
+# The icon set is not part of a colour scheme, so it is what still reads as the wrong desktop once
+# everything else is retinted: dark icons on a light theme, or the reverse. Breeze ships exactly two
+# and both are already installed. The themes' own icons.theme files name Yaru variants that are
+# AUR-only on Arch and are deliberately not honoured -- docs/theme-hooks.md carries that ruling.
+if command -v kwriteconfig6 >/dev/null; then
+  icon_theme=breeze-dark
+  [[ $mode == light ]] && icon_theme=breeze
+  kwriteconfig6 --file kdeglobals --group Icons --key Theme "$icon_theme"
+  echo "icons: $icon_theme (theme mode: $mode)"
+fi
+
 background="$(find -L "$theme_dir/backgrounds" -maxdepth 1 -type f \
   \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) 2>/dev/null | sort | head -1)"
 if [[ -z $background ]]; then
@@ -124,6 +142,17 @@ else
   # The wallpaper lives in the containment config of a running shell; there is no supported way to
   # preseed it from an install, so it waits for the first oal-theme-set-kde inside a session.
   echo "no running Plasma session: wallpaper deferred (run oal-theme-set-kde again after login)"
+fi
+
+# The lock screen takes its colours from kdeglobals like everything else, but its wallpaper is a
+# setting of its own. Unlike the desktop's -- which lives in the containment config of a running
+# shell -- it is a plain config key, so it can be written with no session at all. That makes the
+# lock screen the one surface a fresh install gets completely right before anyone logs in.
+if [[ -n $background ]] && command -v kwriteconfig6 >/dev/null; then
+  kwriteconfig6 --file kscreenlockerrc \
+    --group Greeter --group Wallpaper --group org.kde.image --group General \
+    --key Image "$background"
+  echo "lock screen wallpaper set to $background"
 fi
 
 # Konsole picks its scheme up from the profile, not from the colour scheme, so point the default
@@ -139,3 +168,10 @@ if command -v kwriteconfig6 >/dev/null; then
 else
   echo "skipping konsole profile: kwriteconfig6 not installed"
 fi
+
+# The greeter is the one surface this command cannot reach: its theme lives under /usr/share/sddm,
+# writable only by root, and a theme switch is not worth a sudo prompt. oal-bootstrap.sh renders it
+# during install, where it is already root. Afterwards it is a deliberate step -- said out loud,
+# because a login screen that silently stayed on the old palette is how you find out at the next
+# reboot.
+echo "login screen unchanged: run 'oal-refresh-sddm $slug' to retint it (asks for sudo)"

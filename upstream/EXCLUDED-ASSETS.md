@@ -42,6 +42,24 @@ Also dropped with no vendored referent, listed so a PIN bump does not quietly re
 - `themes/*/hyprland.lua` — compositor theme fragment, matches the "never vendor Hyprland" rule that
   `config/hypr/**` and `default/hypr/**` already encode.
 
+## Replaced in Phase 2 Task 4 (2026-08-23)
+
+The SDDM greeter's five sprites — `default/sddm/oal/{lock,lock-failed,entry,entry-failed,bullet}.png`
+— were **dropped from vendoring**, and `Main.qml` with them.
+
+Two reasons, either of which is sufficient. They are unaccounted assets of exactly the class
+`docs/asset-audit-findings.md` rules on: vendored bytes, no recorded licence, absent from `NOTICE`,
+and outside that audit's wallpaper-and-application-icon scope, so they were being re-published by a
+fork that never established any right to them. And they are a single hard-coded colour (`#C0CAF5`,
+tokyo-night's `bright_foreground`), which cannot follow a palette — on the five light themes a
+themed greeter would have been light on light.
+
+No replacement artwork was needed: `Main.qml` is Agentarchy's now and draws the entry field and the
+password dots as QML shapes coloured from `theme.conf`, which `bin/oal-refresh-sddm` renders per
+theme from `default/themed/sddm.theme.conf.tpl`. `default/sddm/oal/logo.png` is unaffected — it is
+the Phase 1 placeholder, already ours. `metadata.desktop` and the shipped empty `theme.conf` stay
+vendored; the QML falls back to literals when no palette has been rendered in.
+
 Note on `**/icon.*`: the manifest excludes it as a blanket rule (upstream's root `icon.png` is the
 logo, and `default/chromium/extensions/copy-url/icon.png` is a symlink to it). The yt-dlp extension's
 `icon.png` is in fact a generic download glyph rather than upstream branding, but it is dropped with

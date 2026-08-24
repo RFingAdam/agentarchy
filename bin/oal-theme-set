@@ -189,7 +189,6 @@ flock -u 9
 
 post_theme_commands=(
   oal-restart-terminal
-  oal-restart-hyprctl
   oal-restart-btop
   oal-restart-opencode
   oal-restart-helix
@@ -202,6 +201,11 @@ post_theme_commands=(
   oal-theme-set-vscode
   oal-theme-set-obsidian
   oal-theme-set-keyboard
+  # KDE Plasma is Agentarchy's desktop, so the command that retints it belongs here with the rest.
+  # Without this line a theme change reaches the terminals and the editors and leaves the desktop,
+  # the lock screen and the icons on the previous theme. docs/theme-hooks.md rules on every entry
+  # in this list, including the Hyprland one dropped above.
+  "oal-theme-set-kde $THEME_NAME"
 )
 
 if [[ $THEME_HEADLESS != "1" ]]; then

@@ -48,7 +48,17 @@ Design spec: docs/superpowers/specs/2026-08-22-agentarchy-design.md
   - [x] Task 2 act on it: all 68 removed, 22 palette wallpapers generated, NOTICE gate is `--strict`
   - [x] Task 3 `plasma.colors.tpl` + `konsole.colorscheme.tpl` as templates, rendered by
         `bin/oal-theme-render`; `oal-theme-set-kde` drops from 144 lines to 92
-  - [ ] Task 4 SDDM, lock screen, icons, light/dark, and the `oal-theme-set` port-or-drop audit
+  - [x] Task 4 SDDM, lock screen, icons, light/dark, and the `oal-theme-set` port-or-drop audit
+        (`docs/theme-hooks.md`). Found and fixed: `oal-theme-set` never called `oal-theme-set-kde`,
+        so a theme switch after install left the desktop, icons and lock screen behind (patch 0012).
+        The greeter was inert too — nothing installed `10-theme.conf` or the theme directory; it is
+        installed now (`install/desktop/plasma.sh`, `oal-bootstrap.sh`) and its five upstream sprites
+        were dropped as unaccounted assets, replaced by QML drawn from the palette.
+  - [ ] **Not yet seen by a human**: the greeter renders from `theme.conf` and no VM has booted into
+        it — autologin skips the login screen, so Task 6's VM run has to disable autologin (or lock
+        the session) to get a screenshot of it. Until then the QML is only structurally tested.
+  - [ ] The ISO path installs no greeter palette: `oal-bootstrap.sh` calls `oal-refresh-sddm`, and a
+        deferred-provisioning install (Phase 6) never runs it. Decide there whether first boot does.
   - [ ] Task 5 snapshot tests for all 22 themes
   - [ ] Task 6 VM: cycle three themes with screenshots
   - [ ] Full-resolution desktop screenshots for README.md, once the VM guest resolution work lands
