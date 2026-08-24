@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# oal:summary=Show which MCP servers are registered with the agent runtime
+# oal:args=[--count]
+# oal:examples=oal-mcp-status | oal-mcp-status --count
+set -euo pipefail
+# shellcheck source=default/mcp/lib.sh
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../default/mcp/lib.sh"
+
+count_only=0
+case "${1:-}" in
+  --count) count_only=1 ;;
+  -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
+  "") ;;
+  *) oal_mcp_die "unknown argument: $1" ;;
+esac
+
+if ! oal_mcp_runtime_available; then
+  (( count_only )) && { echo 0; exit 0; }
+  echo "no agent runtime on PATH"
+  exit 0
+fi
+
+registered="$(oal_mcp_registered)"
+if (( count_only )); then
+  # awk, not `grep -c`: grep prints 0 *and* exits non-zero on no match, so a `|| echo 0` fallback
+  # fires as well and the count comes out as two lines.
+  awk 'NF' <<<"$registered" | wc -l
+  exit 0
+fi
+
+[[ -n $registered ]] || { echo "no MCP servers registered (try oal-mcp-list)"; exit 0; }
+while read -r id; do
+  [[ -n $id ]] || continue
+  row="$(oal_mcp_row "$id")"
+  if [[ -n $row ]]; then
+    IFS=$'\x1f' read -r _ _ _ _ _ origin description <<<"$row"
+    printf '%-22s %-8s %s\n' "$id" "$origin" "$description"
+  else
+    # Registered but not in any catalog we know: someone added it by hand. Say so rather than
+    # pretending the catalog is the whole picture.
+    printf '%-22s %-8s %s\n' "$id" "external" "registered outside any catalog"
+  fi
+done <<<"$registered"

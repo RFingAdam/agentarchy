@@ -1,0 +1,33 @@
+# MCP servers this distribution knows how to install. Read by bin/oal-mcp-*.
+#
+# Format, pipe-separated:  id | kind | package | args | profiles | description
+#
+#   kind      uvx (Python, run by uv) or npx (Node). Both are already installed by
+#             install/agentarchy-base.packages, so neither adds a dependency.
+#   args      arguments the server needs, or empty. $HOME is the only expansion
+#             permitted -- a data file that can expand arbitrary shell is a data file
+#             that can run arbitrary shell.
+#   profiles  comma-separated; oal-mcp-install --profile takes one of these names.
+#   package   the exact registry name. Every entry here was checked against
+#             registry.npmjs.org or pypi.org before it was added -- a catalog whose
+#             names are guesses is worse than no catalog, because the failure lands
+#             on the user as an install error rather than on us as a missing row.
+#
+# Nothing in here is installed by default. The distribution ships the mechanism; what
+# you run is your choice, and `oal-mcp-import` registers catalogs this repository does
+# not ship (private, licence-gated, or hardware-bound) without them appearing here.
+#
+# Deliberately vendor-neutral: these are the reference servers and a few widely used
+# ones, not a curated set that reflects one person's work. Opinionated defaults are
+# good; an opinionated *catalogue* is a lock-in.
+
+filesystem | npx | @modelcontextprotocol/server-filesystem | $HOME | minimal,dev | Read and write files under paths you name
+git | uvx | mcp-server-git |  | minimal,dev | Read, search and inspect a git repository
+fetch | uvx | mcp-server-fetch |  | minimal,dev | Retrieve a URL and convert it to text
+time | uvx | mcp-server-time |  | minimal,dev | Current time and timezone conversion
+memory | npx | @modelcontextprotocol/server-memory |  | dev | A knowledge graph the agent can persist notes into
+sequential-thinking | npx | @modelcontextprotocol/server-sequential-thinking |  | dev | Structured step-by-step reasoning
+github | npx | @modelcontextprotocol/server-github |  | dev | Issues, pull requests and code search on GitHub
+sqlite | uvx | mcp-server-sqlite |  | dev | Query and inspect a SQLite database
+playwright | npx | @playwright/mcp |  | dev | Drive a real browser: navigate, click, read, screenshot
+context7 | npx | @upstash/context7-mcp |  | dev | Up-to-date library and framework documentation

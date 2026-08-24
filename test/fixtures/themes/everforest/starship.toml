@@ -1,0 +1,77 @@
+# Starship prompt, generated from a theme's colors.toml.
+#
+# The eighteenth themed template. Rendered by oal-theme-set-templates into
+# ~/.local/state/oal/current/theme/starship.toml, which config/starship/starship.toml points at, so
+# the prompt retints on every theme change with no per-theme prompt config to maintain.
+#
+# The look is deliberate. No powerline arrows and no segmented grey blocks -- that silhouette is what
+# reads as a decade-old desktop, and it spends the whole line on chrome. Two quiet lines instead:
+# context above, state and caret below, with the accent used once rather than on every segment. The
+# separators are thin box-drawing characters, which every monospace font has, so the prompt does not
+# collapse into replacement glyphs when a Nerd Font is missing.
+
+add_newline = true
+palette = "oal"
+
+# The frame is dark_foreground, not muted. muted is the palette's "barely there" role, and against a
+# near-black ground it does not read at all -- the two-line structure disappears and the corners look
+# like stray characters. dark_foreground is the role for subordinate but legible, which is what a
+# frame is.
+format = """
+[╭](fg:#4f585e) $directory$git_branch$git_status$cmd_duration
+[╰](fg:#4f585e) $custom$character"""
+
+[palettes.oal]
+ground = "#2d353b"
+muted = "#475258"
+fg = "#d3c6aa"
+accent = "#7fbbb3"
+ok = "#a7c080"
+warn = "#dbbc7f"
+bad = "#e67e80"
+info = "#7fbbb3"
+
+[directory]
+style = "fg:#d3c6aa"
+format = "[$path]($style)[$read_only]( fg:#e67e80)"
+truncation_length = 3
+truncate_to_repo = true
+read_only = " ro"
+
+[git_branch]
+style = "fg:#475258"
+format = "  [$branch]($style)"
+
+[git_status]
+style = "fg:#dbbc7f"
+format = "[$all_status$ahead_behind]($style)"
+conflicted = " !"
+untracked = " ?"
+modified = " *"
+staged = " +"
+renamed = " r"
+deleted = " x"
+stashed = " s"
+ahead = " ^${count}"
+behind = " v${count}"
+diverged = " ^${ahead_count}v${behind_count}"
+
+# Only when something took long enough that you would have wondered.
+[cmd_duration]
+min_time = 2000
+style = "fg:#475258"
+format = "  [$duration]($style)"
+
+# The agent line. oal-agent-hud reads a cached state file and never the network, so this cannot
+# stall the prompt; it prints nothing at all when there is no agent runtime or no fresh state.
+[custom.agent]
+command = "oal-agent-hud"
+when = true
+shell = ["bash", "--noprofile", "--norc"]
+style = "fg:#7fbbb3"
+format = "[$output]($style) "
+
+[character]
+success_symbol = "[❯](fg:#7fbbb3)"
+error_symbol = "[❯](fg:#e67e80)"
+vimcmd_symbol = "[❮](fg:#a7c080)"

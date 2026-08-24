@@ -121,5 +121,20 @@ else
   ok lock-wallpaper
 fi
 
+# --- the two halves agree -----------------------------------------------------------------------
+
+# oal-theme-set-kde moves the desktop; oal-theme-set's template pass moves the eighteen config files
+# that terminals, editors and the prompt read. Nothing forces them to be the same theme, and when
+# they are not the machine is visibly in two themes at once -- amber desktop, blue prompt. This is
+# the check that says so.
+name_file="$HOME/.local/state/oal/current/theme.name"
+if [[ -f $name_file ]]; then
+  templated="$(<"$name_file")"
+  [[ $templated == "$slug" ]] && ok templates-match-desktop ||
+    bad templates-match-desktop "desktop is '$slug', templated configs are '$templated'"
+else
+  bad templates-match-desktop "no $name_file: the template pass has never run"
+fi
+
 printf '\n%s: %d passed, %d failed\n' "$slug" "$pass" "$fail"
 (( fail == 0 ))

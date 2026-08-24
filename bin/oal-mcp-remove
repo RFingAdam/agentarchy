@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# oal:summary=Unregister MCP servers from the agent runtime
+# oal:args=<id>...
+# oal:examples=oal-mcp-remove playwright
+set -euo pipefail
+# shellcheck source=default/mcp/lib.sh
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../default/mcp/lib.sh"
+
+case "${1:-}" in
+  -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
+  "") sed -n '2,4p' "$0" >&2; exit 2 ;;
+esac
+oal_mcp_runtime_available || oal_mcp_die "no agent runtime on PATH"
+
+registered="$(oal_mcp_registered)"
+rc=0
+for id in "$@"; do
+  if ! grep -qx -- "$id" <<<"$registered"; then
+    echo "$id: not registered"
+    continue
+  fi
+  if oal_mcp_unregister "$id"; then echo "$id: removed"; else echo "$id: removal failed" >&2; rc=1; fi
+done
+exit $rc

@@ -21,9 +21,10 @@ root="$(oal_dev_root)" || exit 1; cd "$root"
 check=0
 for a in "$@"; do case "$a" in --check) check=1 ;; *) oal_dev_die "unknown arg $a" ;; esac; done
 
-# The three templates Phase 2 owns. The terminal and editor templates are upstream's, rendered by
-# upstream's own theme-set pass, and snapshotting all sixteen would bury the KDE surface in noise.
-templates=(plasma.colors konsole.colorscheme sddm.theme.conf)
+# The templates this project owns: the KDE surface, the greeter, and the prompt. The terminal and
+# editor templates are upstream's, rendered by upstream's own theme-set pass, and snapshotting all
+# sixteen of those would bury ours in noise.
+templates=(plasma.colors konsole.colorscheme sddm.theme.conf starship.toml)
 
 committed="$root/test/fixtures/themes"
 dest="$committed"

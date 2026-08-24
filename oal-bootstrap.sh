@@ -16,6 +16,7 @@
 #   OAL_CHECKOUT=<dir>      where to clone (default ~/.local/share/oal/checkout)
 #   OAL_SKIP_DESKTOP=1      build and install the package, then stop before touching the system
 #   OAL_SKIP_MISE=1         skip the mise tool installs (defaulted on, see below)
+#   OAL_SKIP_AGENT=1        skip installing the coding-agent runtime
 set -euo pipefail
 
 readonly REPO_URL="https://github.com/RFingAdam/agentarchy"
@@ -96,6 +97,11 @@ fi
 # agent layer lands in its own phase and that step becomes a deliberate choice, default it off.
 export OAL_SKIP_MISE="${OAL_SKIP_MISE:-1}"
 
+# Exported, not just defaulted at each use. install/user/theme.sh runs in a separate process and
+# applies the same variable to the eighteen templated configs; if it cannot see an override set
+# here, KDE gets one theme and every terminal, editor and prompt gets another.
+export OAL_DEFAULT_THEME="${OAL_DEFAULT_THEME:-agentarchy}"
+
 log "Applying system configuration (needs root)"
 sudo oal-apply-system --install-user "$user" --first-install
 
@@ -105,12 +111,36 @@ oal-provision-user --first-install
 # Land on a themed desktop instead of stock Breeze. No Plasma session exists during a bootstrap, so
 # this writes the colour scheme and points kdeglobals at it; the first login reads that. The
 # wallpaper needs a live session and is applied the first time the theme is set inside one.
+# Upstream seeds shipped configs through /etc/skel, a mechanism Agentarchy never vendored, so
+# nothing sources default/bash/rc: no aliases, no functions, and no `starship init` -- which leaves
+# the themed prompt rendered to disk and never read.
+#
+# Appended rather than packaged. /etc/skel/.bashrc belongs to the `bash` package, and shipping our
+# own is a hard file conflict that fails the install outright. Appended rather than replaced, too:
+# overwriting another package's file earns a .pacnew on every bash update and throws away whatever
+# Arch put there. Both writes are idempotent; the source line is its own marker.
+log "Wiring the shell"
+oal_rc_line='[ -r /usr/share/agentarchy/default/bash/rc ] && . /usr/share/agentarchy/default/bash/rc'
+if ! grep -qF 'agentarchy/default/bash/rc' ~/.bashrc 2>/dev/null; then
+  printf '\n# Agentarchy\n%s\n' "$oal_rc_line" >>~/.bashrc
+fi
+# And for users created after this point, who never see the line above.
+if ! sudo grep -qF 'agentarchy/default/bash/rc' /etc/skel/.bashrc 2>/dev/null; then
+  printf '\n# Agentarchy\n%s\n' "$oal_rc_line" | sudo tee -a /etc/skel/.bashrc >/dev/null
+fi
+
 log "Applying the default theme"
-oal-theme-set-kde "${OAL_DEFAULT_THEME:-agentarchy}"
+oal-theme-set-kde "$OAL_DEFAULT_THEME"
+
+# The agent runtime, the permission posture, and the timer feeding the prompt's agent line. Runs as
+# the user because the runtime installs into the home directory and self-updates. Non-fatal by
+# design: see install/agent/runtime.sh.
+log "Installing the agent runtime"
+bash "$checkout/install/agent/runtime.sh"
 
 # The greeter is the one surface that needs root, and an install is the last moment we have it
 # without asking. After this, retinting the login screen is a deliberate `oal-refresh-sddm <theme>`.
-oal-refresh-sddm "${OAL_DEFAULT_THEME:-agentarchy}"
+oal-refresh-sddm "$OAL_DEFAULT_THEME"
 
 log "Done"
 cat <<'NEXT'

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# oal:summary=Show or set the agent permission posture for this machine
+# oal:args=[trusted|scoped|untrusted]
+# oal:examples=oal-agent-profile | oal-agent-profile scoped
+#
+# Three postures, as a machine-level setting rather than a file people hand-edit:
+#
+#   untrusted  every tool call is confirmed. What you want on a box that is not yours, or when you
+#              are running something you have not read.
+#   scoped     the default. Reading and searching are free; writing, installing and network calls
+#              are confirmed. Nothing is silently permitted outside the project you are in.
+#   trusted    permissive, and deliberately opt-in. Only sensible on a machine where the blast
+#              radius is yours alone.
+#
+# This command records the choice and swaps the shipped permission set into the agent's settings.
+# It does not enforce anything by itself -- enforcement is the PreToolUse hook, which is issue #6.
+# Until that lands, this is the posture the runtime's own permission system reads.
+set -euo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/oal"
+state="$state_dir/agent-profile"
+settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+
+usage() { sed -n '2,4p' "$0" >&2; }
+
+current() { [[ -r $state ]] && tr -d '[:space:]' <"$state" || echo scoped; }
+
+case "${1:-}" in
+  "") current; exit 0 ;;
+  -h | --help) sed -n '2,18p' "$0"; exit 0 ;;
+  trusted | scoped | untrusted) profile="$1" ;;
+  *) echo "oal-agent-profile: unknown profile '$1' (trusted, scoped or untrusted)" >&2; usage; exit 1 ;;
+esac
+
+src="$OAL_PATH/agent/permissions/$profile.json"
+[[ -f $src ]] || { echo "oal-agent-profile: no permission set at $src" >&2; exit 1; }
+
+mkdir -p -- "$state_dir"
+printf '%s\n' "$profile" >"$state"
+
+if [[ -w $(dirname "$settings") || ! -e $settings ]]; then
+  mkdir -p -- "$(dirname "$settings")"
+  if command -v jq >/dev/null && [[ -f $settings ]]; then
+    # Merge, never overwrite: settings.json is the user's, and it holds more than permissions.
+    tmp="$(mktemp)"
+    jq -s '.[0] * .[1]' "$settings" "$src" >"$tmp" && mv -- "$tmp" "$settings"
+  else
+    cp -- "$src" "$settings"
+  fi
+  echo "agent profile: $profile (applied to $settings)"
+else
+  echo "agent profile: $profile (recorded; $settings is not writable)"
+fi

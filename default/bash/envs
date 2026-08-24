@@ -8,6 +8,12 @@ export SUDO_EDITOR="$EDITOR"
 export BROWSER="${BROWSER:-oal-launch-browser}"
 export BAT_THEME=ansi
 
+# Point starship at the themed prompt oal-theme-set-templates renders, so the prompt follows the
+# current theme like every other config does. Starship has no include directive, so this indirection
+# is an environment variable rather than the one-line config file ghostty and kitty use. A missing
+# file is not an error: before any theme is applied starship falls back to its own defaults.
+export STARSHIP_CONFIG="${STARSHIP_CONFIG:-$HOME/.local/state/oal/current/theme/starship.toml}"
+
 # Color man pages with bat
 export MANROFFOPT="-c"
 export MANPAGER="sh -c 'col -bx | bat -l man -p'"

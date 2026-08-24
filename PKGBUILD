@@ -49,7 +49,7 @@ package() {
   local share="$pkgdir/usr/share/$pkgname"
 
   install -d "$share"
-  for d in bin config default themes applications agents install etc migrations; do
+  for d in agent bin config default themes applications agents install etc migrations; do
     [[ -d $d ]] || continue
     cp -a "$d" "$share/"
   done

@@ -137,7 +137,17 @@ theme_cycle() {
   for slug in "${theme_list[@]}"; do
     [[ -n "$slug" ]] || continue
     printf -- '--- %s ---\n' "$slug" >&2
-    vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; oal-theme-set-kde '$slug'" \
+    # oal-theme-set, not oal-theme-set-kde: this is the command a user actually runs, and since
+    # patch 0012 it is the one that drives both halves -- the desktop through oal-theme-set-kde and
+    # the eighteen templated configs through the template pass. Cycling with the KDE command alone
+    # moved the desktop and left every terminal, editor and prompt on the previous theme, which is
+    # exactly the split this stage is here to catch.
+    # Through a login shell. oal-theme-set is vendored and reads $OAL_PATH bare, which
+    # /etc/profile.d/oal.sh exports into login shells and an ssh command line does not have -- so a
+    # bare invocation answers "Theme does not exist" for every theme on a perfectly good machine.
+    # A user's terminal is a login shell, so this tests the chain they actually use, profile.d
+    # included, rather than papering over it by exporting the variable here.
+    vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; bash -lc 'oal-theme-set \"$slug\"'" \
       >>"$art/theme-$slug.txt" 2>&1 || { vm_warn "applying $slug failed"; rc=1; }
     sleep 3   # let the wallpaper land before the shutter
     vm_ssh bash -s -- "$slug" <"$here/theme-assertions.sh" >>"$art/theme-$slug.txt" 2>&1 || rc=1
@@ -149,6 +159,82 @@ theme_cycle() {
   return "$rc"
 }
 stage themes theme_cycle || fail "theme cycle (see $art/theme-*.txt)"
+
+# --- 6b. the agent layer, and the prompt that shows it ---------------------------------------------
+
+# The agent runtime install is deliberately non-fatal (install/agent/runtime.sh), so this stage
+# reports what it found rather than failing when a third party's installer had a bad afternoon. What
+# it does insist on is the parts this repository owns: the catalog, the posture, and a prompt that
+# renders from the current theme.
+agent_layer() {
+  local rc=0
+  vm_ssh bash -s <<'GUEST' >"$art/agent.txt" 2>&1 || rc=1
+set -u
+pass=0; fail=0
+ok()  { printf 'PASS %s\n' "$1"; pass=$((pass + 1)); }
+bad() { printf 'FAIL %s: %s\n' "$1" "${2:-}"; fail=$((fail + 1)); }
+
+command -v oal-mcp-list >/dev/null && ok mcp-commands-installed || bad mcp-commands-installed "not on PATH"
+
+n="$(oal-mcp-list | tail -n +2 | grep -c .)"
+[ "$n" -ge 8 ] && ok "catalog-visible ($n servers)" || bad catalog-visible "only $n rows"
+
+# The posture is ours and must work with or without a runtime.
+oal-agent-profile untrusted >/dev/null 2>&1 && [ "$(oal-agent-profile)" = untrusted ] &&
+  oal-agent-profile scoped >/dev/null 2>&1 && [ "$(oal-agent-profile)" = scoped ] &&
+  ok agent-profile-round-trip || bad agent-profile-round-trip "$(oal-agent-profile 2>&1)"
+
+# The prompt config has to exist and be the themed one, not starship's defaults.
+cfg="$HOME/.local/state/oal/current/theme/starship.toml"
+if [ -s "$cfg" ]; then
+  ok prompt-rendered
+  grep -q 'oal-agent-hud' "$cfg" && ok prompt-carries-hud || bad prompt-carries-hud "no custom.agent block"
+  # It must be this theme's colours, not the last one's.
+  bg="$(oal-theme-color --file "$HOME/.local/state/oal/current/theme/colors.toml" background)"
+  grep -qF "$bg" "$cfg" && ok prompt-matches-theme || bad prompt-matches-theme "no $bg in the prompt config"
+else
+  bad prompt-rendered "no $cfg"
+fi
+
+# STARSHIP_CONFIG is exported by default/bash/envs, which ~/.bashrc sources. That makes it an
+# interactive-shell thing: `bash -lc` is a login shell but not an interactive one and never reads
+# bashrc at all, so it reports the variable missing on a machine where it is set correctly.
+sc="$(bash -ic 'printf %s "$STARSHIP_CONFIG"' 2>/dev/null)"
+[ "$sc" = "$cfg" ] && ok starship-config-env || bad starship-config-env "got '$sc'"
+
+if command -v claude >/dev/null; then
+  ok agent-runtime-present
+  oal-mcp-install --profile minimal >/dev/null 2>&1 || true
+  c="$(oal-mcp-status --count)"
+  [ "$c" -ge 1 ] && ok "mcp-registered ($c)" || bad mcp-registered "count $c"
+else
+  printf 'INFO agent runtime absent -- install/agent/runtime.sh is non-fatal by design\n'
+fi
+
+oal-agent-hud --refresh >/dev/null 2>&1 || true
+printf 'HUD: [%s]\n' "$(oal-agent-hud)"
+
+printf '\n%d passed, %d failed\n' "$pass" "$fail"
+[ "$fail" -eq 0 ]
+GUEST
+  cat -- "$art/agent.txt" >&2
+  return "$rc"
+}
+stage agent agent_layer || fail "agent layer (see $art/agent.txt)"
+
+# A terminal, photographed, because the prompt is a visual thing and no assertion covers how it looks.
+prompt_shot() {
+  # Back to the default theme first. The cycle above ends on whichever theme is last in the list, so
+  # without this the one screenshot of the prompt is of an arbitrary theme -- and the list ends light
+  # on purpose, which is the least representative of the twenty.
+  vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; bash -lc 'oal-theme-set agentarchy'" >/dev/null 2>&1 || true
+  sleep 2
+  vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; setsid konsole >/dev/null 2>&1 &" >/dev/null 2>&1 || true
+  sleep 8
+  "$here/vm-shot" "$art/prompt-guest.png" --guest || return 1
+  shots+=("$art/prompt-guest.png")
+}
+stage prompt prompt_shot || vm_warn "could not photograph the prompt; continuing"
 
 # --- 7. the login screen ---------------------------------------------------------------------------
 
