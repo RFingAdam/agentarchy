@@ -88,6 +88,10 @@ exclude **/logo.*
 exclude **/icon.*
 exclude **/logos/**
 exclude themes/*/hyprland.lua
+# Superseded by default/themed/starship.toml.tpl, which renders per theme and is what
+# STARSHIP_CONFIG points at. Delivered to ~/.config it would be read by nothing while looking like
+# the file to edit, which is worse than not shipping it.
+exclude config/starship.toml
 # --- three themes dropped 2026-08-23, on the "what will nobody use" question.
 # Agentarchy ships its own palette as the default now (themes/agentarchy, native), and the light
 # ones were the least defensible of the inherited set. lupine and flexoki-light are niche. rose-pine

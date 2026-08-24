@@ -100,6 +100,31 @@ else
 fi
 assert pacman-sync sudo pacman -Syy --noconfirm
 
+# --- shipped user configuration -------------------------------------------------------------------
+
+# config/ is ~/.config, delivered through /etc/skel. It was vendored and never installed, so none of
+# it reached a home directory -- and four of these files `include` a path the theme engine renders on
+# every theme change, which meant the terminal half of the theme engine was writing files that no
+# config opened. Checked here rather than per theme: delivery is an install-time property.
+for pair in "ghostty/config" "kitty/kitty.conf" "alacritty/alacritty.toml" "foot/foot.ini"; do
+  cfg="$HOME/.config/$pair"
+  name="config-${pair%%/*}"
+  if [[ ! -f $cfg ]]; then
+    bad "$name" "not delivered to \$HOME/.config"
+    continue
+  fi
+  # And the themed file it points at has to exist, or the include is decoration.
+  target="$(grep -oE '[^ "]*current/theme/[^ "]*' "$cfg" | head -n1)"
+  target="${target/#\~/$HOME}"
+  if [[ -z $target ]]; then
+    bad "$name" "no themed include"
+  elif [[ -f $target ]]; then
+    ok "$name"
+  else
+    bad "$name" "includes $target, which does not exist"
+  fi
+done
+
 # --- the SSH lockout regression -------------------------------------------------------------------
 
 # Phase 1 found this the hard way: ufw came up with 'default deny incoming' and closed the only way

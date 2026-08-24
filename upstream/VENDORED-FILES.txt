@@ -363,7 +363,6 @@ config/oal/hooks/theme-set.d/show-theme-notification.sample
 config/oal/themed/alacritty.toml.tpl.sample
 config/obsidian/user-flags.conf
 config/opencode/opencode.json
-config/starship.toml
 config/tmux/tmux.conf
 config/wireplumber/wireplumber.conf.d/bluetooth-a2dp-autoconnect.conf
 config/xournalpp/settings.xml

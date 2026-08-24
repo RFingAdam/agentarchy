@@ -129,6 +129,14 @@ if ! sudo grep -qF 'agentarchy/default/bash/rc' /etc/skel/.bashrc 2>/dev/null; t
   printf '\n# Agentarchy\n%s\n' "$oal_rc_line" | sudo tee -a /etc/skel/.bashrc >/dev/null
 fi
 
+# Same problem for ~/.config. /etc/skel seeds users created after the package lands, and the person
+# running this already has a home directory. Copy what is missing and never overwrite: a second run
+# must not clobber a config someone has since edited.
+if [ -d /etc/skel/.config ]; then
+  mkdir -p ~/.config
+  cp -rn /etc/skel/.config/. ~/.config/ 2>/dev/null || true
+fi
+
 log "Applying the default theme"
 oal-theme-set-kde "$OAL_DEFAULT_THEME"
 
