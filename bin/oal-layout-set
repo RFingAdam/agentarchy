@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# oal:summary=Apply a desktop panel layout
+# oal:args=[ubuntu|mint] [--list]
+# oal:examples=oal-layout-set | oal-layout-set mint | oal-layout-set --list
+#
+#   ubuntu  the default: a thin status bar at the top, a floating dock at the bottom
+#   mint    one taskbar along the bottom, close to stock Plasma
+#
+# Applied through Plasma's own scripting API, so it takes effect in the running session and persists
+# the way any panel change does -- there is nothing to re-apply at login.
+#
+# This REPLACES every panel. That is what applying a preset means, and it throws away an arrangement
+# someone has made by hand, so a layout is never applied implicitly: install/desktop sets one on a
+# fresh machine and nothing touches it again.
+set -euo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+layouts="$OAL_PATH/default/layouts"
+state="${XDG_STATE_HOME:-$HOME/.local/state}/oal/layout"
+
+die() { echo "oal-layout-set: $*" >&2; exit 1; }
+
+list() { local f; for f in "$layouts"/*.js; do [[ -f $f ]] && basename "$f" .js; done; }
+
+case "${1:-}" in
+  -h | --help) sed -n '2,9p' "$0"; exit 0 ;;
+  --list) list; exit 0 ;;
+  "")
+    # With no argument, report rather than act. A command that reconfigures a desktop when run
+    # without arguments is a command people run once.
+    [[ -r $state ]] && cat "$state" || echo "none recorded"
+    exit 0
+    ;;
+esac
+
+layout="$1"
+script="$layouts/$layout.js"
+[[ -f $script ]] || die "no layout '$layout' (try --list)"
+
+command -v qdbus6 >/dev/null || die "qdbus6 is not installed; it comes with qt6-tools"
+[[ -n ${WAYLAND_DISPLAY:-}${DISPLAY:-} ]] || die "no graphical session: a layout is applied to a running Plasma, not to a config file"
+
+out="$(qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "$(cat "$script")" 2>&1)" || {
+  echo "$out" >&2
+  die "Plasma refused the layout script"
+}
+# evaluateScript reports script errors in its return value rather than its exit status, so a
+# non-empty answer is a failure even though the call succeeded.
+[[ -z $out ]] || { echo "$out" >&2; die "the layout script reported an error"; }
+
+mkdir -p -- "$(dirname "$state")"
+printf '%s\n' "$layout" >"$state"
+echo "layout: $layout"
