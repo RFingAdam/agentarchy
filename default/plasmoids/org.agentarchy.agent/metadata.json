@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Id": "org.agentarchy.agent",
+        "Name": "Agent",
+        "Description": "The agent this machine runs: posture, model, servers and spend",
+        "Icon": "agentarchy",
+        "Category": "System Information",
+        "License": "MIT",
+        "Website": "https://github.com/RFingAdam/agentarchy",
+        "EnabledByDefault": true,
+        "Authors": [
+            {
+                "Name": "Agentarchy"
+            }
+        ]
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

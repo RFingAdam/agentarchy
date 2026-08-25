@@ -97,6 +97,20 @@ done
 [[ -z $missing_launchers ]] && ok layout-launchers ||
   bad layout-launchers "pinned but not installed:$missing_launchers"
 
+# The agent applet: resolvable by Plasma, and actually placed on a panel.
+#
+# Resolvable is the half that bites. kpackagetool6 answers from the package index, and an applet the
+# layout names but Plasma cannot resolve is added to the config and simply never drawn -- no error
+# in any log. The unit suite covers the other half, an applet that resolves and asks for no width.
+if kpackagetool6 --type Plasma/Applet --show org.agentarchy.agent >/dev/null 2>&1; then
+  ok applet-registered
+else
+  bad applet-registered "Plasma cannot resolve org.agentarchy.agent"
+fi
+appletsrc="${XDG_CONFIG_HOME:-$HOME/.config}/plasma-org.kde.plasma.desktop-appletsrc"
+grep -q '^plugin=org.agentarchy.agent$' "$appletsrc" 2>/dev/null &&
+  ok applet-on-panel || bad applet-on-panel "no org.agentarchy.agent in $appletsrc"
+
 # The keyboard shortcuts, read back as kglobalaccel left them. An empty value here is what a
 # malformed one becomes: kglobalaccel blanks what it cannot parse, so the entry exists, the write
 # reported success, and the key does nothing. That is how Meta+Space went unbound for months.

@@ -84,6 +84,15 @@ package() {
   install -Dm644 applications/oal-menu.desktop "$pkgdir/usr/share/applications/oal-menu.desktop"
   install -Dm644 applications/oal-ask.desktop "$pkgdir/usr/share/applications/oal-ask.desktop"
 
+  # The panel applet. Plasma reads applets from /usr/share/plasma/plasmoids by package id, so a copy
+  # under /usr/share/agentarchy would be a widget the layouts name and Plasma cannot find -- the same
+  # shape as the desktop entry that left the dock's first icon dead.
+  install -d "$pkgdir/usr/share/plasma/plasmoids"
+  for d in default/plasmoids/*/; do
+    [[ -d $d ]] || continue
+    cp -a "$d" "$pkgdir/usr/share/plasma/plasmoids/"
+  done
+
   # The mark is drawn with stroke="currentColor" so it takes its colour from whatever embeds it. A
   # desktop icon has nothing to inherit from and resolves that to black, which is invisible on a
   # dark dock, so the packaged copy is pinned to the brand amber. Generated rather than committed
