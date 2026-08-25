@@ -84,6 +84,16 @@ package() {
   install -Dm644 applications/oal-menu.desktop "$pkgdir/usr/share/applications/oal-menu.desktop"
   install -Dm644 applications/oal-ask.desktop "$pkgdir/usr/share/applications/oal-ask.desktop"
 
+  # User units go where systemd --user looks. default/systemd/user is copied into
+  # /usr/share/agentarchy above, which systemd never reads, so oal-brain.service was shipped,
+  # documented, and impossible to enable: `systemctl --user enable oal-brain.service` answered
+  # "not-found". Installed here it stays disabled by default and becomes something a person can
+  # actually turn on.
+  if [[ -d default/systemd/user ]]; then
+    install -d "$pkgdir/usr/lib/systemd/user"
+    install -m644 default/systemd/user/*.service "$pkgdir/usr/lib/systemd/user/"
+  fi
+
   # The panel applet. Plasma reads applets from /usr/share/plasma/plasmoids by package id, so a copy
   # under /usr/share/agentarchy would be a widget the layouts name and Plasma cannot find -- the same
   # shape as the desktop entry that left the dock's first icon dead.
