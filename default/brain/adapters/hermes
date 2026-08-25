@@ -18,9 +18,16 @@
 # is one setting, because "point it at our existing instance" should not need a different adapter.
 #
 #   ~/.config/oal/brain/hermes.env
-#     HERMES_PEER=pve        # a name from `hermes peer list`; unset means the local agent
+#     HERMES_SSH=hermes      # an ssh destination running Hermes -- takes precedence
+#     HERMES_PEER=pve        # a name from `hermes peer list`
+#     (neither set)          # the Hermes on this machine
 #
-# Registering the peer is Hermes's own command, and it needs the remote's API_SERVER_KEY:
+# HERMES_SSH exists because it is the mode that needs nothing changed. A Hermes worth pointing at is
+# usually a server, and a server's api_server is typically bound to 127.0.0.1 -- reaching that with
+# `peer dm` means either exposing the port on the network or running a tunnel, and both are decisions
+# about somebody's infrastructure. ssh is already there, already keyed, already audited.
+#
+# Registering a peer instead is Hermes's own command, and needs the remote's API_SERVER_KEY:
 #   hermes peer add pve --url http://<host>:8377 --key <API_SERVER_KEY>
 set -uo pipefail
 
@@ -28,12 +35,22 @@ config="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/hermes.env"
 # shellcheck disable=SC1090
 [[ -r $config ]] && source "$config"
 peer="${HERMES_PEER:-}"
+over_ssh="${HERMES_SSH:-}"
 
 hermes_bin() { command -v hermes >/dev/null && printf 'hermes'; }
 
+# A login shell is not guaranteed over ssh, and hermes usually lives in ~/.local/bin.
+remote() {
+  ssh -T -o BatchMode=yes -o ConnectTimeout=8 "$over_ssh" \
+    "export PATH=\$PATH:\$HOME/.local/bin; $1" 2>/dev/null
+}
+
 case "${1:-}" in
   describe)
-    if [[ -z "$(hermes_bin)" ]]; then
+    if [[ -n $over_ssh ]]; then
+      printf '%s, on %s over ssh\n' \
+        "$(remote 'hermes --version' | head -1 || echo 'Hermes Agent')" "$over_ssh"
+    elif [[ -z "$(hermes_bin)" ]]; then
       echo "Hermes Agent (not installed)"
     elif [[ -n $peer ]]; then
       printf '%s, via peer %s\n' "$(hermes --version 2>/dev/null | head -1)" "$peer"
@@ -44,6 +61,12 @@ case "${1:-}" in
   probe)
     # Cheap on purpose: the prompt reads this on a timer, and a probe that spent credits would be a
     # bill that grows while nobody is at the keyboard.
+    if [[ -n $over_ssh ]]; then
+      # Reachable AND has Hermes. Answering yes for a host that merely accepts ssh would put a brain
+      # on the panel that cannot answer anything.
+      remote 'command -v hermes >/dev/null' || exit 1
+      exit 0
+    fi
     [[ -n "$(hermes_bin)" ]] || exit 1
     hermes --version >/dev/null 2>&1 || exit 1
     # A configured peer that is not registered is the failure worth catching here: asking would go
@@ -56,6 +79,12 @@ case "${1:-}" in
     [[ -n "$(hermes_bin)" ]] || { echo "hermes: the Hermes CLI is not installed" >&2; exit 1; }
     prompt="$(cat)"
     [[ -n $prompt ]] || { echo "hermes: empty prompt" >&2; exit 1; }
+    if [[ -n $over_ssh ]]; then
+      # The prompt travels on stdin and is read on the far side, so it is never a shell word on
+      # either hop. Quotes and newlines in a question survive both untouched.
+      printf '%s' "$prompt" | remote 'hermes -z "$(cat)"'
+      exit $?
+    fi
     if [[ -n $peer ]]; then
       # dm takes the message on stdin, which is the same reason the contract does: a prompt is full
       # of quotes and newlines, and argv is where those become somebody else's bug.
@@ -69,6 +98,9 @@ case "${1:-}" in
     exec hermes -z "$prompt"
     ;;
   serve)
+    # Not over ssh. A resident backend on another machine is that machine's business, and supervising
+    # it from here would be a local systemd unit babysitting somebody else's process.
+    [[ -n $over_ssh ]] && exit 1
     [[ -n "$(hermes_bin)" ]] || exit 1
     # The contract asks `serve --check` before running anything, so a backend that cannot be resident
     # is not restarted every five seconds forever.

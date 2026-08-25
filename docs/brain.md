@@ -95,20 +95,29 @@ the desktop to change, it calls `oal-brain-do`, and it gets the same answer ever
   side. The invented endpoints were removed rather than kept as a fallback: an untested second path
   is not a safety net, it is a second thing to debug.
 
-  **Local or on another machine, by one setting.** `hermes -z` asks the agent on this box;
-  `hermes peer dm <peer>` asks one on a machine you have registered and prints its reply. Set the
-  peer and the adapter uses it:
+  **Local, or on another machine, by one setting** in `~/.config/oal/brain/hermes.env`:
 
   ```bash
-  # once, on this machine -- the key comes from the remote, which must run the api_server platform
-  hermes peer add pve --url http://<host>:8377 --key <API_SERVER_KEY>
-
-  # ~/.config/oal/brain/hermes.env
-  HERMES_PEER=pve
+  HERMES_SSH=hermes      # an ssh destination running Hermes -- takes precedence
+  HERMES_PEER=pve        # or a name from `hermes peer list`
+  #                        neither set: the Hermes on this machine
   ```
 
-  `probe` then checks the peer is actually registered, because a configured peer that is not
-  registered would otherwise show on the panel as a brain that is up and answer nothing.
+  **`HERMES_SSH` is the mode that needs nothing changed on the remote.** A Hermes worth pointing at
+  is usually a server, and a server's `api_server` is typically bound to `127.0.0.1` -- reaching that
+  with `peer dm` means either exposing the port on the network or running a tunnel, and both are
+  decisions about somebody's infrastructure. ssh is already there, already keyed, already audited.
+  The prompt travels on stdin and is read on the far side, so it is never a shell word on either hop.
+
+  `hermes peer add <name> --url http://<host>:8377 --key <API_SERVER_KEY>` is the alternative when
+  the remote does expose its api_server.
+
+  `probe` checks the far end actually has Hermes, not merely that it answers. A host that accepts ssh
+  but has no agent, or a peer named in a config file that Hermes has never heard of, would otherwise
+  show on the panel as a brain that is up and answer nothing.
+
+  `serve` refuses in ssh mode: a resident backend on another machine is that machine's business, and
+  a local unit supervising it would be restarting a process it does not own.
 
   Only `ask` costs anything. `describe` and `probe` never invoke a model, which matters because the
   prompt reads `probe` on a timer and a billing probe would grow a bill with nobody at the keyboard.
