@@ -123,6 +123,12 @@ for entry in oal-menu.desktop oal-ask.desktop; do
   esac
 done
 
+# A desktop that cannot open a link is not finished. Nothing named a browser until now, so
+# xdg-settings had no default to report and every http:// click went nowhere.
+assert browser-installed command -v chromium
+handler="$(xdg-settings get default-web-browser 2>/dev/null)"
+[[ -n $handler ]] && ok browser-default || bad browser-default "xdg-settings reports no default web browser"
+
 # --- theming ------------------------------------------------------------------------------------
 
 scheme="$(kreadconfig6 --file kdeglobals --group General --key ColorScheme 2>/dev/null)"

@@ -30,6 +30,8 @@ Plasma 6** instead of Hyprland.
 - **The agent layer.** MCP servers managed like packages, a permission posture that is a machine
   setting, a fail-closed guard on every tool call with an audit log, and a contract for an OS-level
   brain. That is the next section, and it is the part worth switching for.
+- **A browser**, Chromium, set as the default handler. `oal-install-browser brave|firefox|zen` swaps
+  it; the Chromium-based ones inherit the same theming and flags.
 - Wallpapers derived from public-domain photography and recoloured per palette, with every file
   accounted for in `NOTICE`.
 
