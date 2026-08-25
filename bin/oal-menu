@@ -87,17 +87,65 @@ menu_hermes() {
   chosen="$(printf '%s\n' \
     $'\tstatus\tgateways running and what is waiting' \
     $'\tboards\tkanban boards on this Hermes' \
-    $'\twaiting\ttasks that want a person' | pick Hermes)" || return 0
+    $'\twaiting\ttasks that want a person' \
+    $'\tgateways\tstart, stop or restart the gateway' | pick Hermes)" || return 0
   case "${chosen%%$'\t'*}" in
     status)  run "Hermes status" oal-hermes-status ;;
     boards)  oal-hermes kanban boards 2>/dev/null | pick Boards >/dev/null || true ;;
     waiting)
       # One board at a time: the picker is a list, not a report, and 49 rows from ten boards with no
       # board named against them would be worse than useless.
-      board="$(oal-hermes kanban boards 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i ~ /^[a-z0-9-]+$/) {print $i; exit}}' | pick Board)" || return 0
-      oal-hermes kanban list --board "$board" 2>/dev/null |
-        grep -vE '^(Board:|$)' | pick "$board" >/dev/null || true
+      board="$(oal-hermes kanban boards 2>/dev/null |
+        awk '{for(i=1;i<=NF;i++) if ($i ~ /^[a-z0-9-]+$/) {print $i; exit}}' | pick Board)" || return 0
+      menu_hermes_board "$board"
       ;;
+    gateways) menu_hermes_gateways ;;
+  esac
+}
+
+# The tasks on one board that still owe something, and what you can do about the one you pick. The
+# id leads the row so the picker hands it straight back; the title is what you actually read.
+menu_hermes_board() {
+  local board="$1" rows chosen id
+  rows="$(oal-hermes kanban list --board "$board" --json 2>/dev/null |
+    jq -r '.[] | select(.status | test("review|blocked|ready|todo|triage|scheduled"))
+           | "\t\(.id)\t\(.status): \(.title)"' 2>/dev/null)"
+  [[ -n ${rows//[[:space:]]/} ]] || { oal-notification-send "$board" "nothing waiting" >/dev/null 2>&1; return 0; }
+  chosen="$(printf '%s\n' "$rows" | pick "$board")" || return 0
+  id="${chosen%%$'\t'*}"
+  [[ -n $id ]] || return 0
+  menu_hermes_task "$id"
+}
+
+menu_hermes_task() {
+  local id="$1" act
+  act="$(printf '%s\n' \
+    $'\tclaim\ttake it, so nothing else picks it up' \
+    $'\tpromote\tapprove it and move it forward' \
+    $'\tcomplete\tmark it done' \
+    $'\tshow\tread it first' | pick "$id")" || return 0
+  case "${act%%$'\t'*}" in
+    # oal-hermes-do asks again, naming the task. Two prompts is right for something that lands on a
+    # board other people and other workers are reading.
+    claim)    run "Claim $id"    oal-hermes-do claim "$id" ;;
+    promote)  run "Promote $id"  oal-hermes-do promote "$id" ;;
+    complete) run "Complete $id" oal-hermes-do complete "$id" ;;
+    show)     oal-hermes kanban show "$id" 2>/dev/null | pick "$id" >/dev/null || true ;;
+  esac
+}
+
+menu_hermes_gateways() {
+  local chosen
+  # Hermes starts and stops the profile it is currently on; `gateway start <name>` is not something
+  # it takes, and switching profile sets a sticky default -- a lasting change, not a menu action.
+  chosen="$(printf '%s\n' \
+    $'\tlist\twhich gateways are running' \
+    $'\tgateway-restart\trestart the current profile' \
+    $'\tgateway-start\tstart the current profile' \
+    $'\tgateway-stop\tstop the current profile' | pick Gateways)" || return 0
+  case "${chosen%%$'\t'*}" in
+    list) oal-hermes gateway list 2>/dev/null | pick Gateways >/dev/null || true ;;
+    *)    run "Gateway" oal-hermes-do "${chosen%%$'\t'*}" ;;
   esac
 }
 
