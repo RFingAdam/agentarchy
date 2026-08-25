@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# oal:summary=The tasks across every board that still want a person
+# oal:args=[--json] [--limit N]
+# oal:examples=oal-hermes-waiting | oal-hermes-waiting --json --limit 8
+
+# oal-hermes-status counts them per board. This is the list itself, flattened across boards and
+# ordered so the ones a person is blocking come first -- review before blocked before the rest.
+#
+# It exists because a panel needs rows, not a summary, and walking board by board to find them is the
+# click-through that made the menu tiresome.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+as_json=0
+limit=8
+while (($#)); do
+  case "$1" in
+    --json) as_json=1; shift ;;
+    --limit) limit="${2:-8}"; shift 2 ;;
+    *) echo "oal-hermes-waiting: unknown argument: $1" >&2; exit 1 ;;
+  esac
+done
+
+command -v jq >/dev/null || { echo "oal-hermes-waiting: jq is required" >&2; exit 1; }
+
+boards="$(timeout 30 oal-hermes kanban boards 2>/dev/null)" || {
+  echo "oal-hermes-waiting: no Hermes configured" >&2; exit 1
+}
+
+# Only boards that actually have something waiting, so this is a few calls rather than one per board
+# on an instance with ten of them.
+mapfile -t slugs < <(
+  while IFS= read -r line; do
+    grep -qE '(review|blocked|ready|todo|triage|scheduled)=[1-9]' <<<"$line" || continue
+    awk '{for(i=1;i<=NF;i++) if ($i ~ /^[a-z0-9-]+$/) {print $i; exit}}' <<<"$line"
+  done <<<"$boards"
+)
+
+all='[]'
+for slug in "${slugs[@]}"; do
+  [[ -n $slug ]] || continue
+  # --board goes before the subcommand. hermes takes `kanban --board X list`, and `kanban list
+  # --board X` is a usage error it prints to stdout, so the mistake looks like an empty board.
+  rows="$(timeout 30 oal-hermes kanban --board "$slug" list --json 2>/dev/null)" || continue
+  [[ -n ${rows//[[:space:]]/} ]] || continue
+  all="$(jq -c --arg b "$slug" --argjson acc "$all" '
+    ($acc + [ .[]
+      | select(.status | test("^(review|blocked|ready|todo|triage|scheduled)$"))
+      | {id, board: $b, status, title, assignee} ])' <<<"$rows" 2>/dev/null)" || continue
+done
+
+# review first: those are the ones where a person is the thing being waited on.
+ordered="$(jq -c --argjson n "$limit" '
+  def rank: {review:0, blocked:1, ready:2, todo:3, triage:4, scheduled:5}[.status] // 9;
+  sort_by(rank) | .[0:$n]' <<<"$all" 2>/dev/null)" || ordered='[]'
+
+if (( as_json )); then
+  printf '%s\n' "$ordered"
+else
+  jq -r '.[] | "\(.id)  \(.status)  [\(.board)]  \(.title)"' <<<"$ordered"
+fi

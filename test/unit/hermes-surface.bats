@@ -77,45 +77,19 @@ setup() {
   grep -q "remote 'command -v hermes >/dev/null' </dev/null" "$SRC/default/brain/adapters/hermes"
 }
 
-@test "no action happens without a confirmation" {
-  # These land on real infrastructure and a panel click is a cheap gesture. --yes exists for scripts;
-  # a person gets asked, by name.
-  local d="$SRC/bin/oal-hermes-do"
-  grep -q 'confirm()' "$d"
-  # Every mutating branch asks first.
-  local verb
-  for verb in claim complete promote changes; do
-    grep -A4 "^      $verb)" "$d" | grep -q 'confirm ' || { echo "$verb does not confirm"; return 1; }
-  done
-  # A wider window than the task verbs: this branch carries the explanation of why Hermes only
-  # starts the profile it is on.
-  grep -A9 'gateway-start|gateway-stop|gateway-restart' "$d" | grep -q 'confirm '
+@test "the menu links to Hermes's dashboard instead of reimplementing it" {
+  # The deep tree that used to be here -- board, task, action, confirm -- was six levels of a picker
+  # that needs two clicks a level. Hermes has a dashboard built for driving boards; the OS's job is
+  # to put it one click away.
+  grep -q 'oal-hermes-dashboard' "$SRC/bin/oal-menu"
+  [ ! -e "$SRC/bin/oal-hermes-do" ]
 }
 
-@test "the confirmation names the task rather than its id" {
-  # "t_f15b66ee" is not something anyone recognises, and approving the wrong one is not recoverable
-  # by reading the id afterwards.
-  grep -q 'task_title()' "$SRC/bin/oal-hermes-do"
-  grep -q 'title="$(task_title' "$SRC/bin/oal-hermes-do"
-  grep -qE 'confirm "(Claim|Complete|Approve and promote|Request changes on): \$title"' "$SRC/bin/oal-hermes-do"
-}
-
-@test "a task id that does not exist is refused before anything is attempted" {
-  grep -q 'no task .\$task. on this Hermes' "$SRC/bin/oal-hermes-do"
-}
-
-@test "an agent cannot reach these actions" {
-  # default/brain/VERBS is the whole surface a backend can drive. Completing somebody's tasks and
-  # restarting their gateway are not on it, and that is the point: a person does this.
-  local v
-  for v in claim complete promote changes gateway; do
-    ! grep -qE "^$v[[:space:]]*\|" "$SRC/default/brain/VERBS" || { echo "$v is a brain verb"; return 1; }
-  done
-}
-
-@test "with no way to ask, it says nothing was done" {
-  # A picker only counts if it has a backend. Checking oal-menu-select alone sent this down the
-  # graphical path on a machine with neither kdialog nor fuzzel, where the failure read as a crash.
-  grep -q 'command -v kdialog >/dev/null || command -v fuzzel >/dev/null' "$SRC/bin/oal-hermes-do"
-  grep -q 'nothing done: no way to ask you here' "$SRC/bin/oal-hermes-do"
+@test "the dashboard url is asked for, not assumed" {
+  # 0.0.0.0 is where it listens, not somewhere a browser can go, and the port is whatever the running
+  # process was started with.
+  grep -q "oal-hermes dashboard --status" "$SRC/bin/oal-hermes-dashboard"
+  grep -q 'ssh -G' "$SRC/bin/oal-hermes-dashboard"
+  # A loopback-bound dashboard is explained with the tunnel, not opened at an address that cannot work.
+  grep -q '127.0.0.1' "$SRC/bin/oal-hermes-dashboard"
 }
