@@ -354,7 +354,7 @@ menu_shot() {
   vm_ssh bash -s <<'GUEST' >"$art/menu.txt" 2>&1 || return 1
 set -u
 export OAL_PATH=/usr/share/agentarchy
-command -v fuzzel >/dev/null || { echo "FAIL menu-backend: fuzzel is not installed"; exit 1; }
+command -v kdialog >/dev/null || { echo "FAIL menu-backend: kdialog is not installed"; exit 1; }
 echo "PASS menu-backend"
 # Every command the menu can invoke has to exist, or an entry is decoration.
 missing=""
@@ -403,12 +403,14 @@ GUEST
   cat -- "$art/menu.txt" >&2
   vm_ssh_session 'setsid oal-menu >/dev/null 2>&1 &' >/dev/null 2>&1 || true
   sleep 6
-  vm_ssh 'pgrep -x fuzzel >/dev/null' >/dev/null 2>&1 ||
+  # Either picker: kdialog is the one that answers a mouse and fuzzel is still the fallback, so the
+  # check is "a picker is on screen", not "this particular binary is running".
+  vm_ssh 'pgrep -x kdialog >/dev/null || pgrep -x fuzzel >/dev/null' >/dev/null 2>&1 ||
     { vm_warn "the menu did not open; not photographing an empty desktop"; return 1; }
   "$here/vm-shot" "$art/menu-guest.png" --guest || return 1
   shots+=("$art/menu-guest.png")
   # Leave nothing open for the stages that follow.
-  vm_ssh 'pkill -f fuzzel' >/dev/null 2>&1 || true
+  vm_ssh 'pkill -x kdialog; pkill -x fuzzel' >/dev/null 2>&1 || true
 }
 stage menu menu_shot || fail "the menu (see $art/menu.txt)"
 
