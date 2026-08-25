@@ -44,6 +44,21 @@ assert plasmashell-unit systemctl --user is-active plasma-plasmashell.service
 assert sddm-active systemctl is-active sddm
 assert sddm-enabled systemctl is-enabled sddm
 
+# The login screen's palette. The greeter runs as the sddm user before any session exists, so the
+# only channel it has is theme.conf under /usr/share -- and the copy that ships carries a [General]
+# header and no keys, which renders on Main.qml's literal fallbacks in a palette nobody chose.
+assert greeter-sync-enabled systemctl is-enabled oal-greeter-sync.service
+greeter_conf=/usr/share/sddm/themes/oal/theme.conf
+greeter_bg="$(sed -n 's/^background=//p' "$greeter_conf" 2>/dev/null)"
+want_bg="$(oal-theme-color --file "/usr/share/agentarchy/themes/$(oal-theme-default)/colors.toml" background 2>/dev/null)"
+if [[ -z $greeter_bg ]]; then
+  bad greeter-palette "no background= in $greeter_conf -- the greeter is on Main.qml's fallbacks"
+elif [[ $greeter_bg != "$want_bg" ]]; then
+  bad greeter-palette "greeter background=$greeter_bg, installed theme is $want_bg"
+else
+  ok greeter-palette
+fi
+
 target="$(systemctl get-default 2>/dev/null)"
 [[ $target == graphical.target ]] && ok default-target || bad default-target "get-default = $target"
 

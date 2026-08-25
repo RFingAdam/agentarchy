@@ -35,14 +35,20 @@ install -d -m 0755 /etc/sddm.conf.d
 # Point SDDM at Agentarchy's greeter. etc/sddm.conf.d/10-theme.conf is vendored and says exactly
 # this, but nothing installs the etc/ tree yet (Phase 4 decides that per subtree), so the greeter
 # theme has been named by a file no SDDM ever read. Written here because this script already owns
-# the display manager's configuration. The theme directory itself, and its palette, arrive with
-# oal-refresh-sddm from oal-bootstrap.sh -- rendering it needs a theme name this script does not
-# have.
+# the display manager's configuration.
 cat > /etc/sddm.conf.d/10-theme.conf <<'CONF'
 [Theme]
 Current=oal
 CONF
 chmod 0644 /etc/sddm.conf.d/10-theme.conf
+
+# The greeter's theme directory and its palette. oal-bootstrap.sh renders the palette during a
+# scripted install, while it still has root; an install that never runs the bootstrap would reach
+# the login screen with the empty theme.conf the theme directory ships. This unit renders it on the
+# way up instead, which covers both paths and leaves a deliberate retint alone.
+install -m 0644 "$OAL_INSTALL/desktop/oal-greeter-sync.service" \
+  /etc/systemd/system/oal-greeter-sync.service
+systemctl enable oal-greeter-sync.service
 if [[ -n ${OAL_INSTALL_USER:-} ]]; then
   cat > /etc/sddm.conf.d/10-agentarchy.conf <<CONF
 [Autologin]

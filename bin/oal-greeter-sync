@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# oal:summary=Give the login screen a palette when no install step has
+# oal:args=[theme-name]
+# oal:examples=oal-greeter-sync | oal-greeter-sync gruvbox
+# oal:requires-sudo=true
+# oal:hidden=true
+
+# Runs as root from oal-greeter-sync.service, ordered ahead of the display manager.
+#
+# oal-bootstrap.sh renders the greeter's palette while it still has root, which covers a scripted
+# install. An install that never runs the bootstrap reaches the login screen with the theme.conf the
+# theme directory ships -- a [General] header and no keys -- so Main.qml falls back to its literal
+# colours and the first screen anyone sees is in a palette nobody chose.
+#
+# Rendering on the way up instead makes the greeter independent of which install path ran. There is
+# more than one, and there will be more.
+
+set -uo pipefail
+
+# Self-locating for the same reason oal-refresh-sddm is: no profile has been sourced here, so
+# OAL_PATH is whatever the unit's environment has, which is nothing.
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+installed=/usr/share/sddm/themes/oal
+shipped="$OAL_PATH/default/sddm/oal"
+conf="$installed/theme.conf"
+
+# Every path that gives up exits 0. What it leaves behind is Main.qml's literal fallbacks, which are
+# a working login screen -- and a unit ordered ahead of the display manager should not go red over a
+# palette. The reason still reaches the journal.
+give_up() {
+  rm -f -- "$conf.new" 2>/dev/null
+  echo "oal-greeter-sync: $*" >&2
+  exit 0
+}
+
+[[ -d $shipped ]] || give_up "no greeter theme to copy: $shipped is missing"
+
+# Covers the install that copied nothing, and a theme directory a package update replaced.
+if [[ ! -d $installed ]]; then
+  install -d -m 0755 "$(dirname "$installed")" || give_up "could not create $(dirname "$installed")"
+  cp -r "$shipped" "$installed" || give_up "could not install the greeter theme into $installed"
+fi
+
+# A rendered palette has keys; the one that ships has the section header and nothing else. Reading
+# that difference is what keeps this idempotent with no marker file to hold in step, and it is why a
+# deliberate `oal-refresh-sddm <theme>` is never quietly undone at the next boot.
+if [[ -f $conf ]] && grep -q '^background=' "$conf"; then
+  exit 0
+fi
+
+theme="${1:-}"
+[[ -n $theme ]] || theme="$(oal-theme-default)" || give_up "no theme named and no default to fall back on"
+
+# Read out of the installed tree rather than through oal-theme-dir, which prefers a copy under
+# $HOME. This runs as root before any session exists, so $HOME is /root -- a theme found there would
+# be one nobody chose, and rendering it would put root's dotfiles in charge of a file only root can
+# write.
+colors="$OAL_PATH/themes/$theme/colors.toml"
+[[ -f $colors ]] || give_up "theme '$theme' has no colors.toml at $colors"
+
+rendered="$(oal-theme-render sddm.theme.conf --file "$colors")" ||
+  give_up "could not render the greeter palette for '$theme'"
+[[ -n $rendered ]] || give_up "the greeter palette for '$theme' rendered empty"
+
+# Written aside and renamed. The greeter parses this at startup and this runs during boot, so a torn
+# write is not hypothetical -- and half a palette parses, which is the bad kind of broken.
+printf '%s\n' "$rendered" >"$conf.new" || give_up "could not write $conf.new"
+chmod 0644 "$conf.new" 2>/dev/null
+mv -f "$conf.new" "$conf" || give_up "could not replace $conf"
+
+echo "oal-greeter-sync: login screen palette set to '$theme'"

@@ -1,0 +1,23 @@
+# Renders the login screen's palette before SDDM reads it.
+#
+# oal-bootstrap.sh already does this during a scripted install, while it still has root. This unit
+# is for the install paths that never run the bootstrap -- the ISO's deferred provisioning being the
+# one that exists on paper -- which would otherwise reach the login screen with the empty theme.conf
+# the greeter's theme directory ships.
+#
+# Ordered before the display manager rather than pulled in by it, and deliberately not something
+# sddm.service Requires: if this fails, the greeter renders on Main.qml's literal fallbacks, and a
+# login screen in the wrong colours beats no login screen. oal-greeter-sync exits 0 either way.
+[Unit]
+Description=Give the Agentarchy login screen its palette
+ConditionPathExists=/usr/share/agentarchy/default/sddm/oal
+After=local-fs.target
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/oal-greeter-sync
+
+[Install]
+WantedBy=graphical.target
