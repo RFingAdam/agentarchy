@@ -75,6 +75,14 @@ package() {
   install -d "$pkgdir/etc/skel/.config"
   cp -a config/. "$pkgdir/etc/skel/.config/"
 
+  # Our own desktop entries go where a desktop environment actually looks. applications/ is copied
+  # into /usr/share/agentarchy above, which is where the vendored web-app shortcuts belong -- they
+  # name browsers and services this distribution does not install, and putting them in the launcher
+  # would advertise applications that are not there. oal-menu.desktop is different: the dock pins it
+  # by id, so a copy only under /usr/share/agentarchy is a launcher that draws a blank icon and does
+  # nothing when clicked.
+  install -Dm644 applications/oal-menu.desktop "$pkgdir/usr/share/applications/oal-menu.desktop"
+
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
 

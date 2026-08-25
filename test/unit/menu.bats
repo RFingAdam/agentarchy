@@ -72,3 +72,16 @@ setup() {
     grep -qE '^background=[0-9a-fA-F]{8}$' <<<"$out" || { echo "$(basename "$dir"): bad colour form"; return 1; }
   done
 }
+
+@test "every launcher a layout pins is a desktop entry the package installs" {
+  # The dock pins launchers by desktop entry id, and an id nothing installs draws a blank icon that
+  # does nothing when clicked. oal-menu.desktop was in applications/ and copied only into
+  # /usr/share/agentarchy, which is not a directory any desktop environment reads.
+  local SRC id
+  SRC="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  for id in $(grep -ho 'applications:oal-[a-zA-Z0-9._-]*\.desktop' "$SRC"/default/layouts/*.js |
+              sed 's/applications://' | sort -u); do
+    grep -q "usr/share/applications/$id" "$SRC/PKGBUILD" ||
+      { echo "$id is pinned by a layout but PKGBUILD never installs it to /usr/share/applications"; return 1; }
+  done
+}

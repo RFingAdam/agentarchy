@@ -85,6 +85,18 @@ login_path="$(bash -lc 'printf %s "${OAL_PATH:-}"' 2>/dev/null)"
 logo="$(bash -lc 'oal-show-logo' 2>/dev/null | tr -d '[:space:]')"
 [[ -n $logo ]] && ok branding-logo || bad branding-logo "oal-show-logo printed nothing"
 
+# The dock pins launchers by desktop entry id. An id nothing installed draws a blank icon that does
+# nothing when clicked, and neither Plasma nor the layout script complains -- the layout applies
+# cleanly and the panel count is right, so every assertion around it passes.
+missing_launchers=""
+for id in $(grep -ho 'applications:[a-zA-Z0-9._-]*\.desktop' /usr/share/agentarchy/default/layouts/*.js 2>/dev/null |
+            sed 's/applications://' | sort -u); do
+  [[ -f /usr/share/applications/$id || -f $HOME/.local/share/applications/$id ]] ||
+    missing_launchers="$missing_launchers $id"
+done
+[[ -z $missing_launchers ]] && ok layout-launchers ||
+  bad layout-launchers "pinned but not installed:$missing_launchers"
+
 # --- theming ------------------------------------------------------------------------------------
 
 scheme="$(kreadconfig6 --file kdeglobals --group General --key ColorScheme 2>/dev/null)"
