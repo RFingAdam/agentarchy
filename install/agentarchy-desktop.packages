@@ -77,6 +77,27 @@ kdeplasma-addons
 # which needs Papirus present; without it the desktop falls back to Breeze and says so.
 papirus-icon-theme
 
+# Two gaps a desktop notices immediately. applications/mpv.desktop and applications/imv.desktop are
+# vendored and were naming software nothing installed, so a video file opened in nothing at all.
+mpv
+kcalc
+
+# The browser. A desktop without one cannot open a link, and until now nothing here could: no
+# package named a browser, and xdg-settings had no default to report.
+#
+# Chromium rather than Firefox because every piece of support around it is already here and inert --
+# the theme template, config/chromium-flags.conf, install/user/chromium.sh, and the default-browser
+# step in oal-provision-user, which has been printing "skipping ... not installed". It is also what
+# browser automation drives, which matters for an agent-first machine.
+#
+# Brave is one command away and inherits all of it, being the same engine:
+#   oal-install-browser brave
+# That route also creates /etc/<browser>/policies/managed world-writable so a theme change can tint
+# the browser chrome. That is upstream's design and it is a deliberate act, not a default: a
+# world-writable policy directory under /etc lets any local process set browser policy, which is too
+# much to hand over for a title-bar colour.
+chromium
+
 # The menu picker. It has to work with a mouse, which is why the menu is a native Qt dialog rather
 # than the prettier keyboard-first picker; see docs/menu.md.
 kdialog
