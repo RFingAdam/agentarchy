@@ -88,6 +88,11 @@ AccuracySec=30s
 WantedBy=timers.target
 UNIT
 
+# Report interrupted tasks at login. Enabled, unlike oal-brain.service: this one reads a journal and
+# says what it found. It starts nothing and resumes nothing, so there is no decision to hand over.
+systemctl --user enable oal-brain-sweep.service 2>/dev/null ||
+  log "note: enable it later with 'systemctl --user enable oal-brain-sweep.service'"
+
 if systemctl --user daemon-reload 2>/dev/null && systemctl --user enable --now oal-agent-hud.timer 2>/dev/null; then
   log "agent state timer enabled"
 else

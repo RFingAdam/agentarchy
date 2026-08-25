@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# oal:summary=Start a held task again, deliberately
+# oal:args=<task-id>
+# oal:examples=oal-brain-resume 20260825-141233-9182
+
+# Nothing resumes on its own. A task cut off by a restart is not known to be safe to repeat -- it may
+# have already written files, pushed commits or sent mail, and the agent cannot tell you which. So a
+# person decides, and what they get is a new task with the same prompt rather than a continuation
+# pretending to know where it stopped.
+set -uo pipefail
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+BRAIN_CMD=oal-brain-resume
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+id="${1:-}"
+[[ -n $id ]] || brain_fail "which task? 'oal-brain-tasks --held' lists the interrupted ones."
+dir="$(brain_task_dir "$id")"
+[[ -d $dir ]] || brain_fail "no task '$id'"
+
+state="$(brain_task_state "$dir")"
+case "$state" in
+  held) ;;
+  running|starting) brain_fail "task '$id' is still $state. Nothing to resume." ;;
+  *) brain_fail "task '$id' already finished ($state). 'oal-brain-show $id' has the output." ;;
+esac
+
+brain_task_set "$dir" state superseded
+new="$(oal-brain-run "$(cat "$dir/prompt")")" || exit 1
+brain_task_set "$dir" resumed_as "$new"
+echo "$new"

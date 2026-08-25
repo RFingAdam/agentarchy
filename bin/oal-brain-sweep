@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# oal:summary=Report agent tasks the machine interrupted
+# oal:hidden=true
+
+# Runs at login. A task recorded as running whose process is gone did not finish -- the machine went
+# away underneath it -- and this is where that gets written down and said out loud.
+#
+# It resumes nothing, by design. A task cut off partway may already have written files, pushed
+# commits or sent mail, and neither this command nor the agent can tell you which. Reporting is the
+# honest action; oal-brain-resume is a person deciding.
+set -uo pipefail
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+held=0
+while read -r id; do
+  [[ -n $id ]] || continue
+  dir="$(brain_task_dir "$id")"
+  recorded="$(brain_task_get "$dir" state 2>/dev/null)" || continue
+  [[ $recorded == running ]] || continue
+  [[ "$(brain_task_state "$dir")" == held ]] || continue
+  # Persisted, so the record stops depending on a pid lookup that gets less trustworthy with time.
+  brain_task_set "$dir" state held
+  held=$((held + 1))
+done < <(brain_task_ids)
+
+(( held )) || exit 0
+
+echo "$held agent task(s) were interrupted and are held. 'oal-brain-tasks --held' lists them."
+command -v oal-notification-send >/dev/null &&
+  oal-notification-send "$held agent task(s) held" \
+    "The machine restarted while they were running. Nothing was resumed." >/dev/null 2>&1
+exit 0

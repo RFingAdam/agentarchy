@@ -107,3 +107,83 @@ brain_resolve_open() {
   # gio rather than gtk-launch: glib2 is always present on this desktop and gtk-launch is not.
   printf '%s\0' gio launch "$entry"
 }
+
+# --- long-running tasks ------------------------------------------------------------------------
+#
+# A question you wait for is oal-brain-ask. A job you walk away from is a task, and the difference
+# that matters is what happens when the machine restarts underneath it.
+#
+# Nothing here resumes by itself. A task whose process is gone is marked `held` and said out loud,
+# never restarted -- an agent that silently picks up where it thinks it left off can repeat side
+# effects it already committed, and this system's whole posture is that irreversible things get
+# confirmed. `oal-brain-resume` is a person deciding.
+
+BRAIN_TASKS="$BRAIN_STATE/tasks"
+
+# Sortable, readable, and unique without a counter to keep. Seconds plus the pid is enough: two
+# tasks starting in the same second are two different shells.
+brain_task_id() {
+  local now
+  printf -v now '%(%Y%m%d-%H%M%S)T' -1
+  printf '%s-%s' "$now" "$$"
+}
+
+brain_task_dir() { printf '%s/%s' "$BRAIN_TASKS" "${1:?task id}"; }
+
+# meta is one key=value per line: greppable, appendable, and readable when something has gone wrong
+# and the tooling is what you are debugging.
+# The LAST value wins. meta is append-only on purpose -- a worker that finishes appends its result
+# rather than rewriting a file it might be killed halfway through -- so the newest line is the truth.
+# Returning the first match instead made a finished task report as held: `state=running` from the
+# moment it was created outvoted the `state=done` written when it succeeded.
+brain_task_get() {
+  local dir="$1" key="$2" line found="" hit=1
+  [[ -r $dir/meta ]] || return 1
+  while IFS= read -r line; do
+    [[ $line == "$key="* ]] && { found="${line#*=}"; hit=0; }
+  done <"$dir/meta"
+  (( hit == 0 )) && printf '%s' "$found"
+  return "$hit"
+}
+
+brain_task_set() {
+  local dir="$1" key="$2" value="$3" tmp
+  tmp="$dir/meta.new"
+  { grep -v "^$key=" "$dir/meta" 2>/dev/null; printf '%s=%s\n' "$key" "$value"; } >"$tmp" &&
+    mv -f "$tmp" "$dir/meta"
+}
+
+# The state a task is actually in, rather than the one it last wrote down. A task recorded as running
+# whose process is gone did not finish -- the machine went away underneath it -- and that is `held`.
+brain_task_state() {
+  local dir="$1" state pid
+  state="$(brain_task_get "$dir" state)" || return 1
+  [[ $state == running ]] || { printf '%s' "$state"; return 0; }
+  # A different boot means this pid cannot be the task's, whatever the pid table says now.
+  local boot now_boot
+  boot="$(brain_task_get "$dir" boot 2>/dev/null)"
+  now_boot="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)"
+  if [[ -n $boot && -n $now_boot && $boot != "$now_boot" ]]; then
+    printf 'held'
+    return 0
+  fi
+
+  pid="$(brain_task_get "$dir" pid)"
+  if [[ -z $pid ]]; then
+    # Recorded as running with no pid yet: the worker has not written it. Calling that `held` would
+    # report every task as interrupted for the first instant of its life.
+    printf 'starting'
+  elif kill -0 "$pid" 2>/dev/null; then
+    printf 'running'
+  else
+    printf 'held'
+  fi
+}
+
+brain_task_ids() {
+  [[ -d $BRAIN_TASKS ]] || return 0
+  local d
+  for d in "$BRAIN_TASKS"/*/; do
+    [[ -f $d/meta ]] && basename -- "${d%/}"
+  done | sort
+}

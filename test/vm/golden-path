@@ -293,6 +293,30 @@ oal-brain-do reboot >/dev/null 2>&1 &&
   { echo "FAIL brain-refuses-unknown-verb: 'reboot' was accepted"; exit 1; } ||
   echo "PASS brain-refuses-unknown-verb"
 
+# A job you walk away from, and what a restart does to it.
+task="$(oal-brain-run 'count to three')"
+for _ in $(seq 1 40); do
+  case "$(oal-brain-tasks | awk -v i="$task" '$1 == i {print $2}')" in
+    running|starting|"") sleep 0.5 ;;
+    *) break ;;
+  esac
+done
+[ "$(oal-brain-tasks | awk -v i="$task" '$1 == i {print $2}')" = done ] &&
+  echo "PASS brain-task-runs" || { echo "FAIL brain-task-runs: task did not reach done"; exit 1; }
+
+# Put it back to running, owned by a live pid, from a boot that is not this one -- which is what a
+# task looks like after the machine restarted under it.
+d="$HOME/.local/state/oal/brain/tasks/$task"
+before="$(cat "$d/output")"
+printf 'state=running
+pid=1
+boot=00000000-0000-0000-0000-000000000000
+' >>"$d/meta"
+oal-brain-sweep | grep -q interrupted &&
+  echo "PASS brain-task-held" || { echo "FAIL brain-task-held: the sweep did not report it"; exit 1; }
+[ "$(cat "$d/output")" = "$before" ] &&
+  echo "PASS brain-task-not-resumed" || { echo "FAIL brain-task-not-resumed: the sweep restarted work"; exit 1; }
+
 # The desktop end of the contract: a question asked without a terminal open. The shortcut binds by
 # desktop entry id, so the entry has to be where a desktop environment reads them -- the same gap
 # that left the dock's first icon dead.

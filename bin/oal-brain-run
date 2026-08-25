@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# oal:summary=Start a long-running agent task and walk away
+# oal:args=<prompt>
+# oal:examples=oal-brain-run "audit this repo for unused dependencies"
+
+# oal-brain-ask is a question you wait for. This is a job you do not.
+#
+# It routes through oal-brain-ask like everything else, so the backend, the posture and the tool-call
+# guard are the ones the terminal answers to. What it adds is a journal: the prompt, the state and
+# the output survive the shell that started it, and survive a reboot -- as a record, never as a
+# resumption.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+BRAIN_CMD=oal-brain-run
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+prompt="$*"
+[[ -n ${prompt// /} ]] || brain_fail "nothing to do. Usage: oal-brain-run <prompt>"
+
+backend="$(brain_backend)"
+[[ -n $backend ]] ||
+  brain_fail "no brain backend is configured. Choose one with 'oal-brain-backend <name>'."
+
+id="$(brain_task_id)"
+dir="$(brain_task_dir "$id")"
+mkdir -p -- "$dir" || brain_fail "could not create $dir"
+
+printf '%s\n' "$prompt" >"$dir/prompt"
+{
+  printf 'id=%s\n' "$id"
+  printf 'backend=%s\n' "$backend"
+  printf 'started=%(%Y-%m-%dT%H:%M:%S%z)T\n' -1
+  printf 'state=running\n'
+} >"$dir/meta"
+
+# setsid so the task outlives the shell, the terminal and the ssh session that started it. The pid
+# is what tells a later sweep whether this is still going or was cut off by a restart.
+setsid bash -c '
+  # Its own pid, written first. $! after setsid is the launcher, not necessarily the worker, and a
+  # task whose pid is wrong reads as held the moment anyone looks at it.
+  printf "pid=%s\n" "$$" >>"$1/meta"
+  # The boot this pid belongs to. Across a restart the kernel reissues pids, so a recorded pid can
+  # match an unrelated process and a dead task would report itself as running.
+  printf "boot=%s\n" "$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)" >>"$1/meta"
+  exec >>"$1/output" 2>&1
+  if oal-brain-ask "$(cat "$1/prompt")"; then rc=0; else rc=$?; fi
+  printf "finished=%(%Y-%m-%dT%H:%M:%S%z)T\n" -1 >>"$1/meta"
+  printf "exit=%s\n" "$rc" >>"$1/meta"
+  # Written last: a reader that sees a terminal state can trust everything above it.
+  printf "state=%s\n" "$( ((rc == 0)) && echo done || echo failed )" >>"$1/meta"
+  command -v oal-notification-send >/dev/null &&
+    oal-notification-send "Task $( ((rc == 0)) && echo finished || echo failed )" "$(head -c 160 "$1/prompt")" >/dev/null 2>&1
+' _ "$dir" &
+
+echo "$id"

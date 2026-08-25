@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# oal:summary=List agent tasks and what became of them
+# oal:args=[--held]
+# oal:examples=oal-brain-tasks | oal-brain-tasks --held
+
+set -uo pipefail
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+BRAIN_CMD=oal-brain-tasks
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+held_only=0
+[[ ${1:-} == --held ]] && held_only=1
+
+found=0
+while read -r id; do
+  [[ -n $id ]] || continue
+  dir="$(brain_task_dir "$id")"
+  state="$(brain_task_state "$dir")"
+  (( held_only )) && [[ $state != held ]] && continue
+  found=1
+  prompt="$(head -c 60 "$dir/prompt" 2>/dev/null | tr '\n' ' ')"
+  printf '%-24s %-9s %s\n' "$id" "$state" "$prompt"
+done < <(brain_task_ids)
+
+# Silence and exit 0 when there is nothing, so this composes and so an empty list is not an error.
+(( found )) || { (( held_only )) && exit 0; echo "no tasks yet. Start one with 'oal-brain-run <prompt>'."; }
+exit 0
