@@ -373,21 +373,25 @@ done
 # dispatch and the real action without needing a keyboard. The Agent route is used because a posture
 # is trivial to assert and to put back; walking the Theme route here would leave the greeter stage
 # looking at a theme it did not install.
+# Stand in for the PICKER, not for oal-menu-select. Shimming oal-menu-select made this a tautology:
+# the shim returned the value oal-menu expected, so it passed while the real oal-menu-select handed
+# back the subtext instead of the label and the menu did nothing at all. Replacing kdialog leaves
+# every line of the real parsing and dispatch in the path.
 mkdir -p /tmp/oal-menu-shim
-cat > /tmp/oal-menu-shim/oal-menu-select <<'SHIM'
+rm -f /tmp/oal-menu-shim/n
+cat > /tmp/oal-menu-shim/kdialog <<'SHIM'
 #!/bin/bash
-cat >/dev/null
-case "$1" in
-  Agentarchy) printf 'Agent	posture and MCP servers
-' ;;
-  Agent)      printf 'posture	read-only, confirmed, or permissive
-' ;;
-  Posture)    printf 'trusted	permissive
-' ;;
-  *)          exit 1 ;;
+# Answer with a tag, as kdialog does. One index per call: Agent, then posture, then trusted.
+n=$(cat /tmp/oal-menu-shim/n 2>/dev/null || echo 0)
+echo $((n + 1)) > /tmp/oal-menu-shim/n
+case "$n" in
+  0) echo 2 ;;
+  1) echo 1 ;;
+  2) echo 2 ;;
+  *) exit 1 ;;
 esac
 SHIM
-chmod +x /tmp/oal-menu-shim/oal-menu-select
+chmod +x /tmp/oal-menu-shim/kdialog
 before="$(oal-agent-profile)"
 PATH=/tmp/oal-menu-shim:$PATH oal-menu >/dev/null 2>&1
 after="$(oal-agent-profile)"

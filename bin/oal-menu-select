@@ -72,8 +72,28 @@ args+=(--no-exit-on-keyboard-focus-loss)
 # moment a label contained the separator, and labels are arbitrary text from whatever called this.
 display=()
 value=()
+# Split on tabs by hand. `IFS=$'\t' read -r a b c` looks like it does this and does not: tab is IFS
+# *whitespace*, so a leading tab is skipped and runs of tabs collapse into one. Every row here starts
+# with an empty glyph field, so every row shifted left -- the label landed in the glyph, the subtext
+# landed in the label, and the value this returned was the subtext. oal-menu then compared that
+# against "Theme", "Layout", "Agent", "System", matched nothing, and exited without a word.
+#
+# That is why the menu opened and did nothing, through two different pickers.
+split_row() {
+  local s="$1"
+  glyph="${s%%$'\t'*}"
+  if [[ $s == *$'\t'* ]]; then
+    local rest="${s#*$'\t'}"
+    label="${rest%%$'\t'*}"
+    if [[ $rest == *$'\t'* ]]; then subtext="${rest#*$'\t'}"; else subtext=""; fi
+  else
+    label=""; subtext=""
+  fi
+}
+
 for opt in "${options[@]}"; do
-  IFS=$'\t' read -r a b c <<<"$opt"
+  split_row "$opt"
+  a="$glyph" b="$label" c="$subtext"
   if [[ -n ${c:-} ]]; then
     # The em dash here is a rendered glyph in a picker, not prose, and it is the one in this tree.
     # ASCII "--" between a label and its subtext reads as a command-line flag.

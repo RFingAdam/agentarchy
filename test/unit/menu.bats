@@ -97,3 +97,32 @@ setup() {
       { echo "$id is pinned by a layout but PKGBUILD never installs it to /usr/share/applications"; return 1; }
   done
 }
+
+@test "a row with an empty glyph returns the label, not the subtext" {
+  # The bug that made the menu open and do nothing, through two different pickers. Rows arrive as
+  # glyph<TAB>label<TAB>subtext and every menu row has an empty glyph. `IFS=$'\t' read -r a b c`
+  # silently drops that leading empty field, so the label landed in the glyph and the subtext in the
+  # label -- and the value handed back was the subtext. oal-menu compared it against "Theme",
+  # "Layout", "Agent", "System", matched nothing, and exited silently.
+  local fake="$BATS_TEST_TMPDIR/fake"
+  mkdir -p "$fake"
+  # Stand in for the picker so the real value construction runs with no display attached. It answers
+  # with a tag, which is what kdialog returns.
+  printf '#!/bin/bash\necho 1\n' >"$fake/kdialog"
+  chmod +x "$fake/kdialog"
+
+  run env PATH="$fake:$PATH" bash -c "printf '\tAlpha\tfirst\n\tBeta\tsecond\n' | '$SRC/bin/oal-menu-select' Test"
+  [ "$status" -eq 0 ]
+  # The label must lead, because oal-menu dispatches on everything before the first tab.
+  [ "${lines[0]%%$'\t'*}" = Beta ]
+}
+
+@test "the dispatch key survives a row that has no subtext" {
+  local fake="$BATS_TEST_TMPDIR/fake2"
+  mkdir -p "$fake"
+  printf '#!/bin/bash\necho 0\n' >"$fake/kdialog"
+  chmod +x "$fake/kdialog"
+  run env PATH="$fake:$PATH" bash -c "printf '\tgruvbox\n' | '$SRC/bin/oal-menu-select' Theme"
+  [ "$status" -eq 0 ]
+  [ "${lines[0]}" = gruvbox ]
+}
