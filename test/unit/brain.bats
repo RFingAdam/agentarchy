@@ -210,5 +210,7 @@ add_verb() {
   # Installing it must not enable it: an always-on process with tool access stays an explicit choice.
   # Comments are stripped first -- the sentence above explaining the fix matched this grep and failed
   # the test, which is the third time a check in this tree has caught its own prose.
-  ! grep -rhE '^[^#]*systemctl[^#]*enable[^#]*oal-brain' "$SRC/PKGBUILD" "$SRC/install" 2>/dev/null | grep -q .
+  # oal-brain.service exactly. oal-brain-sweep.service IS enabled and should be -- it reads the task
+  # journal and reports; it starts nothing. Matching the prefix caught it and failed this test.
+  ! grep -rhE '^[^#]*systemctl[^#]*enable[^#]*oal-brain\.service' "$SRC/PKGBUILD" "$SRC/install" 2>/dev/null | grep -q .
 }

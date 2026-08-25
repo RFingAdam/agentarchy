@@ -111,6 +111,41 @@ when it is configured but not answering.
 thin name over `oal-brain-do notify` rather than a second route to the notification service: one
 enforcement point, two spellings. A shortcut would be a hole with a friendly name.
 
+## Jobs you walk away from
+
+`oal-brain-ask` is a question you wait for. `oal-brain-run` is a job you do not:
+
+```bash
+oal-brain-run "audit this repo for unused dependencies"   # prints a task id
+oal-brain-tasks                                            # what is running, done, failed, held
+oal-brain-show <id>                                        # what was asked and what it said
+```
+
+It routes through `oal-brain-ask` like everything else, so the backend, the posture and the guard are
+the ones the terminal answers to. What it adds is a journal: the prompt, the state and the output
+survive the shell that started it, the terminal, the ssh session, and a reboot.
+
+### A restart holds. It never resumes
+
+A task recorded as running whose process is gone did not finish -- the machine went away underneath
+it. That is `held`, and `oal-brain-sweep` says so at the next login.
+
+**Nothing restarts by itself, and that is the design.** A task cut off partway may already have
+written files, pushed commits or sent mail, and neither the journal nor the agent can tell you which.
+An agent that silently picks up where it thinks it left off repeats side effects it already
+committed. `oal-brain-resume <id>` is a person deciding, and what it produces is a *new task with the
+same prompt* rather than a continuation pretending to know where it stopped.
+
+The old record is marked `superseded` and keeps its output, so the thing you are deciding about is
+still readable afterwards.
+
+### Why the boot id is in the journal
+
+Across a restart the kernel reissues process ids. A task's recorded pid can match some unrelated
+live process, and a dead task would report itself as running -- the one answer that must never be
+wrong here. Each task records the boot it belongs to, and a task from another boot is held whatever
+the pid table currently says.
+
 ## The resident service
 
 `oal-brain.service` (user), **not enabled, and nothing in this distribution enables it**:

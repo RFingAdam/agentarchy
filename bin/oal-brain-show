@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# oal:summary=Show one agent task: what was asked, what state it is in, and what it said
+# oal:args=<task-id>
+# oal:examples=oal-brain-show 20260825-141233-9182
+
+set -uo pipefail
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+BRAIN_CMD=oal-brain-show
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+id="${1:-}"
+[[ -n $id ]] || brain_fail "which task? 'oal-brain-tasks' lists them."
+dir="$(brain_task_dir "$id")"
+[[ -d $dir ]] || brain_fail "no task '$id'"
+
+state="$(brain_task_state "$dir")"
+printf 'task     %s\n' "$id"
+printf 'state    %s\n' "$state"
+printf 'backend  %s\n' "$(brain_task_get "$dir" backend)"
+printf 'started  %s\n' "$(brain_task_get "$dir" started)"
+finished="$(brain_task_get "$dir" finished 2>/dev/null)"
+[[ -n $finished ]] && printf 'finished %s\n' "$finished"
+[[ $state == held ]] &&
+  printf 'note     the machine restarted while this was running. Nothing was resumed; %s\n' \
+         "'oal-brain-resume $id' starts it again."
+printf '\nasked\n'
+sed 's/^/  /' "$dir/prompt" 2>/dev/null
+printf '\nsaid\n'
+if [[ -s $dir/output ]]; then sed 's/^/  /' "$dir/output"; else echo "  (nothing yet)"; fi

@@ -1,0 +1,14 @@
+# Report agent tasks the machine interrupted, once per login.
+#
+# Enabled by default, unlike oal-brain.service: this one only reads a journal and tells you what it
+# found. It starts nothing and resumes nothing, so there is no decision for an owner to make.
+[Unit]
+Description=Report interrupted Agentarchy agent tasks
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/oal-brain-sweep
+
+[Install]
+WantedBy=default.target
