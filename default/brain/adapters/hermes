@@ -13,28 +13,57 @@
 # ours. That is the right seam: point the CLI wherever it should go and this adapter follows.
 #
 # Only `ask` costs anything. `describe` and `probe` never invoke a model.
+# Local or remote. `hermes -z` asks the Hermes on this machine; `hermes peer dm <peer>` asks one on
+# another machine and prints its reply -- the cross-machine twin of the same question. Which you get
+# is one setting, because "point it at our existing instance" should not need a different adapter.
+#
+#   ~/.config/oal/brain/hermes.env
+#     HERMES_PEER=pve        # a name from `hermes peer list`; unset means the local agent
+#
+# Registering the peer is Hermes's own command, and it needs the remote's API_SERVER_KEY:
+#   hermes peer add pve --url http://<host>:8377 --key <API_SERVER_KEY>
 set -uo pipefail
+
+config="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/hermes.env"
+# shellcheck disable=SC1090
+[[ -r $config ]] && source "$config"
+peer="${HERMES_PEER:-}"
 
 hermes_bin() { command -v hermes >/dev/null && printf 'hermes'; }
 
 case "${1:-}" in
   describe)
-    if [[ -n "$(hermes_bin)" ]]; then
-      hermes --version 2>/dev/null | head -1
-    else
+    if [[ -z "$(hermes_bin)" ]]; then
       echo "Hermes Agent (not installed)"
+    elif [[ -n $peer ]]; then
+      printf '%s, via peer %s\n' "$(hermes --version 2>/dev/null | head -1)" "$peer"
+    else
+      hermes --version 2>/dev/null | head -1
     fi
     ;;
   probe)
     # Cheap on purpose: the prompt reads this on a timer, and a probe that spent credits would be a
     # bill that grows while nobody is at the keyboard.
     [[ -n "$(hermes_bin)" ]] || exit 1
-    hermes --version >/dev/null 2>&1
+    hermes --version >/dev/null 2>&1 || exit 1
+    # A configured peer that is not registered is the failure worth catching here: asking would go
+    # nowhere, and the panel would report a brain that cannot answer as reachable.
+    if [[ -n $peer ]]; then
+      hermes peer list 2>/dev/null | grep -qw "$peer" || exit 1
+    fi
     ;;
   ask)
     [[ -n "$(hermes_bin)" ]] || { echo "hermes: the Hermes CLI is not installed" >&2; exit 1; }
     prompt="$(cat)"
     [[ -n $prompt ]] || { echo "hermes: empty prompt" >&2; exit 1; }
+    if [[ -n $peer ]]; then
+      # dm takes the message on stdin, which is the same reason the contract does: a prompt is full
+      # of quotes and newlines, and argv is where those become somebody else's bug.
+      # exit, not exec: `exec` inside a pipeline replaces only that subshell, so the script would
+      # carry on to the local branch below and ask twice -- once remotely, once here.
+      printf '%s' "$prompt" | hermes peer dm "$peer"
+      exit $?
+    fi
     # -z is Hermes's one-shot prompt. argv rather than stdin is safe here: this is an exec with no
     # shell in between, so the metacharacters the contract avoids by using stdin cannot bite.
     exec hermes -z "$prompt"
