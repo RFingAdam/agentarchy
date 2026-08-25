@@ -48,8 +48,6 @@ if (( ${#options[@]} == 0 )) && [[ ! -t 0 ]]; then
 fi
 (( ${#options[@]} )) || { echo "Usage: oal-menu-select <prompt> [option...] [-- menu args...]" >&2; exit 1; }
 
-command -v fuzzel >/dev/null || { echo "oal-menu-select: fuzzel is not installed" >&2; exit 1; }
-
 config="${XDG_STATE_HOME:-$HOME/.local/state}/oal/current/theme/fuzzel.ini"
 args=(--dmenu --prompt "$prompt> ")
 [[ -r $config ]] && args+=(--config "$config")
@@ -86,6 +84,31 @@ for opt in "${options[@]}"; do
     display+=("$a"); value+=("$a")
   fi
 done
+
+# kdialog first, because a menu has to work with a mouse.
+#
+# fuzzel is the better looking picker and it is keyboard-excellent, but on this desktop clicking an
+# entry does not select it -- reported twice from a real mouse, and its own changelog says left click
+# should select. Whatever the cause, a menu whose four entries do nothing when clicked is not a menu,
+# and a picker that is beautiful and inert loses to a plain one that works.
+#
+# kdialog also answers with the tag rather than the label, so the value is matched back by index with
+# no string round-trip at all. Set OAL_MENU_BACKEND=fuzzel to get the old picker.
+if [[ ${OAL_MENU_BACKEND:-} != fuzzel ]] && command -v kdialog >/dev/null; then
+  # Wide enough for a label and its subtext. The default is narrow enough to clip the first entry
+  # and put a horizontal scrollbar under a four-item menu, which looks like a mistake because it is.
+  kargs=(--title "Agentarchy" --geometry "620x400" --menu "$prompt")
+  for i in "${!display[@]}"; do
+    kargs+=("$i" "${display[$i]}")
+  done
+  chosen="$(kdialog "${kargs[@]}" 2>/dev/null)" || exit 1
+  [[ $chosen =~ ^[0-9]+$ ]] || exit 1
+  [[ -n ${value[$chosen]+set} ]] || exit 1
+  printf '%s\n' "${value[$chosen]}"
+  exit 0
+fi
+
+command -v fuzzel >/dev/null || { echo "oal-menu-select: neither kdialog nor fuzzel is installed" >&2; exit 1; }
 
 chosen="$(printf '%s\n' "${display[@]}" | fuzzel "${args[@]}" 2>/dev/null)" || exit 1
 [[ -n $chosen ]] || exit 1

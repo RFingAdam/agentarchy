@@ -53,7 +53,19 @@ setup() {
   done
   run env PATH="$bare" "$SRC/bin/oal-menu-select" Prompt one two
   [ "$status" -ne 0 ]
-  [[ $output == *"fuzzel is not installed"* ]]
+  [[ $output == *"neither kdialog nor fuzzel is installed"* ]]
+}
+
+@test "the picker prefers the backend that works with a mouse" {
+  # kdialog first, fuzzel behind it. fuzzel is the better looking picker and it is keyboard-
+  # excellent, but clicking an entry does not select it on this desktop -- reported twice from a
+  # real mouse. A menu whose entries do nothing when clicked is not a menu.
+  local src="$SRC/bin/oal-menu-select"
+  grep -q 'command -v kdialog' "$src"
+  # The escape hatch stays, so the old picker is one variable away.
+  grep -q 'OAL_MENU_BACKEND' "$src"
+  # kdialog answers with the tag, so the value is matched back by index with no string round-trip.
+  grep -q 'kargs+=("$i" "${display\[$i\]}")' "$src"
 }
 
 @test "the picker matches the selection back by index, not by splitting the answer" {

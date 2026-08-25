@@ -354,7 +354,7 @@ menu_shot() {
   vm_ssh bash -s <<'GUEST' >"$art/menu.txt" 2>&1 || return 1
 set -u
 export OAL_PATH=/usr/share/agentarchy
-command -v fuzzel >/dev/null || { echo "FAIL menu-backend: fuzzel is not installed"; exit 1; }
+command -v kdialog >/dev/null || { echo "FAIL menu-backend: kdialog is not installed"; exit 1; }
 echo "PASS menu-backend"
 # Every command the menu can invoke has to exist, or an entry is decoration.
 missing=""

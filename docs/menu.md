@@ -17,6 +17,23 @@ So the menu was not unwired. There was nothing on this tree to wire up.
 
 ## The backend
 
+**kdialog, a native Qt dialog.** It is not the prettiest option and it was not the first one.
+
+fuzzel was, and on paper it is the better pick: a Wayland-native launcher of about 200 KB, themed
+from the current palette, keyboard-excellent. It shipped, and then clicking an entry turned out not
+to select it -- reported twice from a real mouse, on a desktop whose owner uses one. fuzzel's own
+changelog says left click selects and launches, so this is not a documented limitation; whatever the
+cause, the result was four menu entries that did nothing when clicked.
+
+A picker that is beautiful and inert loses to a plain one that works. kdialog is KDE's own, so it is
+themed by the colour scheme, and a list in a Qt dialog responds to a mouse without anyone having to
+wonder. It also answers with the tag rather than the label, so the chosen value is matched back by
+index with no string round-trip at all.
+
+`OAL_MENU_BACKEND=fuzzel` restores the old picker for anyone who lives on the keyboard.
+
+### What fuzzel was chosen for originally
+
 **fuzzel, in dmenu mode.** A Wayland-native picker of about 200 KB, themed from the current palette
 by `default/themed/fuzzel.ini.tpl` like every other surface.
 

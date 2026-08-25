@@ -76,3 +76,7 @@ kdeplasma-addons
 # Icon set. The theme engine picks a folder colour from each palette (bin/oal-theme-set-icons),
 # which needs Papirus present; without it the desktop falls back to Breeze and says so.
 papirus-icon-theme
+
+# The menu picker. It has to work with a mouse, which is why the menu is a native Qt dialog rather
+# than the prettier keyboard-first picker; see docs/menu.md.
+kdialog
