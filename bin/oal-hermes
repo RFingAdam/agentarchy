@@ -33,7 +33,11 @@ if [[ -n $over_ssh ]]; then
   # re-parse there, which a remote shell is always going to do.
   remote_cmd="export PATH=\$PATH:\$HOME/.local/bin; hermes"
   for a in "$@"; do remote_cmd+=" $(printf '%q' "$a")"; done
-  exec ssh -T -o BatchMode=yes -o ConnectTimeout=8 "$over_ssh" "$remote_cmd"
+  # -n, because these are queries. Without it ssh forwards stdin and waits for an EOF that never
+  # arrives when the caller's stdin is an open pipe -- which it is inside a command substitution, a
+  # systemd unit, or another ssh session. It worked by accident wherever stdin happened to be a
+  # terminal, and hung everywhere the OS actually runs it.
+  exec ssh -n -T -o BatchMode=yes -o ConnectTimeout=8 "$over_ssh" "$remote_cmd"
 fi
 
 command -v hermes >/dev/null || {

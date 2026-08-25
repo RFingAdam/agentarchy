@@ -66,3 +66,13 @@ setup() {
   # It is read on a timer by oal-agent-hud. A table would mean a parser on the hot path.
   grep -q "printf 'up=%s down=%s attention=%s" "$SRC/bin/oal-hermes-status"
 }
+
+@test "ssh queries close stdin, or they hang wherever the OS actually runs them" {
+  # ssh forwards stdin and waits for an EOF that never arrives when the caller's stdin is an open
+  # pipe -- inside a command substitution, a systemd unit, or another ssh session. It worked by
+  # accident on a developer's terminal and hung in the VM, which is every place that matters.
+  grep -q 'ssh -n -T' "$SRC/bin/oal-hermes"
+  # The adapter closes it at the probe and describe call sites rather than in remote(), because the
+  # ask path genuinely wants stdin.
+  grep -q "remote 'command -v hermes >/dev/null' </dev/null" "$SRC/default/brain/adapters/hermes"
+}
