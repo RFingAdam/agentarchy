@@ -54,7 +54,20 @@ config="${XDG_STATE_HOME:-$HOME/.local/state}/oal/current/theme/fuzzel.ini"
 args=(--dmenu --prompt "$prompt> ")
 [[ -r $config ]] && args+=(--config "$config")
 [[ -n $menu_width ]] && args+=(--width "$menu_width")
-[[ -n $menu_lines ]] && args+=(--lines "$menu_lines")
+
+# Fit the list to what is in it. The generated config asks for twelve rows and this menu offers four,
+# so most of the box was empty -- and a click in that empty region closes the picker with no
+# selection, which is indistinguishable from the menu ignoring you.
+if [[ -n $menu_lines ]]; then
+  args+=(--lines "$menu_lines")
+else
+  args+=(--lines "${#options[@]}")
+fi
+
+# Do not vanish when keyboard focus moves. By default fuzzel exits the moment it loses focus, and on
+# this desktop a single click was enough to take it: the menu disappeared without acting on
+# anything, which is exactly what "I click and nothing happens" looks like from the outside.
+args+=(--no-exit-on-keyboard-focus-loss)
 
 # The display line and the value are different things, so they are built in step and matched back by
 # index rather than by parsing the picker's answer. Splitting the returned string would break the
