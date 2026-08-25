@@ -269,3 +269,32 @@ add_verb() {
   run env XDG_CONFIG_HOME="$cfg" "$SRC/default/brain/adapters/hermes" probe
   [ "$status" -ne 0 ]
 }
+
+@test "the hermes adapter can reach a Hermes over ssh" {
+  # The mode that needs nothing changed on the remote. A Hermes worth pointing at is usually a
+  # server, and a server's api_server is typically bound to 127.0.0.1 -- reaching that with peer dm
+  # means exposing a port or running a tunnel, both decisions about somebody's infrastructure.
+  local a="$SRC/default/brain/adapters/hermes"
+  grep -q 'HERMES_SSH' "$a"
+  # The prompt is read on the far side, so it is never a shell word on either hop.
+  grep -q "hermes -z \"\\\$(cat)\"" "$a"
+  # Same pipeline trap as the peer branch: exec would replace only the subshell and fall through.
+  grep -A3 "remote 'hermes -z" "$a" | grep -q 'exit \$?'
+}
+
+@test "ssh mode wins over a peer, and a resident backend is not supervised from here" {
+  local a="$SRC/default/brain/adapters/hermes"
+  # over_ssh is tested before peer in ask, describe and probe.
+  grep -q 'if \[\[ -n $over_ssh \]\]; then' "$a"
+  # serve refuses over ssh: a resident process on another machine is that machine's business, and a
+  # local unit babysitting it would restart something it does not own.
+  grep -A3 '^  serve)' "$a" | grep -q 'over_ssh.*exit 1'
+}
+
+@test "an ssh host that is not reachable is not reported as a working brain" {
+  local cfg="$BATS_TEST_TMPDIR/sshcfg"
+  mkdir -p "$cfg/oal/brain"
+  printf 'HERMES_SSH=definitely.not.a.host.invalid\n' >"$cfg/oal/brain/hermes.env"
+  run env XDG_CONFIG_HOME="$cfg" "$SRC/default/brain/adapters/hermes" probe
+  [ "$status" -ne 0 ]
+}
