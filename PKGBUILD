@@ -83,6 +83,14 @@ package() {
   # nothing when clicked.
   install -Dm644 applications/oal-menu.desktop "$pkgdir/usr/share/applications/oal-menu.desktop"
 
+  # The mark is drawn with stroke="currentColor" so it takes its colour from whatever embeds it. A
+  # desktop icon has nothing to inherit from and resolves that to black, which is invisible on a
+  # dark dock, so the packaged copy is pinned to the brand amber. Generated rather than committed
+  # twice: default/branding/mark.svg stays the one source, and bin/oal-dev-make-branding stays the
+  # one place its geometry lives.
+  sed 's/currentColor/#f0a04b/g' default/branding/mark.svg |
+    install -Dm644 /dev/stdin "$pkgdir/usr/share/icons/hicolor/scalable/apps/agentarchy.svg"
+
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 NOTICE "$pkgdir/usr/share/licenses/$pkgname/NOTICE"
 

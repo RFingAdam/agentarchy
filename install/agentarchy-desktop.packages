@@ -72,3 +72,7 @@ gwenview
 okular
 plasma-systemmonitor
 kdeplasma-addons
+
+# Icon set. The theme engine picks a folder colour from each palette (bin/oal-theme-set-icons),
+# which needs Papirus present; without it the desktop falls back to Breeze and says so.
+papirus-icon-theme

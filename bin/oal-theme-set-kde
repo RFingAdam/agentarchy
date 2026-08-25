@@ -119,15 +119,13 @@ else
   echo "skipping colour scheme: Plasma is not installed"
 fi
 
-# The icon set is not part of a colour scheme, so it is what still reads as the wrong desktop once
-# everything else is retinted: dark icons on a light theme, or the reverse. Breeze ships exactly two
-# and both are already installed. The themes' own icons.theme files name Yaru variants that are
-# AUR-only on Arch and are deliberately not honoured -- docs/theme-hooks.md carries that ruling.
+# The icon set is not part of a colour scheme, so it is what still reads as somebody else's desktop
+# once everything else is retinted -- and the folders are the loudest thing on the screen. Papirus
+# ships its folders in two dozen colours; oal-theme-set-icons picks the one nearest this palette's
+# accent and builds a user theme that inherits Papirus and overrides only the folders. It falls back
+# to Breeze in the right polarity when Papirus is absent, and says so.
 if command -v kwriteconfig6 >/dev/null; then
-  icon_theme=breeze-dark
-  [[ $mode == light ]] && icon_theme=breeze
-  kwriteconfig6 --file kdeglobals --group Icons --key Theme "$icon_theme"
-  echo "icons: $icon_theme (theme mode: $mode)"
+  "$bin_dir/oal-theme-set-icons" --file "$colors_file" --mode "$mode" || echo "icons: unchanged" >&2
 fi
 
 background="$(find -L "$theme_dir/backgrounds" -maxdepth 1 -type f \

@@ -163,11 +163,22 @@ sudo chown libvirt-qemu:kvm /var/lib/libvirt/images/agentarchy.qcow2
 virt-install --connect qemu:///system --name agentarchy \
   --memory 8192 --vcpus 4 --cpu host-passthrough \
   --import --disk path=/var/lib/libvirt/images/agentarchy.qcow2,bus=virtio,format=qcow2 \
-  --os-variant archlinux --video virtio --graphics spice,listen=none \
+  --os-variant archlinux --graphics spice,listen=none,gl.enable=yes \
+  --video model.type=virtio,model.acceleration.accel3d=yes \
   --network network=default,model=virtio --noautoconsole \
   --boot loader=/usr/share/OVMF/OVMF_CODE_4M.fd,loader.readonly=yes,loader.type=pflash,nvram=/var/lib/libvirt/qemu/nvram/agentarchy_VARS.fd
 sudo install -o libvirt-qemu -g kvm -m 600 .vm/vars.fd /var/lib/libvirt/qemu/nvram/agentarchy_VARS.fd
 ```
+
+**The 3D acceleration is not optional if you intend to look at the result.** Without
+`accel3d`/`gl.enable`, KWin finds no usable EGL device and composites through llvmpipe -- the
+journal says `Refusing to try glamor on llvmpipe` -- and the whole desktop, System Settings most
+visibly, is slow enough that people assume the distribution is at fault rather than the hypervisor.
+
+The cost is that `virsh screenshot` stops working: with GL enabled qemu renders through the host GPU
+and has no surface to dump, so it answers `no surface`. Screenshot from inside the guest with
+spectacle instead. The harness VM deliberately does **not** enable GL, because `test/vm/golden-path`
+photographs the greeter over QMP, before any session exists to run spectacle in.
 
 The libvirt copy is independent of `.vm/disk.qcow2`, which `--fresh` throws away on the next run.
 

@@ -17,6 +17,23 @@ export OAL_PATH
 
 pick() { oal-menu-select "$@"; }
 
+# Run something the menu chose, and say so on screen when it fails.
+#
+# The menu is launched from a dock icon, so it has no terminal: anything written to stderr goes to
+# the journal, where nobody is looking. Picking a theme that then failed to apply looked exactly
+# like the menu doing nothing at all, which is the single most confusing way for it to break -- and
+# `set -e` made it worse by taking the whole menu down without a word.
+run() {
+  local what="$1"; shift
+  local out rc=0
+  out="$("$@" 2>&1)" || rc=$?
+  (( rc == 0 )) && return 0
+  # Last line only: the notification is a hint to go and look, not a log viewer.
+  oal-notification-send "$what failed" "$(printf '%s' "$out" | tail -n 1)" 2>/dev/null ||
+    printf '%s\n' "$out" >&2
+  return "$rc"
+}
+
 menu_theme() {
   local themes=() name d chosen
   for d in "$OAL_PATH"/themes/*/; do
@@ -24,13 +41,13 @@ menu_theme() {
     themes+=("$(printf '\t%s' "$name")")
   done
   chosen="$(printf '%s\n' "${themes[@]}" | pick Theme)" || return 0
-  oal-theme-set "$chosen"
+  run "Theme $chosen" oal-theme-set "$chosen"
 }
 
 menu_layout() {
   local chosen
   chosen="$(printf '%s\n' $'\tubuntu\ttop bar and a dock' $'\tmint\tone taskbar along the bottom' | pick Layout)" || return 0
-  oal-layout-set "${chosen%%$'\t'*}"
+  run "Layout ${chosen%%$'\t'*}" oal-layout-set "${chosen%%$'\t'*}"
 }
 
 menu_agent() {
@@ -44,7 +61,7 @@ menu_agent() {
         $'\tscoped\tthe default: writes are confirmed' \
         $'\tuntrusted\teverything is confirmed' \
         $'\ttrusted\tpermissive' | pick Posture)" || return 0
-      oal-agent-profile "${p%%$'\t'*}"
+      run "Posture ${p%%$'\t'*}" oal-agent-profile "${p%%$'\t'*}"
       ;;
     servers) oal-mcp-status | pick MCP >/dev/null || true ;;
   esac
