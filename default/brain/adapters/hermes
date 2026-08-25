@@ -1,54 +1,51 @@
 #!/bin/bash
 
-# A hermes-agent gateway: resident, with its own memory, scheduler and chat gateways. The shape this
-# contract was designed against.
+# Hermes Agent, through its command line.
 #
-# UNVERIFIED AGAINST A RUNNING GATEWAY. Nobody here has pointed this at a live Hermes, so the
-# request paths below are defaults rather than facts, and every one of them is overridable. If your
-# gateway speaks a different shape, set the variables rather than editing this file -- that is what
-# they are for, and it is the difference between an adapter and a guess with a filename.
+# This adapter was originally written against a guessed HTTP gateway -- POST /v1/chat, a token, a jq
+# filter over the reply -- because no instance was available to look at. None of that was right.
+# Hermes drives from a CLI: `hermes -z PROMPT` answers one question, `hermes serve` is the
+# JSON-RPC/WebSocket backend, `hermes gateway run` is the messaging side. The invented endpoints are
+# gone rather than kept as a fallback, because an untested second path is not a safety net, it is a
+# second thing to debug.
 #
-# Configuration, in ~/.config/oal/brain/hermes.env:
+# Which Hermes this reaches -- local, or one on another machine -- is Hermes's own configuration, not
+# ours. That is the right seam: point the CLI wherever it should go and this adapter follows.
 #
-#   HERMES_URL=http://127.0.0.1:8080     required; the gateway's base URL
-#   HERMES_TOKEN=...                     optional; sent as a bearer token
-#   HERMES_ASK_PATH=/v1/chat             optional; POSTed with {"message": "..."}
-#   HERMES_PROBE_PATH=/health            optional; GET, any 2xx counts as reachable
-#   HERMES_ANSWER_FILTER=.response       optional; a jq expression selecting the text to print
+# Only `ask` costs anything. `describe` and `probe` never invoke a model.
 set -uo pipefail
 
-config="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/hermes.env"
-# shellcheck disable=SC1090
-[[ -r $config ]] && source "$config"
-
-url="${HERMES_URL:-}"
-ask_path="${HERMES_ASK_PATH:-/v1/chat}"
-probe_path="${HERMES_PROBE_PATH:-/health}"
-answer_filter="${HERMES_ANSWER_FILTER:-.response}"
-auth=()
-[[ -n ${HERMES_TOKEN:-} ]] && auth=(-H "Authorization: Bearer $HERMES_TOKEN")
-
-need_url() {
-  [[ -n $url ]] || { echo "hermes: no HERMES_URL. Set one in $config" >&2; exit 1; }
-}
+hermes_bin() { command -v hermes >/dev/null && printf 'hermes'; }
 
 case "${1:-}" in
-  describe) echo "a hermes-agent gateway at ${url:-<unconfigured>}" ;;
+  describe)
+    if [[ -n "$(hermes_bin)" ]]; then
+      hermes --version 2>/dev/null | head -1
+    else
+      echo "Hermes Agent (not installed)"
+    fi
+    ;;
   probe)
-    need_url
-    curl -fsS --max-time 5 "${auth[@]}" "${url%/}$probe_path" >/dev/null
+    # Cheap on purpose: the prompt reads this on a timer, and a probe that spent credits would be a
+    # bill that grows while nobody is at the keyboard.
+    [[ -n "$(hermes_bin)" ]] || exit 1
+    hermes --version >/dev/null 2>&1
     ;;
   ask)
-    need_url
-    command -v jq >/dev/null || { echo "hermes: jq is required" >&2; exit 1; }
+    [[ -n "$(hermes_bin)" ]] || { echo "hermes: the Hermes CLI is not installed" >&2; exit 1; }
     prompt="$(cat)"
     [[ -n $prompt ]] || { echo "hermes: empty prompt" >&2; exit 1; }
-    body="$(jq -nc --arg m "$prompt" '{message: $m}')"
-    reply="$(curl -fsS --max-time 120 "${auth[@]}" -H 'Content-Type: application/json' \
-      -d "$body" "${url%/}$ask_path")" || { echo "hermes: the gateway did not answer" >&2; exit 1; }
-    # A gateway that answered with something this filter does not select is a configuration problem,
-    # and printing the raw body is more use than printing "null".
-    jq -re "$answer_filter" <<<"$reply" 2>/dev/null || printf '%s\n' "$reply"
+    # -z is Hermes's one-shot prompt. argv rather than stdin is safe here: this is an exec with no
+    # shell in between, so the metacharacters the contract avoids by using stdin cannot bite.
+    exec hermes -z "$prompt"
     ;;
-  *) echo "usage: hermes describe|probe|ask" >&2; exit 1 ;;
+  serve)
+    [[ -n "$(hermes_bin)" ]] || exit 1
+    # The contract asks `serve --check` before running anything, so a backend that cannot be resident
+    # is not restarted every five seconds forever.
+    [[ ${2:-} == --check ]] && exit 0
+    # The JSON-RPC/WebSocket backend, in the foreground, which is what a systemd unit wants.
+    exec hermes serve
+    ;;
+  *) echo "usage: hermes describe|probe|ask|serve" >&2; exit 1 ;;
 esac
