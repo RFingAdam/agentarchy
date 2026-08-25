@@ -1,0 +1,47 @@
+#!/bin/bash
+
+# oal:summary=Run a Hermes command wherever this machine's Hermes lives
+# oal:args=<hermes-args...>
+# oal:examples=oal-hermes kanban boards | oal-hermes gateway list
+
+# One place that knows where Hermes is, so nothing else has to.
+#
+# The brain contract is deliberately backend-neutral: four verbs, and an adapter for anything that
+# can answer a question. Hermes is more than that -- boards, gateways, workers, cron, memory -- and
+# pretending otherwise would either bloat the contract with things only one backend has, or waste
+# the machine we actually run.
+#
+# So this is the Hermes-specific surface, and it says so. It lights up when Hermes is the configured
+# backend and is absent otherwise. The contract stays small; this stays opinionated.
+#
+# Where Hermes is comes from the same config the adapter reads, so there is one answer to that
+# question rather than two that can disagree.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+
+config="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/hermes.env"
+# shellcheck disable=SC1090
+[[ -r $config ]] && source "$config"
+over_ssh="${HERMES_SSH:-}"
+
+(($#)) || { echo "Usage: oal-hermes <hermes-args...>" >&2; exit 2; }
+
+if [[ -n $over_ssh ]]; then
+  # Arguments are passed as one shell word list to the far side. printf %q makes each safe to
+  # re-parse there, which a remote shell is always going to do.
+  remote_cmd="export PATH=\$PATH:\$HOME/.local/bin; hermes"
+  for a in "$@"; do remote_cmd+=" $(printf '%q' "$a")"; done
+  # -n, because these are queries. Without it ssh forwards stdin and waits for an EOF that never
+  # arrives when the caller's stdin is an open pipe -- which it is inside a command substitution, a
+  # systemd unit, or another ssh session. It worked by accident wherever stdin happened to be a
+  # terminal, and hung everywhere the OS actually runs it.
+  exec ssh -n -T -o BatchMode=yes -o ConnectTimeout=8 "$over_ssh" "$remote_cmd"
+fi
+
+command -v hermes >/dev/null || {
+  echo "oal-hermes: no Hermes here, and HERMES_SSH is not set in $config" >&2
+  exit 1
+}
+exec hermes "$@"

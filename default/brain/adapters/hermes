@@ -49,7 +49,7 @@ case "${1:-}" in
   describe)
     if [[ -n $over_ssh ]]; then
       printf '%s, on %s over ssh\n' \
-        "$(remote 'hermes --version' | head -1 || echo 'Hermes Agent')" "$over_ssh"
+        "$(remote 'hermes --version' </dev/null | head -1 || echo 'Hermes Agent')" "$over_ssh"
     elif [[ -z "$(hermes_bin)" ]]; then
       echo "Hermes Agent (not installed)"
     elif [[ -n $peer ]]; then
@@ -64,7 +64,10 @@ case "${1:-}" in
     if [[ -n $over_ssh ]]; then
       # Reachable AND has Hermes. Answering yes for a host that merely accepts ssh would put a brain
       # on the panel that cannot answer anything.
-      remote 'command -v hermes >/dev/null' || exit 1
+      # </dev/null for the same reason oal-hermes passes -n: ssh forwards stdin and waits for an
+      # EOF that never comes when the caller's stdin is an open pipe. The ask path below does want
+      # stdin, which is why this is closed here rather than in remote() itself.
+      remote 'command -v hermes >/dev/null' </dev/null || exit 1
       exit 0
     fi
     [[ -n "$(hermes_bin)" ]] || exit 1
