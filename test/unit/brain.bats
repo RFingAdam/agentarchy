@@ -214,3 +214,28 @@ add_verb() {
   # journal and reports; it starts nothing. Matching the prefix caught it and failed this test.
   ! grep -rhE '^[^#]*systemctl[^#]*enable[^#]*oal-brain\.service' "$SRC/PKGBUILD" "$SRC/install" 2>/dev/null | grep -q .
 }
+
+@test "the hermes adapter drives the CLI, not an invented HTTP endpoint" {
+  # It was first written against a guessed gateway -- POST /v1/chat, a bearer token, a jq filter over
+  # the reply -- because no instance was available. Hermes drives from a command line. The guesses
+  # were removed rather than kept as a fallback: an untested second path is a second thing to debug.
+  local a="$SRC/default/brain/adapters/hermes"
+  grep -q 'hermes -z' "$a"
+  grep -q 'hermes serve' "$a"
+  ! grep -E '^[^#]*(v1/chat|HERMES_URL|curl)' "$a" | grep -q .
+}
+
+@test "the hermes adapter answers serve --check, so it is not restarted forever" {
+  # oal-brain-serve asks before running anything. A backend that answered a usage error here would be
+  # restarted every five seconds for as long as the machine is up.
+  #
+  # The branch exists unconditionally; the answer depends on whether Hermes is installed, and
+  # answering "yes, serve me" on a machine without it is exactly the restart loop --check prevents.
+  # Asserting exit 0 everywhere made this pass on a developer's machine and fail in CI, which is a
+  # test reporting where it ran rather than what the code does.
+  grep -q 'check.*exit 0' "$SRC/default/brain/adapters/hermes"
+
+  command -v hermes >/dev/null || skip "Hermes is not installed on this machine"
+  run "$SRC/default/brain/adapters/hermes" serve --check
+  [ "$status" -eq 0 ]
+}

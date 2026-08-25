@@ -85,11 +85,21 @@ the desktop to change, it calls `oal-brain-do`, and it gets the same answer ever
 - **`claude-code`**: one invocation per question. Worth knowing what this composes to: the answer
   comes from an agent with its own tool access, governed by the same guard and the same
   `oal-agent-profile` as any other session. A question routed here can cause work.
-- **`hermes`**: a [hermes-agent](https://github.com/NousResearch/hermes-agent) gateway. Resident,
-  with its own memory, scheduler and chat gateways; the shape this contract was designed against.
-  **Its request paths have not been verified against a running gateway**, so they are defaults and
-  every one is overridable in `~/.config/oal/brain/hermes.env`. If yours speaks a different shape,
-  set the variables rather than editing the file.
+- **`hermes`**: [hermes-agent](https://github.com/NousResearch/hermes-agent), through its command
+  line. Resident, with its own memory, scheduler and chat gateways; the shape this contract was
+  designed against.
+
+  This adapter was first written against a *guessed* HTTP gateway, because no instance was available
+  to look at. None of it was right. Hermes drives from a CLI: `hermes -z PROMPT` answers one
+  question, `hermes serve` is the JSON-RPC/WebSocket backend, `hermes gateway run` is the messaging
+  side. The invented endpoints were removed rather than kept as a fallback: an untested second path
+  is not a safety net, it is a second thing to debug.
+
+  Which Hermes this reaches, local or on another machine, is Hermes's own configuration rather than
+  ours. That is the right seam: point the CLI where it should go and the adapter follows.
+
+  Only `ask` costs anything. `describe` and `probe` never invoke a model, which matters because the
+  prompt reads `probe` on a timer and a billing probe would grow a bill with nobody at the keyboard.
 
 ## Using it
 
