@@ -18,6 +18,20 @@ state="$state_dir/agent-hud.json"
 # Older than this and the numbers are lies. The timer refreshes well inside it.
 max_age=900
 
+# --json is for the panel widget, which wants fields rather than a line. The prompt keeps using the
+# line, so both surfaces are fed by one cache and cannot disagree about what the agent is doing.
+if [[ ${1:-} == --json ]]; then
+  [[ -r $state ]] || { echo '{}'; exit 0; }
+  read -r cached <"$state" 2>/dev/null || { echo '{}'; exit 0; }
+  [[ $cached == \{*\} ]] || { echo '{}'; exit 0; }
+  posture=scoped
+  [[ -r $state_dir/agent-profile ]] && read -r posture <"$state_dir/agent-profile" 2>/dev/null
+  # Spliced rather than parsed: this is a format we write ourselves a few lines above, and reaching
+  # for jq here would put a dependency on a path that has none.
+  printf '%s,"profile":"%s"}\n' "${cached%\}}" "${posture//[^a-z]/}"
+  exit 0
+fi
+
 profile_now() {
   local f="$state_dir/agent-profile"
   [[ -r $f ]] && tr -d '[:space:]' <"$f" || echo scoped

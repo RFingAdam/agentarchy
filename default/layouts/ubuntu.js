@@ -19,6 +19,9 @@ top.height = 30;
 top.hiding = "none";
 top.addWidget("org.kde.plasma.kickoff");
 top.addWidget("org.kde.plasma.panelspacer");
+// The agent sits on the panel next to the clock, not behind a keystroke. A distribution whose claim
+// is agent-first should not need a terminal open to show what its agent is doing.
+top.addWidget("org.agentarchy.agent");
 top.addWidget("org.kde.plasma.systemtray");
 top.addWidget("org.kde.plasma.digitalclock");
 top.addWidget("org.kde.plasma.showdesktop");

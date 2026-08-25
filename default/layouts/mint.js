@@ -20,6 +20,9 @@ tasks.currentConfigGroup = ["General"];
 tasks.writeConfig("showOnlyCurrentDesktop", false);
 tasks.reloadConfig();
 
+// The agent sits on the panel next to the clock, not behind a keystroke. A distribution whose claim
+// is agent-first should not need a terminal open to show what its agent is doing.
+bar.addWidget("org.agentarchy.agent");
 bar.addWidget("org.kde.plasma.systemtray");
 bar.addWidget("org.kde.plasma.digitalclock");
 bar.addWidget("org.kde.plasma.showdesktop");
