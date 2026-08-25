@@ -95,8 +95,20 @@ the desktop to change, it calls `oal-brain-do`, and it gets the same answer ever
   side. The invented endpoints were removed rather than kept as a fallback: an untested second path
   is not a safety net, it is a second thing to debug.
 
-  Which Hermes this reaches, local or on another machine, is Hermes's own configuration rather than
-  ours. That is the right seam: point the CLI where it should go and the adapter follows.
+  **Local or on another machine, by one setting.** `hermes -z` asks the agent on this box;
+  `hermes peer dm <peer>` asks one on a machine you have registered and prints its reply. Set the
+  peer and the adapter uses it:
+
+  ```bash
+  # once, on this machine -- the key comes from the remote, which must run the api_server platform
+  hermes peer add pve --url http://<host>:8377 --key <API_SERVER_KEY>
+
+  # ~/.config/oal/brain/hermes.env
+  HERMES_PEER=pve
+  ```
+
+  `probe` then checks the peer is actually registered, because a configured peer that is not
+  registered would otherwise show on the panel as a brain that is up and answer nothing.
 
   Only `ask` costs anything. `describe` and `probe` never invoke a model, which matters because the
   prompt reads `probe` on a timer and a billing probe would grow a bill with nobody at the keyboard.

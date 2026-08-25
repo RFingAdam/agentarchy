@@ -239,3 +239,33 @@ add_verb() {
   run "$SRC/default/brain/adapters/hermes" serve --check
   [ "$status" -eq 0 ]
 }
+
+@test "the hermes adapter can be pointed at another machine's Hermes" {
+  # "It should point to our existing instance" is one setting, not a different adapter. hermes peer
+  # dm messages an agent on a registered peer and prints its reply.
+  local a="$SRC/default/brain/adapters/hermes"
+  grep -q 'hermes peer dm' "$a"
+  grep -q 'HERMES_PEER' "$a"
+  # The message goes on stdin for the same reason the contract does: a prompt is full of quotes and
+  # newlines, and argv is where those become somebody else's bug.
+  grep -q "printf '%s' \"\$prompt\" | hermes peer dm" "$a"
+}
+
+@test "asking a peer does not also ask the local agent" {
+  # `exec` inside a pipeline replaces only that subshell. Written that way the script carried on to
+  # the local branch and asked twice: once on the peer, once here, billing both.
+  local a="$SRC/default/brain/adapters/hermes"
+  ! grep -q '| exec hermes' "$a"
+  grep -A2 'hermes peer dm "$peer"' "$a" | grep -q 'exit \$?'
+}
+
+@test "a peer that is not registered is not reported as reachable" {
+  # Otherwise the panel shows a brain that cannot answer as up, and the first anyone hears of it is a
+  # question that goes nowhere.
+  command -v hermes >/dev/null || skip "Hermes is not installed on this machine"
+  local cfg="$BATS_TEST_TMPDIR/cfg"
+  mkdir -p "$cfg/oal/brain"
+  printf 'HERMES_PEER=definitely-not-registered\n' >"$cfg/oal/brain/hermes.env"
+  run env XDG_CONFIG_HOME="$cfg" "$SRC/default/brain/adapters/hermes" probe
+  [ "$status" -ne 0 ]
+}
