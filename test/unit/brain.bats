@@ -201,3 +201,14 @@ add_verb() {
     [ "$status" -ne 124 ]
   done
 }
+
+@test "the resident service is installed where systemd looks, and still not enabled" {
+  # It was shipped to /usr/share/agentarchy/default/systemd/user, which systemd never reads, so the
+  # command docs/brain.md tells you to run answered "not-found". Shipped, documented, unusable.
+  grep -q 'usr/lib/systemd/user' "$SRC/PKGBUILD"
+  [ -f "$SRC/default/systemd/user/oal-brain.service" ]
+  # Installing it must not enable it: an always-on process with tool access stays an explicit choice.
+  # Comments are stripped first -- the sentence above explaining the fix matched this grep and failed
+  # the test, which is the third time a check in this tree has caught its own prose.
+  ! grep -rhE '^[^#]*systemctl[^#]*enable[^#]*oal-brain' "$SRC/PKGBUILD" "$SRC/install" 2>/dev/null | grep -q .
+}

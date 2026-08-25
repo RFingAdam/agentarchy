@@ -1,0 +1,60 @@
+# Bench instruments and embedded probes, reachable without sudo.
+#
+# This exists because the OS is the right place to solve it. An MCP server that opens /dev/ttyUSB0
+# is correct code; it fails on a stock Arch install because nothing grants the device, and every
+# setup guide written on Debian says to join the "dialout" group -- which does not exist here. Arch
+# uses "uucp". Following those instructions on this machine silently does nothing.
+#
+# Two mechanisms, because there are two kinds of caller:
+#
+#   TAG+="uaccess" grants the device to whoever is logged in at the local seat, through an ACL, for
+#   as long as they are logged in. It is the systemd-native answer, it needs no group, and it
+#   revokes itself at logout.
+#
+#   GROUP="uucp", MODE="0660" is the fallback uaccess does not cover: an ssh or headless session,
+#   which is exactly how an unattended agent reaches a bench. install/hardware/instrument-access.sh
+#   puts the install user in uucp for that case.
+#
+# Vendor IDs only, deliberately. Matching on product as well would mean a table to maintain against
+# every new part number, and the failure mode of a missing entry is an engineer with no idea why
+# their instrument is invisible.
+
+# --- USB serial bridges ---------------------------------------------------------------------------
+# FTDI (FT232, FT2232, FT4232 -- most eval boards and many instruments)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", TAG+="uaccess", GROUP="uucp", MODE="0660"
+# Silicon Labs CP210x
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", TAG+="uaccess", GROUP="uucp", MODE="0660"
+# WCH CH340/CH341
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", TAG+="uaccess", GROUP="uucp", MODE="0660"
+# Prolific PL2303
+SUBSYSTEM=="tty", ATTRS{idVendor}=="067b", TAG+="uaccess", GROUP="uucp", MODE="0660"
+# Espressif built-in USB serial
+SUBSYSTEM=="tty", ATTRS{idVendor}=="303a", TAG+="uaccess", GROUP="uucp", MODE="0660"
+# Nordic Semiconductor (nRF dev kits expose a CDC ACM)
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1915", TAG+="uaccess", GROUP="uucp", MODE="0660"
+# Generic CDC ACM from the above vendors is covered; this catches the raw USB node too.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0403", TAG+="uaccess", GROUP="uucp", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="10c4", TAG+="uaccess", GROUP="uucp", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="303a", TAG+="uaccess", GROUP="uucp", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1915", TAG+="uaccess", GROUP="uucp", MODE="0660"
+
+# --- debug probes ----------------------------------------------------------------------------------
+# SEGGER J-Link
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1366", TAG+="uaccess", GROUP="uucp", MODE="0660"
+# STMicroelectronics ST-Link
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0483", TAG+="uaccess", GROUP="uucp", MODE="0660"
+# ARM mbed / DAPLink / CMSIS-DAP
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0d28", TAG+="uaccess", GROUP="uucp", MODE="0660"
+
+# --- software-defined radio -------------------------------------------------------------------------
+# Realtek RTL2832U (RTL-SDR)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", TAG+="uaccess", GROUP="uucp", MODE="0660"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", TAG+="uaccess", GROUP="uucp", MODE="0660"
+# Great Scott Gadgets (HackRF) and Nuand (bladeRF) share this vendor block
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", TAG+="uaccess", GROUP="uucp", MODE="0660"
+
+# --- USB test and measurement -----------------------------------------------------------------------
+# Scopes, VNAs, signal generators and power supplies speaking USBTMC. This is the class, not a vendor,
+# so it covers instruments nobody has thought to list.
+SUBSYSTEM=="usb", ATTRS{bInterfaceClass}=="fe", ATTRS{bInterfaceSubClass}=="03", TAG+="uaccess", GROUP="uucp", MODE="0660"
+KERNEL=="usbtmc[0-9]*", TAG+="uaccess", GROUP="uucp", MODE="0660"
