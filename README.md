@@ -74,8 +74,9 @@ repository.
 
 **The permission posture is a machine setting.** `oal-agent-profile trusted|scoped|untrusted`, with
 `scoped` the default: reading and searching are free, writing and installing are confirmed, and every
-posture refuses to read `.env` files and private keys. Enforcement at the tool-call boundary is
-[issue #6](https://github.com/RFingAdam/agentarchy/issues/6).
+posture refuses to read `.env` files and private keys. It is enforced at the tool-call boundary by a
+hook that runs before every call the agent makes, fails closed, and writes an audit log --
+[docs/agent-guard.md](docs/agent-guard.md).
 
 **The prompt shows what the agent is doing** -- model, posture, MCP servers registered, and how much
 of today's limit is gone. It is rendered from the same `colors.toml` as the desktop, so it follows
@@ -88,6 +89,25 @@ the theme:
 
 It reads a cached file and never the network, and prints nothing at all when there is nothing to say.
 A prompt that stalls is worse than a prompt that is quiet.
+
+**There is a contract for an OS-level brain.** Not a coding agent you launch -- a process that is
+already running, remembers, is reachable from somewhere other than the terminal you are sitting at,
+and can act on the machine. Agentarchy ships the contract and thin adapters; it ships no brain,
+installs none, and enables none.
+
+```bash
+oal-brain-backend --list        # adapters: stub, claude-code, hermes
+oal-brain-backend claude-code   # choosing one is the entire opt-in
+oal-brain-ask "what is using my disk"
+oal-brain-do notify "Build finished"
+```
+
+What a brain may do to the machine is four verbs -- read state, set the theme, send a notification,
+open an application -- and that number is the design, not a starting point. Every one goes through
+the same guard as everything else, and the `confirm` tier is a refusal rather than a prompt, because
+there is no person on that path to ask. A resident brain with tool access, reachable from a chat
+application, is a security decision you are making deliberately;
+[docs/brain.md](docs/brain.md) is written so you can make it with the facts.
 
 **Still a plan:** the engineering MCP catalog that layers on top of this -- RF, EMC, PCB and lab-test
 servers -- which is what the tagline's third clause points at.

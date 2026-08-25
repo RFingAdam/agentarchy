@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# oal:summary=Report which brain backend is configured and whether it answers
+# oal:examples=oal-brain-status
+
+# Silent and exit 0 when no backend is configured, the same rule oal-agent-hud follows. This is read
+# by the prompt, and a prompt that prints a complaint about an optional feature nobody enabled is a
+# prompt people turn off.
+set -uo pipefail
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+backend="$(brain_backend)"
+[[ -n $backend ]] || exit 0
+
+adapter="$(brain_adapter "$backend")" || {
+  echo "backend:   $backend (no adapter of that name is installed)"
+  exit 1
+}
+
+echo "backend:   $backend"
+echo "adapter:   $adapter"
+description="$("$adapter" describe 2>/dev/null)"
+[[ -n $description ]] && echo "is:        $description"
+
+# Reachability is a separate question from configuration, and conflating them is how someone spends
+# an afternoon on a gateway they never started.
+if "$adapter" probe >/dev/null 2>&1; then
+  echo "reachable: yes"
+else
+  echo "reachable: no"
+  exit 1
+fi

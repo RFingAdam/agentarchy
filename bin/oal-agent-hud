@@ -37,10 +37,20 @@ if [[ ${1:-} == --refresh ]]; then
   fi
   mcp=0
   command -v oal-mcp-status >/dev/null && mcp="$(oal-mcp-status --count 2>/dev/null || echo 0)"
+
+  # Whether a brain is configured, and whether it answers. Both are decided here rather than on the
+  # prompt: reaching a brain can mean a network round trip, and the read path below is builtins only.
+  brain="" brain_up=0
+  if command -v oal-brain-backend >/dev/null; then
+    brain="$(oal-brain-backend 2>/dev/null || true)"
+    if [[ -n $brain ]] && timeout 10 oal-brain-status >/dev/null 2>&1; then brain_up=1; fi
+  fi
+
   # The timestamp goes in the file so the read path can judge staleness without a stat(1).
   printf -v now '%(%s)T' -1
   tmp="$(mktemp)"
-  printf '{"ts":%s,"model":"%s","mcp":%s,"pct":"%s"}\n' "$now" "${model:-}" "${mcp:-0}" "${pct:-}" >"$tmp"
+  printf '{"ts":%s,"model":"%s","mcp":%s,"pct":"%s","brain":"%s","brain_up":%s}\n' \
+    "$now" "${model:-}" "${mcp:-0}" "${pct:-}" "${brain:-}" "$brain_up" >"$tmp"
   mv -- "$tmp" "$state"
   exit 0
 fi
@@ -73,5 +83,16 @@ line="${model#claude-}"
 line+="$profile"
 [[ -n $mcp && $mcp != 0 ]] && line+="  $mcp mcp"
 [[ -n $pct ]] && line+="  ${pct%%.*}%"
+
+# Only when one is configured, so a prompt on a machine with no brain is exactly what it was before.
+# A configured brain that is not answering says so: showing a dead one as live is worse than the two
+# extra characters it costs to be honest.
+brain=""; brain_up=0
+[[ $body =~ \"brain\":\"([^\"]*)\" ]] && brain="${BASH_REMATCH[1]}"
+[[ $body =~ \"brain_up\":([0-9]+) ]] && brain_up="${BASH_REMATCH[1]}"
+if [[ -n $brain ]]; then
+  line+="  brain $brain"
+  (( brain_up )) || line+=" (down)"
+fi
 
 printf '%s\n' "$line"

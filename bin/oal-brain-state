@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# oal:summary=Report what this machine is currently doing, for a brain to read
+# oal:examples=oal-brain-state
+
+# The read-only half of the verb set. Plain key: value lines rather than JSON: the consumer is a
+# language model, both are equally parseable to it, and this one is equally readable to the person
+# debugging why it answered what it did.
+set -uo pipefail
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+
+say() { printf '%s: %s\n' "$1" "${2:-unknown}"; }
+
+say host "$(hostname 2>/dev/null)"
+say uptime "$(uptime -p 2>/dev/null | sed 's/^up //')"
+say theme "$(basename "$(readlink -f "${XDG_STATE_HOME:-$HOME/.local/state}/oal/current/theme" 2>/dev/null)" 2>/dev/null)"
+say layout "$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/oal/layout" 2>/dev/null)"
+say agent-posture "$(oal-agent-profile 2>/dev/null)"
+say session "${XDG_SESSION_TYPE:-none}"
+
+# Only when there is one. A desktop reporting "battery: unknown" on every line of every answer
+# teaches the reader to skim, and then they skim the line that mattered.
+for bat in /sys/class/power_supply/BAT*; do
+  [[ -r $bat/capacity ]] || continue
+  say battery "$(cat "$bat/capacity")% ($(cat "$bat/status" 2>/dev/null))"
+  break
+done

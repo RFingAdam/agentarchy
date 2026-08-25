@@ -1,0 +1,18 @@
+# What a brain is allowed to make this machine do. One verb per line:
+#
+#   verb | args | description
+#
+# This is the whole surface. oal-brain-do refuses anything not on this list, and each verb validates
+# its own arguments in default/brain/lib.sh -- a theme has to be an installed theme, an application
+# has to be an installed desktop entry. An allowlist of command names without that check is a
+# formality: "open" would become "run anything" the first time someone passed it a path.
+#
+# Adding a verb is a security decision, not a feature decision. The question is not whether a brain
+# would find it useful -- it is what the worst plausible misuse looks like, and whether you would
+# still want it then. An agent that can retheme your desktop is a good demo; one that can reinstall
+# your bootloader is a support incident.
+
+state  | none                | Report the theme, layout, agent posture, host and uptime
+theme  | <name>              | Set the desktop theme to an installed theme
+notify | <summary> [body]    | Put a message on screen through the desktop's notification service
+open   | <desktop-id>        | Open an installed application by its desktop entry id

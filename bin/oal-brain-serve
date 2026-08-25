@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# oal:summary=Run the configured brain backend in the foreground, for oal-brain.service
+# oal:hidden=true
+
+# Some backends want to be resident -- a gateway with memory, a scheduler, chat connections. Those
+# implement a `serve` subcommand; the rest do not, and for them this exits 0 with an explanation
+# rather than pretending there is a daemon.
+set -uo pipefail
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+backend="$(brain_backend)"
+[[ -n $backend ]] || { echo "oal-brain-serve: no backend configured; nothing to run"; exit 0; }
+
+adapter="$(brain_adapter "$backend")" || {
+  echo "oal-brain-serve: the configured backend '$backend' has no adapter installed" >&2
+  exit 1
+}
+
+# Asked, not assumed. A backend that answers `serve` with a usage error would otherwise be restarted
+# every five seconds forever, which is a good way to fill a journal and learn nothing.
+if ! "$adapter" serve --check >/dev/null 2>&1; then
+  echo "oal-brain-serve: '$backend' is not a resident backend; nothing to run"
+  exit 0
+fi
+
+exec "$adapter" serve

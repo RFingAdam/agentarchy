@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# oal:summary=Ask the configured brain something and print its answer
+# oal:args=<prompt>
+# oal:examples=oal-brain-ask "what is using my disk" | echo "..." | oal-brain-ask
+
+# The prompt goes to the adapter on stdin, never in argv. Prompts contain quotes, newlines and shell
+# metacharacters as a matter of course, and argv is where those turn into somebody else's bug.
+set -uo pipefail
+BRAIN_CMD=oal-brain-ask
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+backend="$(brain_backend)"
+[[ -n $backend ]] ||
+  brain_fail "no brain backend is configured. Choose one with 'oal-brain-backend <name>', or see 'oal-brain-backend --list'."
+adapter="$(brain_adapter "$backend")" ||
+  brain_fail "the configured backend '$backend' has no adapter installed"
+
+# Arguments if given, otherwise stdin. Both spellings exist because a person types the first and a
+# script pipes the second.
+if (( $# > 0 )); then
+  printf '%s\n' "$*" | "$adapter" ask
+else
+  "$adapter" ask
+fi

@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# A hermes-agent gateway: resident, with its own memory, scheduler and chat gateways. The shape this
+# contract was designed against.
+#
+# UNVERIFIED AGAINST A RUNNING GATEWAY. Nobody here has pointed this at a live Hermes, so the
+# request paths below are defaults rather than facts, and every one of them is overridable. If your
+# gateway speaks a different shape, set the variables rather than editing this file -- that is what
+# they are for, and it is the difference between an adapter and a guess with a filename.
+#
+# Configuration, in ~/.config/oal/brain/hermes.env:
+#
+#   HERMES_URL=http://127.0.0.1:8080     required; the gateway's base URL
+#   HERMES_TOKEN=...                     optional; sent as a bearer token
+#   HERMES_ASK_PATH=/v1/chat             optional; POSTed with {"message": "..."}
+#   HERMES_PROBE_PATH=/health            optional; GET, any 2xx counts as reachable
+#   HERMES_ANSWER_FILTER=.response       optional; a jq expression selecting the text to print
+set -uo pipefail
+
+config="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/hermes.env"
+# shellcheck disable=SC1090
+[[ -r $config ]] && source "$config"
+
+url="${HERMES_URL:-}"
+ask_path="${HERMES_ASK_PATH:-/v1/chat}"
+probe_path="${HERMES_PROBE_PATH:-/health}"
+answer_filter="${HERMES_ANSWER_FILTER:-.response}"
+auth=()
+[[ -n ${HERMES_TOKEN:-} ]] && auth=(-H "Authorization: Bearer $HERMES_TOKEN")
+
+need_url() {
+  [[ -n $url ]] || { echo "hermes: no HERMES_URL. Set one in $config" >&2; exit 1; }
+}
+
+case "${1:-}" in
+  describe) echo "a hermes-agent gateway at ${url:-<unconfigured>}" ;;
+  probe)
+    need_url
+    curl -fsS --max-time 5 "${auth[@]}" "${url%/}$probe_path" >/dev/null
+    ;;
+  ask)
+    need_url
+    command -v jq >/dev/null || { echo "hermes: jq is required" >&2; exit 1; }
+    prompt="$(cat)"
+    [[ -n $prompt ]] || { echo "hermes: empty prompt" >&2; exit 1; }
+    body="$(jq -nc --arg m "$prompt" '{message: $m}')"
+    reply="$(curl -fsS --max-time 120 "${auth[@]}" -H 'Content-Type: application/json' \
+      -d "$body" "${url%/}$ask_path")" || { echo "hermes: the gateway did not answer" >&2; exit 1; }
+    # A gateway that answered with something this filter does not select is a configuration problem,
+    # and printing the raw body is more use than printing "null".
+    jq -re "$answer_filter" <<<"$reply" 2>/dev/null || printf '%s\n' "$reply"
+    ;;
+  *) echo "usage: hermes describe|probe|ask" >&2; exit 1 ;;
+esac
