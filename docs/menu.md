@@ -98,6 +98,7 @@ to remember to update, because an entry that silently does nothing is worse than
 an entire menu of exactly that is what this replaced.
 
 ```
+Hermes   the dashboard, fleet status, and what is waiting
 Theme    every installed theme, applied with oal-theme-set
 Layout   ubuntu / mint, applied with oal-layout-set
 Agent    posture (oal-agent-profile), registered MCP servers (oal-mcp-status)
@@ -105,3 +106,10 @@ System   lock, log out, restart, shut down
 ```
 
 Reachable from `Meta+Space` and from the dock.
+
+### Why Hermes gets three entries and not a tree
+
+There was a deeper one: board, task, action, confirm. Six levels of a picker that needs two clicks a
+level, to promote one task. Hermes ships a dashboard built for driving boards, and a menu that
+reimplements it badly is worse than a link to the real one. Claiming, promoting and completing happen
+there. The OS's job is to put it one click away and to say, on the panel, when something is waiting.

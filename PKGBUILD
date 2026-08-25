@@ -83,6 +83,8 @@ package() {
   # nothing when clicked.
   install -Dm644 applications/oal-menu.desktop "$pkgdir/usr/share/applications/oal-menu.desktop"
   install -Dm644 applications/oal-ask.desktop "$pkgdir/usr/share/applications/oal-ask.desktop"
+  # Hermes already has a dashboard. The OS's job is to put it one click away, not to build a second.
+  install -Dm644 applications/hermes-dashboard.desktop "$pkgdir/usr/share/applications/hermes-dashboard.desktop"
 
   # User units go where systemd --user looks. default/systemd/user is copied into
   # /usr/share/agentarchy above, which systemd never reads, so oal-brain.service was shipped,

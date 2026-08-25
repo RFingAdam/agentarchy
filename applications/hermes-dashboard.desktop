@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Hermes Dashboard
+Comment=Config, keys, sessions and boards for the agent this machine talks to
+Exec=oal-hermes-dashboard
+Icon=agentarchy
+Categories=System;Development;
+Keywords=hermes;agent;dashboard;kanban;

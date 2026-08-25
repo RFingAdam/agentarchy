@@ -1,0 +1,68 @@
+#!/bin/bash
+
+# oal:summary=Open the Hermes dashboard
+# oal:examples=oal-hermes-dashboard
+
+# Hermes already has a web dashboard for config, keys and sessions. The OS's job is to put it one
+# click away, not to build a second one -- which is the mistake this command replaces.
+#
+# The URL, in order of preference:
+#   HERMES_DASHBOARD_URL in ~/.config/oal/brain/hermes.env, if you want to be explicit
+#   asking the Hermes we talk to what host and port it is serving on
+#   starting one locally, if Hermes is on this machine
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+config="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/hermes.env"
+# shellcheck disable=SC1090
+[[ -r $config ]] && source "$config"
+
+open_it() {
+  local url="$1"
+  echo "$url"
+  if command -v xdg-open >/dev/null; then
+    setsid xdg-open "$url" >/dev/null 2>&1 &
+  else
+    echo "oal-hermes-dashboard: no xdg-open; the URL is above" >&2
+  fi
+}
+
+[[ -n ${HERMES_DASHBOARD_URL:-} ]] && { open_it "$HERMES_DASHBOARD_URL"; exit 0; }
+
+if [[ -n ${HERMES_SSH:-} ]]; then
+  # What it is actually serving, rather than a port we assumed. --status prints the running
+  # process's own arguments, which is the only account of it that cannot be out of date.
+  status="$(timeout 30 oal-hermes dashboard --status 2>/dev/null)" || status=""
+  # -- before the pattern, so grep reads a leading "--" as text rather than as its own options.
+  # Escaping the dashes instead earns a "stray \ before -" warning that lands in the output.
+  port="$(grep -oE -- '--port[= ]+[0-9]+' <<<"$status" | grep -oE '[0-9]+' | head -1)"
+  host_arg="$(grep -oE -- '--host[= ]+[0-9.]+' <<<"$status" | grep -oE '[0-9.]+$' | head -1)"
+
+  # The address to reach it AT is the ssh host's, not whatever it bound to: 0.0.0.0 is where it
+  # listens, not somewhere you can type into a browser.
+  target="$(ssh -G "$HERMES_SSH" 2>/dev/null | awk '/^hostname /{print $2; exit}')"
+  [[ -n $target ]] || target="$HERMES_SSH"
+
+  if [[ -z ${port:-} ]]; then
+    echo "oal-hermes-dashboard: no dashboard running on $HERMES_SSH." >&2
+    echo "  start one there:  oal-hermes dashboard --host 0.0.0.0" >&2
+    exit 1
+  fi
+  if [[ ${host_arg:-} == 127.0.0.1 ]]; then
+    echo "oal-hermes-dashboard: the dashboard on $HERMES_SSH is bound to 127.0.0.1, so it is only" >&2
+    echo "  reachable from that machine. Either restart it with --host 0.0.0.0, or tunnel:" >&2
+    echo "    ssh -N -L $port:127.0.0.1:$port $HERMES_SSH   # then http://127.0.0.1:$port" >&2
+    exit 1
+  fi
+  open_it "http://$target:$port"
+  exit 0
+fi
+
+command -v hermes >/dev/null || {
+  echo "oal-hermes-dashboard: no Hermes here and none configured. Set HERMES_SSH in $config." >&2
+  exit 1
+}
+exec hermes dashboard
