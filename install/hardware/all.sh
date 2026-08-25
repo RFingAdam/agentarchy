@@ -5,6 +5,7 @@ run_logged "$OAL_INSTALL/hardware/surface.sh"
 
 run_logged "$OAL_INSTALL/hardware/network.sh"
 run_logged "$OAL_INSTALL/hardware/input-group.sh"
+run_logged "$OAL_INSTALL/hardware/instrument-access.sh"
 run_logged "$OAL_INSTALL/hardware/set-wireless-regdom.sh"
 run_logged "$OAL_INSTALL/hardware/fix-fkeys.sh"
 run_logged "$OAL_INSTALL/hardware/fix-synaptic-touchpad.sh"

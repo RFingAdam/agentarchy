@@ -1,0 +1,112 @@
+#!/bin/bash
+
+# oal:summary=Explain why an MCP server can or cannot reach this machine's hardware
+# oal:args=[device...]
+# oal:examples=oal-mcp-doctor | oal-mcp-doctor /dev/ttyUSB0
+
+# The question this answers is "my MCP server says permission denied and I do not know why", which on
+# Arch has an answer no Debian-written setup guide gives: the group is uucp, not dialout, and dialout
+# does not exist here at all. Following those instructions appears to work -- usermod succeeds
+# against a group that is silently absent on some systems, or fails in a way people skim past -- and
+# the device stays unreadable.
+#
+# Read-only. It diagnoses and prints; it changes nothing.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+ok=0
+warn=0
+
+good() { printf '  ok    %s\n' "$*"; ok=$((ok + 1)); }
+bad()  { printf '  ISSUE %s\n' "$*"; warn=$((warn + 1)); }
+note() { printf '        %s\n' "$*"; }
+
+echo "runtimes an MCP server needs"
+for cmd in node npx uvx python; do
+  found=""
+  # python on Arch is python3; on Debian "python" may not exist at all. A server declaring either
+  # runs on both, and reporting "python is not installed" on a machine with python3 is the same
+  # distro-shaped mistake this command exists to catch.
+  for candidate in "$cmd" "${cmd}3"; do
+    command -v "$candidate" >/dev/null && { found="$candidate"; break; }
+  done
+  if [[ -n $found ]]; then
+    good "$(printf '%-7s %s' "$found" "$("$found" --version 2>&1 | head -1)")"
+  else
+    bad "$cmd is not installed; servers launched with it cannot start"
+  fi
+done
+
+echo
+echo "device access"
+# uaccess grants through an ACL to whoever holds the local seat. It is the mechanism that makes a
+# desktop session work without any group at all, and it does not reach an ssh session.
+if [[ -f /etc/udev/rules.d/70-oal-instruments.rules ]]; then
+  good "instrument udev rules installed"
+else
+  bad "no /etc/udev/rules.d/70-oal-instruments.rules"
+  note "re-run: sudo bash \$OAL_PATH/install/hardware/instrument-access.sh"
+fi
+
+if getent group uucp >/dev/null; then
+  if id -nG | tr ' ' '\n' | grep -qx uucp; then
+    good "in the uucp group (serial access without a local seat)"
+  else
+    bad "not in the uucp group"
+    note "Arch grants serial through uucp. Debian guides say dialout, which does not exist here."
+    note "fix: sudo usermod -aG uucp $USER, then log out and back in"
+  fi
+fi
+if getent group dialout >/dev/null 2>&1; then
+  note "a dialout group exists on this system; on Arch the one that matters is still uucp"
+fi
+
+# Anything plugged in right now, and whether this user could actually open it.
+mapfile -t devices < <(
+  if (($#)); then
+    printf '%s\n' "$@"
+  else
+    for d in /dev/ttyUSB* /dev/ttyACM* /dev/usbtmc*; do
+      [[ -e $d ]] && printf '%s\n' "$d"
+    done
+  fi
+)
+if (( ${#devices[@]} == 0 )); then
+  note "no serial, USBTMC or USB devices present to test"
+else
+  serial_seen=0
+  for d in "${devices[@]}"; do
+    [[ -e $d ]] || { bad "$d does not exist"; continue; }
+    case "$d" in /dev/ttyUSB*|/dev/ttyACM*|/dev/usbtmc*) serial_seen=1 ;; *) continue ;; esac
+    if [[ -r $d && -w $d ]]; then
+      good "$(printf '%-16s readable and writable' "$d")"
+    else
+      bad "$(printf '%-16s cannot be opened by %s' "$d" "$USER")"
+      note "owner $(stat -c '%U:%G %a' "$d" 2>/dev/null)"
+    fi
+  done
+  (( serial_seen )) || note "no serial or USBTMC device attached; USB nodes were not tested individually"
+fi
+
+echo
+echo "MCP servers"
+if command -v oal-mcp-status >/dev/null; then
+  count="$(oal-mcp-status --count 2>/dev/null || echo 0)"
+  good "$count registered"
+  note "oal-mcp-list to see the catalog, oal-mcp-import to add your own"
+else
+  bad "oal-mcp-status is missing"
+fi
+
+echo
+if (( warn == 0 )); then
+  echo "$ok checks passed, nothing to fix."
+else
+  echo "$ok checks passed, $warn need attention."
+fi
+# Always zero: this is a report, and a report that fails a shell pipeline is a report people stop
+# running.
+exit 0

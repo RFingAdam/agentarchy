@@ -129,6 +129,15 @@ assert browser-installed command -v chromium
 handler="$(xdg-settings get default-web-browser 2>/dev/null)"
 [[ -n $handler ]] && ok browser-default || bad browser-default "xdg-settings reports no default web browser"
 
+# Hardware access. An MCP server that opens /dev/ttyUSB0 is correct code and fails on a stock Arch
+# install, because nothing grants the device and Debian's answer (the dialout group) does not exist
+# here. This is the concrete reason to run this distribution for bench work, so it is asserted.
+[[ -f /etc/udev/rules.d/70-oal-instruments.rules ]] &&
+  ok instrument-rules || bad instrument-rules "no 70-oal-instruments.rules in /etc/udev/rules.d"
+id -nG | tr ' ' '\n' | grep -qx uucp &&
+  ok instrument-group || bad instrument-group "the install user is not in uucp, so serial needs root"
+assert mcp-doctor oal-mcp-doctor
+
 # --- theming ------------------------------------------------------------------------------------
 
 scheme="$(kreadconfig6 --file kdeglobals --group General --key ColorScheme 2>/dev/null)"
