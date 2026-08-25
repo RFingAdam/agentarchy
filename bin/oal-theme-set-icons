@@ -1,0 +1,176 @@
+#!/bin/bash
+
+# oal:summary=Point the icon set at the theme, including folder colour
+# oal:args=[--file <colors.toml>] [--mode dark|light]
+# oal:examples=oal-theme-set-icons | oal-theme-set-icons --file themes/nord/colors.toml
+
+# The icon set is the last thing on the desktop that a colour scheme does not reach, and it is what
+# still reads as somebody else's distribution once everything else is retinted: bright blue folders
+# on a warm amber desktop.
+#
+# Papirus ships its folder icons in about two dozen colours. This picks the one nearest the theme's
+# accent and builds a small user icon theme that inherits Papirus and overrides only the folders, so
+# nothing under /usr is touched and a Papirus update cannot be undone by us or undo us.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+colors_file=""
+mode=""
+print_only=0
+while (($#)); do
+  case "$1" in
+    --file) colors_file="${2:-}"; shift 2 ;;
+    --mode) mode="${2:-}"; shift 2 ;;
+    # Answers "which folder colour would this palette get" without touching the desktop, which is
+    # what makes the matching testable on a machine that has no Papirus and no Plasma.
+    --print-colour) print_only=1; shift ;;
+    -h|--help) sed -n '3,5p' "$0" | sed 's/^# oal://'; exit 0 ;;
+    *) echo "oal-theme-set-icons: unknown argument: $1" >&2; exit 1 ;;
+  esac
+done
+
+: "${colors_file:=${XDG_STATE_HOME:-$HOME/.local/state}/oal/current/theme/colors.toml}"
+[[ -f $colors_file ]] || { echo "oal-theme-set-icons: no colors.toml at $colors_file" >&2; exit 1; }
+
+accent="$(oal-theme-color --file "$colors_file" accent 2>/dev/null)"
+[[ -n $mode ]] || mode="$(oal-theme-color --file "$colors_file" mode 2>/dev/null)"
+[[ $mode == light ]] || mode=dark
+
+# Papirus is a soft dependency. Without it there is still a correct answer -- Breeze in the right
+# polarity -- and saying so beats leaving the desktop half-themed with no explanation.
+base="Papirus-Dark"; [[ $mode == light ]] && base="Papirus-Light"
+if (( print_only == 0 )) && [[ ! -d /usr/share/icons/$base ]]; then
+  fallback=breeze-dark; [[ $mode == light ]] && fallback=breeze
+  kwriteconfig6 --file kdeglobals --group Icons --key Theme "$fallback" 2>/dev/null
+  echo "oal-theme-set-icons: Papirus is not installed; using $fallback" >&2
+  exit 0
+fi
+
+# The folder face colour of each Papirus variant, read off the shipped SVGs rather than guessed.
+# Nearest match by redmean, which is a cheap approximation of perceptual distance and more than
+# accurate enough to choose between two dozen well-separated colours.
+read -r -d '' PALETTE <<'TABLE' || true
+red        e25252
+carmine    a30002
+pink       f06292
+magenta    ca71df
+violet     7e57c2
+indigo     5c6bc0
+blue       5294e2
+nordic     81a1c1
+bluegrey   607d8b
+cyan       00bcd4
+darkcyan   45abb7
+teal       16a085
+green      87b158
+yellow     f9bd30
+orange     ee923a
+deeporange eb6637
+brown      ae8e6c
+palebrown  d1bfae
+paleorange eeca8f
+grey       8e8e8e
+black      4f4f4f
+white      e4e4e4
+TABLE
+
+# Matched on hue, not on RGB distance. Distance in RGB is dominated by lightness, which sends every
+# pale accent to the same brown and every soft one to the same blue-grey -- a mint green accent came
+# out "palebrown" and a lavender one came out the same. Hue is the thing a person actually reads.
+colour="$(awk -v target="${accent#\#}" '
+  function h2d(s) { return strtonum("0x" s) }
+  function mx(a,b,c) { return (a>b?(a>c?a:c):(b>c?b:c)) }
+  function mn(a,b,c) { return (a<b?(a<c?a:c):(b<c?b:c)) }
+  function tohsl(hex,   _r,_g,_b,_max,_min,_d) {
+    _r=h2d(substr(hex,1,2))/255; _g=h2d(substr(hex,3,2))/255; _b=h2d(substr(hex,5,2))/255
+    _max=mx(_r,_g,_b); _min=mn(_r,_g,_b); _d=_max-_min
+    L=(_max+_min)/2
+    if (_d==0) { H=0; S=0; return }
+    S=(L>0.5) ? _d/(2-_max-_min) : _d/(_max+_min)
+    if (_max==_r)      H=60*(((_g-_b)/_d) % 6)
+    else if (_max==_g) H=60*(((_b-_r)/_d) + 2)
+    else               H=60*(((_r-_g)/_d) + 4)
+    if (H<0) H+=360
+  }
+  BEGIN { tohsl(target); tH=H; tS=S; tL=L; best=""; bestd=1e18 }
+  NF==2 {
+    tohsl($2); pH=H; pS=S; pL=L
+    # A grey accent must not land on brown, and a coloured one must not land on grey, so the two
+    # kinds never compete. Within the greys, lightness is the whole question.
+    if ((tS < 0.12) != (pS < 0.12)) next
+    if (tS < 0.12) { d = (tL-pL)^2 }
+    else {
+      dh = tH-pH; if (dh>180) dh-=360; if (dh<-180) dh+=360
+      d = (dh/180)^2*4 + (tS-pS)^2*1.0 + (tL-pL)^2*0.5
+    }
+    if (d<bestd) { bestd=d; best=$1 }
+  }
+  END { print best }
+' <<<"$PALETTE")"
+[[ -n $colour ]] || colour=blue
+
+if (( print_only )); then
+  printf '%s\n' "$colour"
+  exit 0
+fi
+
+theme_dir="${XDG_DATA_HOME:-$HOME/.local/share}/icons/OAL"
+stamp="$theme_dir/.oal-stamp"
+
+# Rebuilding roughly a thousand symlinks on every theme change is wasted work when the answer has
+# not moved. The stamp is what makes this cheap enough to call unconditionally.
+want="$base/$colour"
+if [[ -r $stamp ]] && [[ "$(cat "$stamp" 2>/dev/null)" == "$want" ]]; then
+  kwriteconfig6 --file kdeglobals --group Icons --key Theme OAL 2>/dev/null
+  exit 0
+fi
+
+rm -rf -- "$theme_dir"
+mkdir -p -- "$theme_dir" || { echo "oal-theme-set-icons: could not create $theme_dir" >&2; exit 1; }
+
+dirs=()
+src="/usr/share/icons/$base"
+for places in "$src"/*/places; do
+  [[ -d $places ]] || continue
+  size_dir="$(basename "$(dirname "$places")")"
+  dest="$theme_dir/$size_dir/places"
+  mkdir -p -- "$dest"
+  linked=0
+  # Both prefixes, because Dolphin's Places sidebar draws the home and desktop entries from
+  # user-home and user-desktop rather than from folder-*, and a sidebar with one blue row among
+  # twelve amber ones looks more broken than leaving all of them alone would.
+  for prefix in folder user; do
+    for f in "$places/$prefix-$colour"*.svg; do
+      [[ -e $f ]] || continue
+      b="$(basename "$f")"
+      ln -sfn "$f" "$dest/$prefix${b#"$prefix"-"$colour"}" && linked=1
+    done
+  done
+  (( linked )) && dirs+=("$size_dir/places") || rmdir -p --ignore-fail-on-non-empty "$dest" 2>/dev/null
+done
+
+if (( ${#dirs[@]} == 0 )); then
+  echo "oal-theme-set-icons: no '$colour' folders in $base; leaving the icon set alone" >&2
+  rm -rf -- "$theme_dir"
+  exit 0
+fi
+
+{
+  printf '# Generated by oal-theme-set-icons. Edits are lost on the next theme change.\n'
+  printf '[Icon Theme]\nName=OAL\nComment=Agentarchy, folders in the theme accent\n'
+  printf 'Inherits=%s,breeze-dark,hicolor\n' "$base"
+  printf 'Directories=%s\n\n' "$(IFS=,; echo "${dirs[*]}")"
+  for d in "${dirs[@]}"; do
+    size_dir="${d%%/*}"
+    scale=1
+    [[ $size_dir == *@2x ]] && { scale=2; size_dir="${size_dir%@2x}"; }
+    printf '[%s]\nSize=%s\nScale=%s\nContext=Places\nType=Fixed\n\n' "$d" "${size_dir%%x*}" "$scale"
+  done
+} >"$theme_dir/index.theme"
+
+printf '%s\n' "$want" >"$stamp"
+kwriteconfig6 --file kdeglobals --group Icons --key Theme OAL 2>/dev/null
+echo "icons: Papirus with $colour folders (accent $accent)"

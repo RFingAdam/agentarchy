@@ -71,10 +71,28 @@ done
 
 # --- icons ----------------------------------------------------------------------------------------
 
-want_icons=breeze-dark
-[[ $mode == light ]] && want_icons=breeze
 got="$(kreadconfig6 --file kdeglobals --group Icons --key Theme 2>/dev/null)"
-[[ $got == "$want_icons" ]] && ok "icons-$mode" || bad "icons-$mode" "kdeglobals says '$got', wanted '$want_icons'"
+[[ $got == OAL ]] && ok "icons-$mode" || bad "icons-$mode" "kdeglobals says '$got', wanted 'OAL'"
+
+# The polarity still has to be right underneath: light folders inherited from Papirus-Dark on a
+# white desktop is the same bug the old Breeze check existed to catch.
+want_base=Papirus-Dark
+[[ $mode == light ]] && want_base=Papirus-Light
+index="${XDG_DATA_HOME:-$HOME/.local/share}/icons/OAL/index.theme"
+grep -q "^Inherits=$want_base," "$index" 2>/dev/null &&
+  ok "icons-inherits-$mode" || bad "icons-inherits-$mode" "$index does not inherit $want_base"
+
+# And the folder actually points at the colour this palette resolves to. Naming an icon theme is not
+# applying one -- the same lesson the colour-scheme checks above exist because of.
+want_colour="$(oal-theme-set-icons --file "$colors" --print-colour 2>/dev/null)"
+link="$(readlink -f "${XDG_DATA_HOME:-$HOME/.local/share}/icons/OAL/64x64/places/folder.svg" 2>/dev/null)"
+if [[ -z $want_colour ]]; then
+  bad icons-folder-colour "oal-theme-set-icons resolved no colour for this palette"
+elif [[ $(basename "${link:-}") == "folder-$want_colour.svg" ]]; then
+  ok "icons-folder-$want_colour"
+else
+  bad icons-folder-colour "folder.svg -> ${link:-nothing}, wanted folder-$want_colour.svg"
+fi
 
 # --- konsole ---------------------------------------------------------------------------------------
 
