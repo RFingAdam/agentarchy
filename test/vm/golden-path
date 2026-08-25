@@ -251,6 +251,10 @@ prompt_shot() {
   sleep 2
   vm_ssh_session 'setsid konsole >/dev/null 2>&1 &' >/dev/null 2>&1 || true
   sleep 8
+  # The window has to exist before it is worth photographing. Without this the stage happily
+  # produced a picture of an empty desktop and called it a picture of the prompt.
+  vm_ssh 'pgrep -x konsole >/dev/null' >/dev/null 2>&1 ||
+    { vm_warn "konsole did not start; not photographing an empty desktop"; return 1; }
   "$here/vm-shot" "$art/prompt-guest.png" --guest || return 1
   shots+=("$art/prompt-guest.png")
 }
@@ -353,6 +357,8 @@ GUEST
   cat -- "$art/menu.txt" >&2
   vm_ssh_session 'setsid oal-menu >/dev/null 2>&1 &' >/dev/null 2>&1 || true
   sleep 6
+  vm_ssh 'pgrep -x fuzzel >/dev/null' >/dev/null 2>&1 ||
+    { vm_warn "the menu did not open; not photographing an empty desktop"; return 1; }
   "$here/vm-shot" "$art/menu-guest.png" --guest || return 1
   shots+=("$art/menu-guest.png")
   # Leave nothing open for the stages that follow.

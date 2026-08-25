@@ -155,9 +155,16 @@ vm_ssh() {
 #
 # The environment is taken from the compositor rather than assembled from a list of variables,
 # because the list is not knowable from out here and grows with every Plasma release.
+# The command is base64'd on the way in. ssh joins its arguments with spaces and the guest's login
+# shell re-parses the result, so a command containing a redirect or an ampersand is not passed, it is
+# executed against the wrapper: `setsid konsole >/dev/null 2>&1 &` sent as a plain argument silently
+# redirected this script's own output and launched nothing. base64 has no character the shell reacts
+# to, so what arrives is what was sent.
 vm_ssh_session() {
   [[ $# -eq 1 ]] || vm_die "vm_ssh_session <command-string>"
-  vm_ssh bash -s -- "$1" <<'GUEST'
+  local encoded
+  encoded="$(printf '%s' "$1" | base64 -w0)"
+  vm_ssh bash -s -- "$encoded" <<'GUEST'
 set -u
 export XDG_RUNTIME_DIR="/run/user/$(id -u)"
 pid="$(pgrep -x plasmashell | head -1)"
@@ -169,7 +176,7 @@ while IFS= read -r -d '' kv; do
       export "${kv?}" ;;
   esac
 done <"/proc/$pid/environ"
-exec bash -c "$1"
+exec bash -c "$(printf '%s' "$1" | base64 -d)"
 GUEST
 }
 
