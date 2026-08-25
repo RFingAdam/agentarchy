@@ -39,6 +39,7 @@ var tasks = dock.addWidget("org.kde.plasma.icontasks");
 tasks.currentConfigGroup = ["General"];
 tasks.writeConfig("launchers", [
   "applications:oal-menu.desktop",
+  "applications:chromium.desktop",
   "applications:org.kde.konsole.desktop",
   "applications:org.kde.dolphin.desktop",
   "applications:org.kde.kate.desktop",
@@ -49,3 +50,9 @@ tasks.writeConfig("launchers", [
 tasks.writeConfig("showOnlyCurrentDesktop", false);
 tasks.writeConfig("showOnlyCurrentActivity", false);
 tasks.reloadConfig();
+
+// An applications button on the dock, which is where people look for one. Kickoff is also on the
+// top panel, but there it is a small unlabelled icon in the corner and the first thing said about
+// this desktop was that it looked bare and had no launcher. Ubuntu puts its grid at the end of the
+// dock for the same reason, and this layout is named after it.
+dock.addWidget("org.kde.plasma.kickoff");

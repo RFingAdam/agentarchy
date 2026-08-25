@@ -77,6 +77,11 @@ kdeplasma-addons
 # which needs Papirus present; without it the desktop falls back to Breeze and says so.
 papirus-icon-theme
 
+# Two gaps a desktop notices immediately. applications/mpv.desktop and applications/imv.desktop are
+# vendored and were naming software nothing installed, so a video file opened in nothing at all.
+mpv
+kcalc
+
 # The browser. A desktop without one cannot open a link, and until now nothing here could: no
 # package named a browser, and xdg-settings had no default to report.
 #
