@@ -149,6 +149,16 @@ for places in "$src"/*/places; do
       ln -sfn "$f" "$dest/$prefix${b#"$prefix"-"$colour"}" && linked=1
     done
   done
+  # KDE draws an ordinary folder from inode-directory, not from folder, and Papirus resolves
+  # inode-directory to its own uncoloured folder.svg. Without this alias the special folders come out
+  # in the accent while every ordinary one stays Papirus blue, which reads as a bug rather than a
+  # theme -- and it is exactly what the first build of this looked like.
+  if [[ -e "$dest/folder.svg" ]]; then
+    ln -sfn "$(readlink -f "$dest/folder.svg")" "$dest/inode-directory.svg"
+    [[ -e "$dest/folder-open.svg" ]] &&
+      ln -sfn "$(readlink -f "$dest/folder-open.svg")" "$dest/inode-directory-open.svg"
+  fi
+
   (( linked )) && dirs+=("$size_dir/places") || rmdir -p --ignore-fail-on-non-empty "$dest" 2>/dev/null
 done
 
