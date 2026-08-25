@@ -1,0 +1,22 @@
+# The resident brain, for backends that want to be one.
+#
+# NOT ENABLED BY DEFAULT, and nothing in this distribution enables it. An always-on process with
+# tool access, reachable from somewhere other than the terminal you are sitting at, is a decision
+# with a threat model attached, and it is the owner's to make:
+#
+#   oal-brain-backend <name>
+#   systemctl --user enable --now oal-brain.service
+#
+# Backends that answer a question per invocation -- claude-code, stub -- need none of this.
+[Unit]
+Description=The resident brain backend for Agentarchy
+ConditionPathExists=%h/.local/state/oal/brain/backend
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/oal-brain-serve
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=default.target

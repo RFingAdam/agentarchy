@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# oal:summary=Put a message on screen on a brain's behalf
+# oal:args=<summary> [body]
+# oal:examples=oal-brain-notify "Build finished" "3 warnings"
+
+# A brain that runs somewhere else -- another machine, a chat gateway, a cron job -- still needs a
+# way to reach this screen. This is that way, and it is deliberately a thin name over
+# `oal-brain-do notify` rather than a second path to the notification service: one enforcement
+# point, two spellings. A shortcut that skipped oal-brain-do would be a hole with a friendly name.
+set -uo pipefail
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+exec "$bin_dir/oal-brain-do" notify "$@"

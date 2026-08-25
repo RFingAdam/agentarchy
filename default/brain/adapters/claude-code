@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Claude Code, invoked once per question. Not resident: there is no `serve`, so oal-brain.service
+# has nothing to run for this backend and should stay disabled.
+#
+# Worth knowing what this composes to. The answer comes from an agent that has its own tool access,
+# governed by the same agent/hooks/pretooluse-guard as any other Claude Code session on the machine.
+# So a question routed here can cause work, and the control on that work is the guard and the active
+# oal-agent-profile -- not the brain verb set, which governs the other direction.
+set -uo pipefail
+
+case "${1:-}" in
+  describe) echo "Claude Code, invoked per question" ;;
+  probe)    command -v claude >/dev/null ;;
+  ask)
+    command -v claude >/dev/null || { echo "claude-code: the agent runtime is not installed" >&2; exit 1; }
+    prompt="$(cat)"
+    [[ -n $prompt ]] || { echo "claude-code: empty prompt" >&2; exit 1; }
+    # argv rather than stdin here on purpose: this is an exec, with no shell in between, so the
+    # metacharacter problem the contract avoids by using stdin does not exist at this hop.
+    exec claude -p "$prompt"
+    ;;
+  *) echo "usage: claude-code describe|probe|ask" >&2; exit 1 ;;
+esac

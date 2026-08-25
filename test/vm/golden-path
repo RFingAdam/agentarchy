@@ -256,6 +256,49 @@ prompt_shot() {
 }
 stage prompt prompt_shot || vm_warn "could not photograph the prompt; continuing"
 
+# The brain contract, end to end against the stub adapter. The stub exists so this can be answered
+# on a machine with no runtime, no network and no account -- if the check needed a real backend, a
+# failure would never distinguish "the contract is broken" from "the gateway is down".
+brain_layer() {
+  vm_ssh bash -s <<'GUEST' >"$art/brain.txt" 2>&1 || return 1
+set -u
+export OAL_PATH=/usr/share/agentarchy
+
+# Nothing is on until someone turns it on. This is the claim the whole design rests on, so it is
+# checked before anything here turns anything on.
+[ -z "$(oal-brain-backend)" ] &&
+  echo "PASS brain-none-by-default" || { echo "FAIL brain-none-by-default: a backend is configured"; exit 1; }
+[ -z "$(oal-brain-status)" ] &&
+  echo "PASS brain-status-quiet" || { echo "FAIL brain-status-quiet: status spoke with no backend"; exit 1; }
+systemctl --user is-enabled oal-brain.service >/dev/null 2>&1 &&
+  { echo "FAIL brain-service-not-enabled: the resident service is enabled"; exit 1; } ||
+  echo "PASS brain-service-not-enabled"
+
+oal-brain-backend stub >/dev/null || { echo "FAIL brain-select: could not select the stub"; exit 1; }
+echo "PASS brain-select"
+
+answer="$(oal-brain-ask 'what theme am I using')"
+[ "$answer" = "stub: what theme am I using" ] &&
+  echo "PASS brain-round-trip" || { echo "FAIL brain-round-trip: got '$answer'"; exit 1; }
+
+oal-brain-do state | grep -q '^host:' &&
+  echo "PASS brain-verb-runs" || { echo "FAIL brain-verb-runs: state produced nothing"; exit 1; }
+
+# The boundary, on the real machine rather than in a fixture: a verb nobody put in the set.
+oal-brain-do reboot >/dev/null 2>&1 &&
+  { echo "FAIL brain-refuses-unknown-verb: 'reboot' was accepted"; exit 1; } ||
+  echo "PASS brain-refuses-unknown-verb"
+
+# Leave the machine as the install left it. A test that configures a brain and walks away has
+# changed the thing the next stage is measuring.
+oal-brain-backend --none >/dev/null
+[ -z "$(oal-brain-backend)" ] &&
+  echo "PASS brain-reset" || { echo "FAIL brain-reset: a backend is still configured"; exit 1; }
+GUEST
+  cat -- "$art/brain.txt" >&2
+}
+stage brain brain_layer || fail "the brain contract (see $art/brain.txt)"
+
 # --- 6d. panel layouts ------------------------------------------------------------------------------
 
 # Both presets, applied to the live session and photographed. The count comes from Plasma itself

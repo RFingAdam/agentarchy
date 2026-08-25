@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# oal:summary=Choose which brain backend this machine talks to
+# oal:args=[name|--none|--list]
+# oal:examples=oal-brain-backend | oal-brain-backend claude-code | oal-brain-backend --none
+
+# No backend is configured by default, and nothing here installs or enables one. Selecting a backend
+# is the whole opt-in: until it happens, every oal-brain-* command is quiet and exits 0.
+set -uo pipefail
+BRAIN_CMD=oal-brain-backend
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+case "${1:-}" in
+  "")
+    backend="$(brain_backend)"
+    [[ -n $backend ]] && echo "$backend"
+    exit 0
+    ;;
+  --list)
+    brain_adapters
+    exit 0
+    ;;
+  --none)
+    rm -f -- "$BRAIN_STATE/backend"
+    echo "no brain backend configured"
+    exit 0
+    ;;
+  -h|--help)
+    sed -n '3,5p' "$0" | sed 's/^# oal://'
+    exit 0
+    ;;
+esac
+
+name="$1"
+adapter="$(brain_adapter "$name")" ||
+  brain_fail "no adapter called '$name'. Installed: $(brain_adapters | tr '\n' ' ')"
+
+mkdir -p -- "$BRAIN_STATE" || brain_fail "could not create $BRAIN_STATE"
+printf '%s\n' "$name" >"$BRAIN_STATE/backend" || brain_fail "could not record the backend"
+
+echo "brain backend: $name ($adapter)"
+# Said out loud because selecting a backend is not the same as having one running, and a command
+# that implies otherwise is how someone ends up debugging a gateway they never started.
+"$adapter" probe >/dev/null 2>&1 ||
+  echo "note: '$name' does not answer yet. oal-brain-status will say so." >&2

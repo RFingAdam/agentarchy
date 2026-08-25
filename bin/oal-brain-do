@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# oal:summary=Make the machine do one thing on a brain's behalf, if the contract allows it
+# oal:args=<verb> [args...]
+# oal:examples=oal-brain-do state | oal-brain-do theme gruvbox | oal-brain-do notify "Build finished"
+
+# The boundary. Everything a brain does to this machine comes through here, and two things have to
+# agree before anything runs:
+#
+#   the verb is in default/brain/VERBS, and its own argument check passed, and
+#   the tool-call guard allows the command it resolved to.
+#
+# Two checks rather than one because they fail differently. The verb set is a design decision about
+# what a brain is for; the guard is a policy decision about what this machine tolerates. Neither
+# subsumes the other, and a verb table on its own would be exactly as good as whoever last edited it.
+set -uo pipefail
+BRAIN_CMD=oal-brain-do
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+verb="${1:-}"
+[[ -n $verb && $verb != -h && $verb != --help ]] || {
+  echo "Usage: oal-brain-do <verb> [args...]" >&2
+  echo "Verbs:" >&2
+  sed -n '/^[a-z]/p' "$BRAIN_VERBS" >&2
+  exit 1
+}
+shift
+
+brain_verb_known "$verb" ||
+  brain_fail "'$verb' is not in the verb set. The whole set is: $(brain_verbs | tr '\n' ' ')"
+
+# Resolved through a file rather than a command substitution: the argv is NUL-separated so that a
+# notification body containing a newline stays one argument, and command substitution drops NULs.
+tmp="$(mktemp)" || brain_fail "could not create a temporary file"
+trap 'rm -f -- "$tmp"' EXIT
+"brain_resolve_$verb" "$@" >"$tmp"
+mapfile -t -d '' argv <"$tmp"
+(( ${#argv[@]} > 0 )) || brain_fail "the '$verb' verb resolved to no command"
+
+display="$(printf '%s ' "${argv[@]}")"; display="${display% }"
+
+# Fail closed, for the same reason the guard itself does. A brain that acts when the control that
+# governs it is missing is a brain with no control, and the machine cannot tell the difference from
+# the outside.
+command -v jq >/dev/null ||
+  brain_fail "jq is missing, so the guard cannot decide. Refusing: $display"
+[[ -x $BRAIN_GUARD ]] ||
+  brain_fail "the tool-call guard is not installed at $BRAIN_GUARD. Refusing: $display"
+
+decision="$(jq -nc --arg c "$display" '{tool_name:"Bash", tool_input:{command:$c}}' |
+  "$BRAIN_GUARD" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecision // "deny"' 2>/dev/null)"
+
+case "$decision" in
+  allow) ;;
+  ask)
+    # A brain gets strictly less than a terminal does, and this is where that is decided. The
+    # confirm tier means "a person opts in per call"; there is no person here, and treating an
+    # absent one as consent is how the tier stops meaning anything.
+    brain_fail "the guard wants this confirmed and a brain has nobody to ask. Run it yourself: $display"
+    ;;
+  *)
+    brain_fail "refused by the tool-call guard: $display"
+    ;;
+esac
+
+rm -f -- "$tmp"
+exec "${argv[@]}"

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# The test fixture, and it says so. It answers without a model, deterministically, so that the
+# wiring -- select a backend, ask, get text back -- can be verified on a machine with no runtime, no
+# network and no account. test/vm/golden-path uses exactly this.
+#
+# It is shipped rather than kept in the test tree because "is the contract wired up on this machine"
+# is a question an owner has as much as a test does, and the honest answer needs a backend that
+# cannot itself be the reason for a no.
+set -uo pipefail
+
+case "${1:-}" in
+  describe) echo "a test fixture that answers without a model" ;;
+  probe)    exit 0 ;;
+  ask)
+    prompt="$(cat)"
+    # Folded to one line so a caller can compare the answer to what it sent.
+    printf 'stub: %s\n' "$(printf '%s' "$prompt" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+    ;;
+  *) echo "usage: stub describe|probe|ask" >&2; exit 1 ;;
+esac
