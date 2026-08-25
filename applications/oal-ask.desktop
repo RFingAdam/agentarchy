@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Ask Agentarchy
+Comment=Put a question to this machine
+Exec=oal-ask
+Icon=agentarchy
+Categories=System;Utility;
+Keywords=agentarchy;ask;agent;brain;question;

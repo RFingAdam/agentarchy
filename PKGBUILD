@@ -82,6 +82,7 @@ package() {
   # by id, so a copy only under /usr/share/agentarchy is a launcher that draws a blank icon and does
   # nothing when clicked.
   install -Dm644 applications/oal-menu.desktop "$pkgdir/usr/share/applications/oal-menu.desktop"
+  install -Dm644 applications/oal-ask.desktop "$pkgdir/usr/share/applications/oal-ask.desktop"
 
   # The mark is drawn with stroke="currentColor" so it takes its colour from whatever embeds it. A
   # desktop icon has nothing to inherit from and resolves that to black, which is invisible on a

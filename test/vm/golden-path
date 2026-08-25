@@ -293,6 +293,17 @@ oal-brain-do reboot >/dev/null 2>&1 &&
   { echo "FAIL brain-refuses-unknown-verb: 'reboot' was accepted"; exit 1; } ||
   echo "PASS brain-refuses-unknown-verb"
 
+# The desktop end of the contract: a question asked without a terminal open. The shortcut binds by
+# desktop entry id, so the entry has to be where a desktop environment reads them -- the same gap
+# that left the dock's first icon dead.
+[ -f /usr/share/applications/oal-ask.desktop ] &&
+  echo "PASS brain-ask-entry" || { echo "FAIL brain-ask-entry: oal-ask.desktop is not installed"; exit 1; }
+answer="$(oal-ask 'what theme am I using')"
+[ "$answer" = "stub: what theme am I using" ] &&
+  echo "PASS brain-ask-desktop" || { echo "FAIL brain-ask-desktop: got '$answer'"; exit 1; }
+[ -s "$HOME/.local/state/oal/last-answer.txt" ] &&
+  echo "PASS brain-ask-answer-kept" || { echo "FAIL brain-ask-answer-kept: nothing written"; exit 1; }
+
 # Leave the machine as the install left it. A test that configures a brain and walks away has
 # changed the thing the next stage is measuring.
 oal-brain-backend --none >/dev/null
@@ -347,7 +358,7 @@ command -v fuzzel >/dev/null || { echo "FAIL menu-backend: fuzzel is not install
 echo "PASS menu-backend"
 # Every command the menu can invoke has to exist, or an entry is decoration.
 missing=""
-for c in oal-theme-set oal-layout-set oal-agent-profile oal-mcp-status oal-menu-select loginctl; do
+for c in oal-theme-set oal-layout-set oal-agent-profile oal-mcp-status oal-menu-select oal-ask loginctl; do
   command -v "$c" >/dev/null || missing="$missing $c"
 done
 [ -z "$missing" ] && echo "PASS menu-commands-present" || { echo "FAIL menu-commands-present:$missing"; exit 1; }

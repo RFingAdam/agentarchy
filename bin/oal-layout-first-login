@@ -26,6 +26,10 @@ done
 if command -v kwriteconfig6 >/dev/null; then
   kwriteconfig6 --file kglobalshortcutsrc --group services --group oal-menu.desktop \
     --key _launch "Meta+Space\tnone\tAgentarchy Menu" 2>/dev/null || true
+  # Meta+A asks the machine a question. The agent layer is otherwise invisible unless a terminal is
+  # open, and a distribution whose claim is agent-first should not need one to make the point.
+  kwriteconfig6 --file kglobalshortcutsrc --group services --group oal-ask.desktop \
+    --key _launch "Meta+A\tnone\tAsk Agentarchy" 2>/dev/null || true
 fi
 
 exec oal-layout-set "${OAL_LAYOUT:-ubuntu}"

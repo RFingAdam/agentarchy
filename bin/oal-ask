@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# oal:summary=Ask the machine a question and get the answer on screen
+# oal:args=[question]
+# oal:examples=oal-ask | oal-ask "what is using my disk"
+
+# The desktop end of the brain contract. Everything else in the agent layer needs a terminal open to
+# be visible at all; this is the one that does not. Bound to Meta+A, and reachable from the menu.
+#
+# It routes through oal-brain-ask like anything else, so the backend, the posture and the guard are
+# the same ones the terminal answers to. There is no second path to a model here.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/oal"
+answer_file="$state_dir/last-answer.txt"
+
+notify() { oal-notification-send "$@" >/dev/null 2>&1 || true; }
+
+backend="$(oal-brain-backend 2>/dev/null)"
+if [[ -z $backend ]]; then
+  # A feature nobody enabled must say how to enable it rather than fail mutely. This is the one
+  # moment someone is definitely looking.
+  notify "No brain is configured" "Pick one with 'oal-brain-backend <name>' -- see 'oal-brain-backend --list'."
+  echo "oal-ask: no brain backend configured. See 'oal-brain-backend --list'." >&2
+  exit 1
+fi
+
+question="$*"
+if [[ -z $question ]]; then
+  command -v fuzzel >/dev/null ||
+    { echo "oal-ask: no question given, and fuzzel is not installed to ask for one" >&2; exit 1; }
+  # --prompt-only is fuzzel's free-text mode: it does not read stdin and does not require a match,
+  # so it returns whatever was typed. Same binary and same generated config as the menu, so asking a
+  # question looks like part of the desktop rather than a second toolkit bolted on.
+  config="$state_dir/current/theme/fuzzel.ini"
+  args=(--dmenu --prompt-only="ask  " --placeholder="ask this machine anything")
+  [[ -r $config ]] && args+=(--config "$config")
+  question="$(fuzzel "${args[@]}" 2>/dev/null)" || exit 0
+fi
+
+# Trim, then treat an empty question as a cancelled one rather than sending it.
+question="$(printf '%s' "$question" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+[[ -n $question ]] || exit 0
+
+# An answer takes as long as the backend takes, which can be many seconds. Saying nothing in the
+# meantime is what makes a desktop look like it ignored you -- the exact failure the menu was just
+# fixed for, and it would be worse here because there is nothing else on screen to explain it.
+notify "Asking $backend" "$question" -u low
+
+rc=0
+answer="$(oal-brain-ask "$question" 2>&1)" || rc=$?
+
+if (( rc != 0 )); then
+  notify "$backend could not answer" "$(printf '%s' "$answer" | tail -n 1)" -u critical
+  printf '%s\n' "$answer" >&2
+  exit "$rc"
+fi
+[[ -n $answer ]] || { notify "$backend returned nothing" "The question went through and the answer was empty."; exit 1; }
+
+mkdir -p -- "$state_dir"
+printf '%s\n' "$answer" >"$answer_file"
+
+# Notifications truncate, and an answer worth reading is usually longer than one. The whole thing is
+# on disk either way, and clicking the notification opens it.
+summary="$answer"
+if (( ${#answer} > 400 )); then
+  summary="${answer:0:400}..."
+fi
+
+notify "$question" "$summary" --exec "xdg-open $answer_file"
+printf '%s\n' "$answer"
