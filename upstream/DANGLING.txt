@@ -25,12 +25,10 @@ bin/oal-crash-watch -> oal-default-agent
 bin/oal-font-set -> oal-restart-shell
 bin/oal-install-gaming-battlenet -> oal-launch-battlenet
 bin/oal-install-gaming-geforce-now -> oal-launch-browser
-bin/oal-menu -> oal-shell
 bin/oal-menu-clipboard -> oal-shell
 bin/oal-menu-emoji -> oal-shell
 bin/oal-menu-images -> oal-shell
 bin/oal-menu-input -> oal-shell
-bin/oal-menu-select -> oal-shell
 bin/oal-menu-timezone -> oal-shell
 bin/oal-migrate-notify -> oal-launch-floating-terminal-with-presentation
 bin/oal-notification-dismiss -> oal-shell

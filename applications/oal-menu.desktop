@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Agentarchy Menu
+Comment=Theme, layout, agent posture and session
+Exec=oal-menu
+Icon=preferences-system
+Categories=System;Settings;
+Keywords=agentarchy;menu;theme;layout;agent;
