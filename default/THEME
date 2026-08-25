@@ -1,0 +1,8 @@
+# The theme a fresh Agentarchy install lands on. One slug, naming a directory under themes/.
+#
+# It lives in a file because two things need the answer and only one of them has a shell:
+# oal-bootstrap.sh exports it as OAL_DEFAULT_THEME for the rest of an install, and oal-greeter-sync
+# runs from a systemd unit with no environment to inherit it from. Set OAL_DEFAULT_THEME in the
+# environment to install a different theme without editing this.
+
+agentarchy

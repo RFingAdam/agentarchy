@@ -313,6 +313,52 @@ GUEST
 }
 stage menu menu_shot || fail "the menu (see $art/menu.txt)"
 
+# The ISO path, simulated. A deferred-provisioning install never runs oal-bootstrap.sh, so it never
+# renders the greeter's palette -- it reaches the login screen with the theme.conf the greeter's
+# theme directory ships. There is no ISO yet to install from, but the state it arrives in is one
+# file, so put the guest in it and see whether the boot fixes it.
+greeter_sync() {
+  vm_ssh bash -s <<'GUEST' >"$art/greeter-sync.txt" 2>&1 || return 1
+set -u
+export OAL_PATH=/usr/share/agentarchy
+conf=/usr/share/sddm/themes/oal/theme.conf
+default="$(oal-theme-default)"
+want="$(oal-theme-color --file "$OAL_PATH/themes/$default/colors.toml" background)"
+
+# Exactly what an install that rendered nothing leaves behind.
+sudo cp "$OAL_PATH/default/sddm/oal/theme.conf" "$conf"
+grep -q '^background=' "$conf" && { echo "FAIL greeter-sync-setup: the shipped theme.conf has a palette"; exit 1; }
+
+sudo systemctl restart oal-greeter-sync.service || { echo "FAIL greeter-sync-unit: restart failed"; exit 1; }
+got="$(sed -n 's/^background=//p' "$conf")"
+[ "$got" = "$want" ] &&
+  echo "PASS greeter-sync-renders" ||
+  {
+    echo "FAIL greeter-sync-renders: background=${got:-none}, wanted $want"
+    # The unit gives up quietly on purpose, so its reason is only in the journal.
+    sudo journalctl -u oal-greeter-sync.service -n 20 --no-pager 2>&1 | sed 's/^/  /'
+    exit 1
+  }
+
+# The other half of the contract: a palette somebody rendered on purpose is not undone at the next
+# boot. Without this the unit would quietly revert every `oal-refresh-sddm <theme>` overnight.
+other=gruvbox
+[ "$default" = "$other" ] && other=nord
+oal-refresh-sddm "$other" >/dev/null || { echo "FAIL greeter-sync-retint: oal-refresh-sddm failed"; exit 1; }
+retinted="$(oal-theme-color --file "$OAL_PATH/themes/$other/colors.toml" background)"
+sudo systemctl restart oal-greeter-sync.service
+got="$(sed -n 's/^background=//p' "$conf")"
+[ "$got" = "$retinted" ] &&
+  echo "PASS greeter-sync-keeps-retint" ||
+  { echo "FAIL greeter-sync-keeps-retint: the boot reverted $other to ${got:-none}"; exit 1; }
+
+# Leave the login screen on the installed theme, so the greeter shot shows what an install shows.
+oal-refresh-sddm "$default" >/dev/null
+GUEST
+  cat -- "$art/greeter-sync.txt" >&2
+}
+stage greetersync greeter_sync || fail "greeter palette sync (see $art/greeter-sync.txt)"
+
 # --- 7. the login screen ---------------------------------------------------------------------------
 
 # Autologin means nobody -- including every run before this one -- has ever seen the greeter. Turn it

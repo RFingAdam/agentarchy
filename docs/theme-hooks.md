@@ -79,3 +79,34 @@ would be a privilege-escalation surface bought for a colour. So:
 - `oal-theme-set-kde` says out loud that the login screen is unchanged and names the command that
   would change it. A greeter silently left on the old palette is something you discover at the next
   reboot.
+
+### Installs that never run the bootstrap
+
+The bootstrap is one install path. A deferred-provisioning install -- the ISO -- is another, and it
+never runs `oal-bootstrap.sh`, so nothing renders the palette and the login screen comes up on the
+`[General]`-and-nothing-else `theme.conf` the theme directory ships. `Main.qml` falls back to
+literal colours for every value it reads, so it renders; it just renders in a palette nobody chose,
+on the first screen anyone sees.
+
+`oal-greeter-sync.service` closes that: a root oneshot ordered before the display manager, enabled
+by `install/desktop/plasma.sh`, which renders the palette if nothing else has.
+
+**"If nothing else has" is read off the file itself.** A rendered palette carries keys and the
+shipped one does not, so there is no marker file to keep in step, and a deliberate
+`oal-refresh-sddm <theme>` is never undone at the next boot. That second property is the one worth
+protecting: a unit that re-asserted the default every boot would silently revert every retint, and
+you would blame the theme.
+
+It gives up rather than fails -- missing theme, unreadable palette, failed render, all exit 0. The
+unit is ordered ahead of the display manager, and a login screen in fallback colours beats a login
+screen that did not start. The render is written aside and renamed, because half a palette parses.
+
+The ISO's chroot finalisation therefore needs to do nothing for the default theme. If it installs
+with some other theme, it calls `oal-refresh-sddm <theme>` once and this leaves that alone.
+
+### Which theme is the default
+
+`default/THEME`, one slug, read by `oal-theme-default`. `oal-bootstrap.sh` exports it as
+`OAL_DEFAULT_THEME`; `oal-greeter-sync` reads it directly, having no environment to inherit it from.
+One file, because a login screen one theme behind the desktop is exactly what a second copy of that
+name produces.

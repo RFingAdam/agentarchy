@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# oal:summary=Print the theme a fresh install lands on
+# oal:examples=oal-theme-default
+# oal:hidden=true
+
+# Self-locating: oal-bootstrap.sh calls this before /etc/profile.d/oal.sh has been sourced into
+# anything, and oal-greeter-sync calls it from a unit that has no profile at all.
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+file="$OAL_PATH/default/THEME"
+
+[[ -r $file ]] || { echo "oal-theme-default: cannot read $file" >&2; exit 1; }
+
+# First line that is neither blank nor a comment.
+theme="$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$file" | head -n 1 | tr -d '[:space:]')"
+[[ -n $theme ]] || { echo "oal-theme-default: $file names no theme" >&2; exit 1; }
+
+echo "$theme"

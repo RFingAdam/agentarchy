@@ -100,7 +100,11 @@ export OAL_SKIP_MISE="${OAL_SKIP_MISE:-1}"
 # Exported, not just defaulted at each use. install/user/theme.sh runs in a separate process and
 # applies the same variable to the eighteen templated configs; if it cannot see an override set
 # here, KDE gets one theme and every terminal, editor and prompt gets another.
-export OAL_DEFAULT_THEME="${OAL_DEFAULT_THEME:-agentarchy}"
+#
+# The name comes from default/THEME rather than a literal, because oal-greeter-sync resolves the
+# same default from a systemd unit with no environment to inherit it from, and a login screen in
+# one theme behind a desktop in another is exactly the sort of drift a second copy produces.
+export OAL_DEFAULT_THEME="${OAL_DEFAULT_THEME:-$("$checkout/bin/oal-theme-default")}"
 
 log "Applying system configuration (needs root)"
 sudo oal-apply-system --install-user "$user" --first-install
