@@ -89,7 +89,14 @@ link="$(readlink -f "${XDG_DATA_HOME:-$HOME/.local/share}/icons/OAL/64x64/places
 if [[ -z $want_colour ]]; then
   bad icons-folder-colour "oal-theme-set-icons resolved no colour for this palette"
 elif [[ $(basename "${link:-}") == "folder-$want_colour.svg" ]]; then
-  ok "icons-folder-$want_colour"
+  # The ordinary-folder alias too. Checking only folder.svg passed while every plain folder on the
+  # desktop was still blue, because KDE never asks for folder -- it asks for inode-directory.
+  inode="$(readlink -f "${XDG_DATA_HOME:-$HOME/.local/share}/icons/OAL/64x64/places/inode-directory.svg" 2>/dev/null)"
+  if [[ $(basename "${inode:-}") == "folder-$want_colour.svg" ]]; then
+    ok "icons-folder-$want_colour"
+  else
+    bad icons-folder-colour "inode-directory.svg -> ${inode:-nothing}, wanted folder-$want_colour.svg"
+  fi
 else
   bad icons-folder-colour "folder.svg -> ${link:-nothing}, wanted folder-$want_colour.svg"
 fi
