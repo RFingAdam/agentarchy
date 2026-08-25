@@ -333,7 +333,12 @@ sudo systemctl restart oal-greeter-sync.service || { echo "FAIL greeter-sync-uni
 got="$(sed -n 's/^background=//p' "$conf")"
 [ "$got" = "$want" ] &&
   echo "PASS greeter-sync-renders" ||
-  { echo "FAIL greeter-sync-renders: background=${got:-none}, wanted $want"; exit 1; }
+  {
+    echo "FAIL greeter-sync-renders: background=${got:-none}, wanted $want"
+    # The unit gives up quietly on purpose, so its reason is only in the journal.
+    sudo journalctl -u oal-greeter-sync.service -n 20 --no-pager 2>&1 | sed 's/^/  /'
+    exit 1
+  }
 
 # The other half of the contract: a palette somebody rendered on purpose is not undone at the next
 # boot. Without this the unit would quietly revert every `oal-refresh-sddm <theme>` overnight.

@@ -21,7 +21,10 @@ set -euo pipefail
 bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
 
-colors_file="$HOME/.local/state/oal/current/theme/colors.toml"
+# ${HOME:-} rather than $HOME: --file overrides this outright, and oal-greeter-sync renders from a
+# systemd unit, which has no HOME. Computing a default that is about to be discarded must not be
+# able to fail -- under `set -u` it did, and the greeter came up in fallback colours because of it.
+colors_file="${HOME:-}/.local/state/oal/current/theme/colors.toml"
 scheme_name=""
 template=""
 
@@ -43,7 +46,7 @@ done
 
 # User templates win over packaged ones, the same precedence oal-theme-set-templates uses.
 tpl=""
-for candidate in "$HOME/.config/oal/themed/$template.tpl" "$OAL_PATH/default/themed/$template.tpl"; do
+for candidate in "${HOME:-}/.config/oal/themed/$template.tpl" "$OAL_PATH/default/themed/$template.tpl"; do
   [[ -f $candidate ]] && { tpl="$candidate"; break; }
 done
 [[ -n $tpl ]] || { echo "oal-theme-render: no template '$template.tpl' in ~/.config/oal/themed or $OAL_PATH/default/themed" >&2; exit 1; }

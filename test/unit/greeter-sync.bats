@@ -99,3 +99,12 @@ setup() {
   # Nothing in the unit may make the display manager depend on this one.
   ! grep -qE '^(Requires|BindsTo|Requisite)=' "$unit"
 }
+
+@test "it renders with no HOME in the environment" {
+  # The condition that made this fail in the VM while every test here passed: a system unit has no
+  # HOME, and oal-theme-render dereferenced it under `set -u` to build a default it then discarded.
+  # Running with the same environment systemd gives is the only way this suite sees that.
+  run env -i PATH="$SRC/bin:/usr/bin:/bin" OAL_PATH="$SRC" bash "$SYNC"
+  [ "$status" -eq 0 ]
+  grep -q '^background=' "$CONF"
+}
