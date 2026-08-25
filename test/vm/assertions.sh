@@ -97,6 +97,18 @@ done
 [[ -z $missing_launchers ]] && ok layout-launchers ||
   bad layout-launchers "pinned but not installed:$missing_launchers"
 
+# The keyboard shortcuts, read back as kglobalaccel left them. An empty value here is what a
+# malformed one becomes: kglobalaccel blanks what it cannot parse, so the entry exists, the write
+# reported success, and the key does nothing. That is how Meta+Space went unbound for months.
+for entry in oal-menu.desktop oal-ask.desktop; do
+  binding="$(kreadconfig6 --file kglobalshortcutsrc --group services --group "$entry" --key _launch 2>/dev/null)"
+  case "$binding" in
+    *,*) ok "shortcut-${entry%.desktop}" ;;
+    "")  bad "shortcut-${entry%.desktop}" "kglobalaccel blanked it: the value is unparseable" ;;
+    *)   bad "shortcut-${entry%.desktop}" "'$binding' is not the comma-separated form KDE reads" ;;
+  esac
+done
+
 # --- theming ------------------------------------------------------------------------------------
 
 scheme="$(kreadconfig6 --file kdeglobals --group General --key ColorScheme 2>/dev/null)"

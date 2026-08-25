@@ -20,16 +20,19 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 
-# Meta+Space opens the menu. Bound here because kglobalshortcutsrc is only read by a running
-# kglobalaccel, and because a shortcut the user has since changed must not be reset at every login --
-# same once-only reasoning as the layout above.
+# Meta+Space opens the menu, Meta+A asks the machine a question. Bound here because
+# kglobalshortcutsrc is only read by a running kglobalaccel, and because a shortcut the user has
+# since changed must not be reset at every login -- same once-only reasoning as the layout above.
+#
+# The value is COMMA separated: shortcut,default,description, which is what KDE writes for its own
+# bindings ("Show Desktop=Meta+D,Meta+D,Peek at Desktop"). Tabs were written here for months and
+# kglobalaccel silently blanked the entry on every start, so Meta+Space had never once opened the
+# menu -- the file looked right and the shortcut did not exist.
 if command -v kwriteconfig6 >/dev/null; then
   kwriteconfig6 --file kglobalshortcutsrc --group services --group oal-menu.desktop \
-    --key _launch "Meta+Space\tnone\tAgentarchy Menu" 2>/dev/null || true
-  # Meta+A asks the machine a question. The agent layer is otherwise invisible unless a terminal is
-  # open, and a distribution whose claim is agent-first should not need one to make the point.
+    --key _launch "Meta+Space,none,Agentarchy Menu" 2>/dev/null || true
   kwriteconfig6 --file kglobalshortcutsrc --group services --group oal-ask.desktop \
-    --key _launch "Meta+A\tnone\tAsk Agentarchy" 2>/dev/null || true
+    --key _launch "Meta+A,none,Ask Agentarchy" 2>/dev/null || true
 fi
 
 exec oal-layout-set "${OAL_LAYOUT:-ubuntu}"
