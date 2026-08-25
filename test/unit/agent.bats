@@ -162,3 +162,24 @@ setup() {
   grep -q 'command = "oal-agent-hud"' "$SRC/default/themed/starship.toml.tpl"
   ! grep -q 'oal-agent-usage' "$SRC/default/themed/starship.toml.tpl"
 }
+
+@test "no permission rule uses a form the runtime rejects" {
+  # The runtime warns on every single invocation for a malformed rule, and the warning lands in the
+  # answer: "Glob(**) is not matched by file permission checks -- only Read(path) rules are. Use
+  # Read(**) instead (Read rules cover all file-reading tools)." It shipped that way, so every agent
+  # call carried two lines of our own noise before its output.
+  #
+  # Read(**) already covers the file-reading tools, so these are redundant as well as wrong.
+  local f
+  for f in "$SRC"/agent/permissions/*.json; do
+    ! grep -qE '"(Glob|Grep)\(' "$f" || { echo "$f still names a tool that file permissions do not match"; return 1; }
+  done
+}
+
+@test "every shipped permission set is valid json with the keys the runtime reads" {
+  local f
+  for f in "$SRC"/agent/permissions/*.json; do
+    jq -e '.permissions.allow | type == "array"' "$f" >/dev/null || { echo "$f: no permissions.allow array"; return 1; }
+    jq -e '.permissions.deny | type == "array"' "$f" >/dev/null || { echo "$f: no permissions.deny array"; return 1; }
+  done
+}
