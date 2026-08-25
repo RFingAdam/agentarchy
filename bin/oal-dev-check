@@ -32,7 +32,7 @@ fi
 
 gate bats         bats test/unit
 gate branding     bin/oal-dev-branding-check
-# --strict since 2026-08-23: every background must carry a source and licence on its NOTICE line.
+# --strict: every background must carry a source and licence on its NOTICE line.
 # The placeholder UNAUDITED status existed for the 68 inherited wallpapers, which are gone; letting a
 # new one in unaudited is how the repository ended up publishing images nobody could account for.
 gate notice       bin/oal-dev-notice-check --strict

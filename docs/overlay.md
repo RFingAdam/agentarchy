@@ -6,7 +6,7 @@ bench, and anything else that belongs to a person rather than to a distribution.
 
 The split matters. Nothing in an overlay needs a change to this repository, and no server name from
 one ever appears in it. A public catalog file listing private tooling publishes the shape of that
-tooling — what exists, what it is for, and that you have it — even when the code stays private.
+tooling (what exists, what it is for, and that you have it) even when the code stays private.
 
 ```bash
 oal-overlay-apply ~/work/my-overlay
@@ -53,7 +53,7 @@ id | kind | package | args | visibility | profiles | description
 | `description` | one line |
 
 **`visibility` is what makes a mixed catalog usable.** A profile install skips anything not `public`
-and says why — a private registry you cannot reach, an instrument that is not on the bench, a licence
+and says why: a private registry you cannot reach, an instrument that is not on the bench, a licence
 you do not hold. Those are facts about the machine, not install errors worth throwing at someone who
 asked for a whole profile. Naming such a server explicitly still installs it, because at that point
 you know something the catalog does not.

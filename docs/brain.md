@@ -26,7 +26,7 @@ allowlist nobody has read is not a control.
 
 **Each verb validates its own arguments**, in `default/brain/lib.sh`. `theme` must name an installed
 theme; `open` must name an installed desktop entry, not a path. A verb table that only allowlisted
-command names would be a formality — `open` becomes "run anything" the first time someone hands it
+command names would be a formality: `open` becomes "run anything" the first time someone hands it
 `/usr/bin/bash`.
 
 ### Adding one
@@ -44,8 +44,8 @@ Every action goes through `oal-brain-do`, and two things must agree:
 
 Neither subsumes the other. The verb set is a design decision about what a brain is *for*; the guard
 is a policy decision about what this machine *tolerates*. A verb in the set that resolves to
-something the guard blocks is refused, which is what keeps the table from being the only control —
-and the only control is exactly as good as whoever edited it last.
+something the guard blocks is refused, which is what keeps the table from being the only control.
+The only control is exactly as good as whoever edited it last.
 
 Both tests for this are in `test/unit/brain.bats`, and they are the two worth reading first.
 
@@ -79,13 +79,13 @@ the desktop to change, it calls `oal-brain-do`, and it gets the same answer ever
 
 ### The three shipped
 
-- **`stub`** — a test fixture, and it says so. Answers deterministically with no model, no network
+- **`stub`**: a test fixture, and it says so. Answers deterministically with no model, no network
   and no account, so "is this wired up on this machine" has an answer that cannot be confounded by
   the backend being the problem. `test/vm/golden-path` uses it.
-- **`claude-code`** — one invocation per question. Worth knowing what this composes to: the answer
+- **`claude-code`**: one invocation per question. Worth knowing what this composes to: the answer
   comes from an agent with its own tool access, governed by the same guard and the same
   `oal-agent-profile` as any other session. A question routed here can cause work.
-- **`hermes`** — a [hermes-agent](https://github.com/NousResearch/hermes-agent) gateway. Resident,
+- **`hermes`**: a [hermes-agent](https://github.com/NousResearch/hermes-agent) gateway. Resident,
   with its own memory, scheduler and chat gateways; the shape this contract was designed against.
   **Its request paths have not been verified against a running gateway**, so they are defaults and
   every one is overridable in `~/.config/oal/brain/hermes.env`. If yours speaks a different shape,
@@ -102,7 +102,7 @@ oal-brain-do notify "Build finished" "3 warnings"
 oal-brain-backend --none        # back to nothing
 ```
 
-Until a backend is chosen, `oal-brain-status` prints nothing and exits 0 — the rule
+Until a backend is chosen, `oal-brain-status` prints nothing and exits 0, the rule
 `oal-agent-hud` follows, because a prompt that complains about an optional feature nobody enabled is
 a prompt people turn off. Once one is chosen the prompt's agent line carries it, and says `(down)`
 when it is configured but not answering.

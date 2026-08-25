@@ -64,6 +64,8 @@ value=()
 for opt in "${options[@]}"; do
   IFS=$'\t' read -r a b c <<<"$opt"
   if [[ -n ${c:-} ]]; then
+    # The em dash here is a rendered glyph in a picker, not prose, and it is the one in this tree.
+    # ASCII "--" between a label and its subtext reads as a command-line flag.
     display+=("$a $b — $c"); value+=("$b"$'\t'"$c")
   elif [[ -n ${b:-} ]]; then
     display+=("$a $b"); value+=("$b")

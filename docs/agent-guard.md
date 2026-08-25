@@ -59,7 +59,7 @@ around by turning the hook off entirely, and then nothing is guarded at all. Res
 what has no legitimate agent use.
 
 Test what you add. `test/unit/agent-guard.bats` covers each tier, every fail-closed path, the audit
-log, and a 50 ms budget — the guard runs before every tool call, so its cost is paid by everything
+log, and a 50 ms budget: the guard runs before every tool call, so its cost is paid by everything
 the agent does. The first version cost 334 ms, because it forked `jq` twice and then `grep`, `sed`
 and `xargs` once per rule.
 

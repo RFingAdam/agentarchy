@@ -249,8 +249,12 @@ prompt_shot() {
   # on purpose, which is the least representative of the twenty.
   vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; bash -lc 'oal-theme-set agentarchy'" >/dev/null 2>&1 || true
   sleep 2
-  vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; setsid konsole >/dev/null 2>&1 &" >/dev/null 2>&1 || true
+  vm_ssh_session 'setsid konsole >/dev/null 2>&1 &' >/dev/null 2>&1 || true
   sleep 8
+  # The window has to exist before it is worth photographing. Without this the stage happily
+  # produced a picture of an empty desktop and called it a picture of the prompt.
+  vm_ssh 'pgrep -x konsole >/dev/null' >/dev/null 2>&1 ||
+    { vm_warn "konsole did not start; not photographing an empty desktop"; return 1; }
   "$here/vm-shot" "$art/prompt-guest.png" --guest || return 1
   shots+=("$art/prompt-guest.png")
 }
@@ -306,7 +310,11 @@ stage brain brain_layer || fail "the brain contract (see $art/brain.txt)"
 # and the script API is the same surface oal-layout-set uses to apply them.
 layouts() {
   local rc=0 name want
-  for pair in "ubuntu 2" "mint 1"; do
+  # mint first. ubuntu is the layout already in place, so applying it first changes nothing on
+  # screen and its screenshot came out byte-identical to the previous stage's -- a picture that
+  # proved the panel count only because the assertion beside it did. Going away and coming back
+  # makes both shots evidence.
+  for pair in "mint 1" "ubuntu 2"; do
     set -- $pair
     name="$1"; want="$2"
     vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; bash -lc 'oal-layout-set $name'" \
@@ -347,8 +355,10 @@ done
   echo "PASS menu-themed" || { echo "FAIL menu-themed: no rendered fuzzel.ini"; exit 1; }
 GUEST
   cat -- "$art/menu.txt" >&2
-  vm_ssh "export XDG_RUNTIME_DIR=/run/user/\$(id -u) WAYLAND_DISPLAY=wayland-0; setsid oal-menu >/dev/null 2>&1 &" >/dev/null 2>&1 || true
+  vm_ssh_session 'setsid oal-menu >/dev/null 2>&1 &' >/dev/null 2>&1 || true
   sleep 6
+  vm_ssh 'pgrep -x fuzzel >/dev/null' >/dev/null 2>&1 ||
+    { vm_warn "the menu did not open; not photographing an empty desktop"; return 1; }
   "$here/vm-shot" "$art/menu-guest.png" --guest || return 1
   shots+=("$art/menu-guest.png")
   # Leave nothing open for the stages that follow.

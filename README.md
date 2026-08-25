@@ -15,29 +15,55 @@ Plasma 6** instead of Hyprland.
 ## What actually works today
 
 - A vanilla Arch cloud image becomes an installed, themed Plasma 6 Wayland session in about
-  **six minutes**, unattended and reproducibly -- `test/vm/golden-path` proves it on every change,
-  with assertions and screenshots.
-- **The theme engine.** One `colors.toml` per theme drives 17 application templates: switching a
-  theme retints Plasma, Konsole, the SDDM greeter, the lock screen, the icon set, VS Code, helix,
-  btop, tmux, foot and the rest, in one command. 20 themes ship; the default is ours.
+  **six minutes**, unattended and reproducibly. `test/vm/golden-path` proves it on every change:
+  14 stages, 91 assertions, a real reboot in the middle, and screenshots of the result.
+- **The theme engine.** One `colors.toml` per theme drives 19 application templates: switching a
+  theme retints Plasma, Konsole, the SDDM greeter, the lock screen, the icon set, the shell prompt,
+  the menu, VS Code, helix, btop, tmux, foot and the rest, in one command. 21 themes ship, 2 of them
+  light; the default is ours.
+- **The login screen matches the machine**, on every install path. It is rendered from the same
+  palette before the display manager starts, so it does not depend on which installer ran.
+- **The desktop is arranged, not just painted.** Two panel layouts (`oal-layout-set ubuntu|mint`)
+  and a menu on `Meta+Space` covering themes, layouts, agent posture and session actions. It lists
+  only entries whose command actually exists on this tree, which a test enforces -- it replaced a
+  menu where none of them did.
+- **The agent layer.** MCP servers managed like packages, a permission posture that is a machine
+  setting, a fail-closed guard on every tool call with an audit log, and a contract for an OS-level
+  brain. That is the next section, and it is the part worth switching for.
 - Wallpapers derived from public-domain photography and recoloured per palette, with every file
   accounted for in `NOTICE`.
 
 ## What it looks like
 
 One `colors.toml` per theme drives the whole surface, so switching a theme moves the desktop, the
-panel, the icon set, the lock screen and the login screen together. Left to right: the default theme,
-gruvbox, the lock screen, and the greeter.
+panel, the icon set, the terminal, the menu, the lock screen and the login screen together. Every
+image below is taken by `test/vm/golden-path` from a real install, on the run that gated this commit.
+
+The default theme, and gruvbox:
 
 | | |
 |---|---|
-| ![gruvbox](docs/screenshots/desktop-gruvbox.webp) | ![lock screen](docs/screenshots/lock-screen.webp) |
+| ![the default theme](docs/screenshots/desktop-agentarchy.webp) | ![gruvbox](docs/screenshots/desktop-gruvbox.webp) |
 
-![the login screen](docs/screenshots/greeter.webp)
+The prompt and the menu. The prompt's second line is the agent state -- posture, model, registered
+MCP servers, spend against today's limit -- and it prints nothing when there is nothing to say. The
+menu is on `Meta+Space`:
+
+| | |
+|---|---|
+| ![the shell prompt](docs/screenshots/prompt.webp) | ![the menu](docs/screenshots/menu.webp) |
+
+The lock screen and the login screen. The greeter runs as the `sddm` user before any session exists,
+so it cannot read the theme the way everything else does; its palette is rendered into it before the
+display manager starts:
+
+| | |
+|---|---|
+| ![lock screen](docs/screenshots/lock-screen.webp) | ![the login screen](docs/screenshots/greeter.webp) |
 
 Wallpapers are public-domain NASA photography recoloured to each palette, so a theme change moves the
-background too rather than leaving one picture under twenty colour schemes. `NOTICE` credits every
-source.
+background too rather than leaving one picture under twenty-one colour schemes. `NOTICE` credits
+every source.
 
 ## What came from Omarchy, and why you cannot see it
 
