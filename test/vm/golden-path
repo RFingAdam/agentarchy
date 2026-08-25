@@ -364,6 +364,41 @@ done
 [ -z "$missing" ] && echo "PASS menu-commands-present" || { echo "FAIL menu-commands-present:$missing"; exit 1; }
 [ -s "$HOME/.local/state/oal/current/theme/fuzzel.ini" ] &&
   echo "PASS menu-themed" || { echo "FAIL menu-themed: no rendered fuzzel.ini"; exit 1; }
+
+# Does choosing something actually do it? Every check above answers "the menu opens", and the menu
+# opened fine through two separate bugs that left it doing nothing -- a dock entry the desktop never
+# installed, and a keyboard binding kglobalaccel could not parse.
+#
+# oal-menu resolves oal-menu-select through PATH, so standing in for the picker drives the real
+# dispatch and the real action without needing a keyboard. The Agent route is used because a posture
+# is trivial to assert and to put back; walking the Theme route here would leave the greeter stage
+# looking at a theme it did not install.
+mkdir -p /tmp/oal-menu-shim
+cat > /tmp/oal-menu-shim/oal-menu-select <<'SHIM'
+#!/bin/bash
+cat >/dev/null
+case "$1" in
+  Agentarchy) printf 'Agent	posture and MCP servers
+' ;;
+  Agent)      printf 'posture	read-only, confirmed, or permissive
+' ;;
+  Posture)    printf 'trusted	permissive
+' ;;
+  *)          exit 1 ;;
+esac
+SHIM
+chmod +x /tmp/oal-menu-shim/oal-menu-select
+before="$(oal-agent-profile)"
+PATH=/tmp/oal-menu-shim:$PATH oal-menu >/dev/null 2>&1
+after="$(oal-agent-profile)"
+rm -rf /tmp/oal-menu-shim
+oal-agent-profile "$before" >/dev/null 2>&1
+if [ "$after" = trusted ] && [ "$before" != "$after" ]; then
+  echo "PASS menu-selection-acts"
+else
+  echo "FAIL menu-selection-acts: posture went from '$before' to '$after', wanted 'trusted'"
+  exit 1
+fi
 GUEST
   cat -- "$art/menu.txt" >&2
   vm_ssh_session 'setsid oal-menu >/dev/null 2>&1 &' >/dev/null 2>&1 || true
