@@ -46,7 +46,7 @@ it out from the source:
 
 - **`shell_ipc` / `oal-shell`** -- `oal-theme-set` drives a cross-fade between the old and new
   wallpapers by handing base64 payloads to `oal-shell`, upstream's Quickshell bar. That command is
-  not vendored, so each call is a `timeout 2 oal-shell …` that exits 127 immediately: no hang, no
+  not vendored, so each call is a `timeout 2 oal-shell ...` that exits 127 immediately: no hang, no
   effect. The wallpaper itself is applied by `oal-theme-set-kde` through
   `plasma-apply-wallpaperimage`, so nothing is lost but the animation.
 - **`oal-theme-switcher --preload`, `oal-theme-bg-cache`** -- warm the Quickshell selector's caches.

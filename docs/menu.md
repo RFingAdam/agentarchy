@@ -10,7 +10,7 @@ exec oal-shell shell toggle oal.menu "$(menu_payload "$route")"
 
 `oal-shell` is upstream's Quickshell IPC. It was excluded from vendoring in Phase 0 as
 compositor-bound, and the `oal.menu` plugin it talks to lives in a `shell/` tree that was never
-vendored either. **21 vendored commands reference `oal-shell`**, and every one of them exited 127 —
+vendored either. **21 vendored commands reference `oal-shell`**, and every one of them exited 127:
 present on `PATH`, listed in `--help`, doing nothing.
 
 So the menu was not unwired. There was nothing on this tree to wire up.
@@ -20,8 +20,8 @@ So the menu was not unwired. There was nothing on this tree to wire up.
 **fuzzel, in dmenu mode.** A Wayland-native picker of about 200 KB, themed from the current palette
 by `default/themed/fuzzel.ini.tpl` like every other surface.
 
-It was chosen because `oal-menu-select` already had a contract other commands depend on — options
-in as `glyph⇥label⇥subtext`, the label back out, stdin accepted — and that contract is a picker's.
+It was chosen because `oal-menu-select` already had a contract other commands depend on (options
+in as `glyph⇥label⇥subtext`, the label back out, stdin accepted), and that contract is a picker's.
 fuzzel implements it directly, so the rewrite is a backend swap rather than a change other callers
 have to notice.
 
@@ -40,7 +40,7 @@ What was rejected, and why:
 
 Every command that referenced `oal-shell`, and what happened to it.
 
-### Reimplemented (7) — the menu family
+### Reimplemented (7): the menu family
 
 | Command | |
 |---|---|
@@ -55,7 +55,7 @@ Every command that referenced `oal-shell`, and what happened to it.
 
 These are notifications and on-screen display, not menus. Plasma has both, through
 `org.freedesktop.Notifications` and its own OSD, and `oal-notification-send` already works. Porting
-them means routing to KDE's notification service — a separate piece of work with its own decisions
+them means routing to KDE's notification service, a separate piece of work with its own decisions
 about persistence and Do Not Disturb, and no dependency on the menu.
 
 ### Answered by Plasma directly (2)
@@ -69,7 +69,7 @@ redundant rather than broken and are candidates to drop at the next vendoring re
 `oal-shell-config`, `oal-update-status`, `oal-theme-bg-set`, `oal-theme-set`,
 `oal-chromium-ytdlp-host`, `oal-audio-source-switch`.
 
-`oal-theme-set`'s use is already documented in `docs/theme-hooks.md` as inert — the calls fail fast
+`oal-theme-set`'s use is already documented in `docs/theme-hooks.md` as inert: the calls fail fast
 and the wallpaper is applied by `oal-theme-set-kde` instead. The rest are individually small and none
 is on a path anything currently takes.
 
@@ -77,7 +77,7 @@ is on a path anything currently takes.
 
 Only entries that run a command which exists on this tree. That is enforced by
 `test/unit/menu.bats`, which pulls the commands out of the source rather than from a list someone has
-to remember to update — because an entry that silently does nothing is worse than an absent one, and
+to remember to update, because an entry that silently does nothing is worse than an absent one, and
 an entire menu of exactly that is what this replaced.
 
 ```

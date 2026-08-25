@@ -19,7 +19,7 @@ fi
 
 # The package is named after the project, not after the oal-* command prefix. Upstream checks its
 # stable/edge pair here; Agentarchy has neither, because the whole channel subsystem is inert until
-# a phase gives it real repositories (tasks/todo.md).
+# it is given real repositories to point at.
 version=$(pacman -Q agentarchy 2>/dev/null | awk '{ print $2 }')
 
 [[ -n $version ]] || exit 1

@@ -145,6 +145,34 @@ vm_ssh() {
   ssh "${VM_SSH_OPTS[@]}" -i "$VM_KEY" -p "$port" "$VM_USER@$VM_HOST" "$@"
 }
 
+# Run one shell command inside the guest's desktop session, with the session's own environment.
+#
+# An ssh login is not a desktop session. It has no XDG_CURRENT_DESKTOP, so Qt never loads the KDE
+# platform theme, never reads kdeglobals, and paints every window chrome in its default light
+# palette -- while the application's own colours, which come from its profile, stay dark. An app
+# launched that way photographs as a half-themed desktop that no user would ever see, and the
+# screenshot is then evidence of nothing.
+#
+# The environment is taken from the compositor rather than assembled from a list of variables,
+# because the list is not knowable from out here and grows with every Plasma release.
+vm_ssh_session() {
+  [[ $# -eq 1 ]] || vm_die "vm_ssh_session <command-string>"
+  vm_ssh bash -s -- "$1" <<'GUEST'
+set -u
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+pid="$(pgrep -x plasmashell | head -1)"
+[[ -n $pid ]] || { echo "no plasmashell: there is no session to borrow an environment from" >&2; exit 1; }
+while IFS= read -r -d '' kv; do
+  case "$kv" in
+    XDG_CURRENT_DESKTOP=* | XDG_SESSION_TYPE=* | QT_QPA_PLATFORMTHEME=* | WAYLAND_DISPLAY=* | \
+    DBUS_SESSION_BUS_ADDRESS=* | KDE_FULL_SESSION=* | KDE_SESSION_VERSION=* | XCURSOR_THEME=*)
+      export "${kv?}" ;;
+  esac
+done <"/proc/$pid/environ"
+exec bash -c "$1"
+GUEST
+}
+
 vm_scp_to() {
   local port; port="$(vm_port)"
   [[ $# -eq 2 ]] || vm_die "vm_scp_to <local> <remote>"

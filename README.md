@@ -15,11 +15,21 @@ Plasma 6** instead of Hyprland.
 ## What actually works today
 
 - A vanilla Arch cloud image becomes an installed, themed Plasma 6 Wayland session in about
-  **six minutes**, unattended and reproducibly -- `test/vm/golden-path` proves it on every change,
-  with assertions and screenshots.
-- **The theme engine.** One `colors.toml` per theme drives 17 application templates: switching a
-  theme retints Plasma, Konsole, the SDDM greeter, the lock screen, the icon set, VS Code, helix,
-  btop, tmux, foot and the rest, in one command. 20 themes ship; the default is ours.
+  **six minutes**, unattended and reproducibly. `test/vm/golden-path` proves it on every change:
+  14 stages, 91 assertions, a real reboot in the middle, and screenshots of the result.
+- **The theme engine.** One `colors.toml` per theme drives 19 application templates: switching a
+  theme retints Plasma, Konsole, the SDDM greeter, the lock screen, the icon set, the shell prompt,
+  the menu, VS Code, helix, btop, tmux, foot and the rest, in one command. 21 themes ship, 2 of them
+  light; the default is ours.
+- **The login screen matches the machine**, on every install path. It is rendered from the same
+  palette before the display manager starts, so it does not depend on which installer ran.
+- **The desktop is arranged, not just painted.** Two panel layouts (`oal-layout-set ubuntu|mint`)
+  and a menu on `Meta+Space` covering themes, layouts, agent posture and session actions. It lists
+  only entries whose command actually exists on this tree, which a test enforces -- it replaced a
+  menu where none of them did.
+- **The agent layer.** MCP servers managed like packages, a permission posture that is a machine
+  setting, a fail-closed guard on every tool call with an audit log, and a contract for an OS-level
+  brain. That is the next section, and it is the part worth switching for.
 - Wallpapers derived from public-domain photography and recoloured per palette, with every file
   accounted for in `NOTICE`.
 

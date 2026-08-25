@@ -1,7 +1,7 @@
 // The default layout: a thin status bar at the top, a floating dock at the bottom.
 //
-// Applied by bin/oal-layout-set through Plasma's scripting API. Chosen on 2026-08-23 over the stock
-// taskbar, which reads as Windows because Windows is what the taskbar paradigm came from.
+// Applied by bin/oal-layout-set through Plasma's scripting API. Preferred over the stock taskbar,
+// which reads as Windows because Windows is where the taskbar paradigm came from.
 //
 // The dock uses icontasks -- the icons-only task manager -- rather than a launcher widget, because
 // it shows running windows alongside the pinned entries. A dock of pure launchers would have taken
