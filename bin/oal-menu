@@ -53,9 +53,21 @@ menu_layout() {
 menu_agent() {
   local chosen p
   chosen="$(printf '%s\n' \
+    $'\task\tput a question to this machine' \
     $'\tposture\tread-only, confirmed, or permissive' \
-    $'\tservers\twhich MCP servers are registered' | pick Agent)" || return 0
+    $'\tservers\twhich MCP servers are registered' \
+    $'\tbrain\twhich backend answers, and whether it is reachable' | pick Agent)" || return 0
   case "${chosen%%$'\t'*}" in
+    # oal-ask reports its own failures on screen, including having no backend, so this must not
+    # report them a second time through run().
+    ask) oal-ask || true ;;
+    brain)
+      local status
+      status="$(oal-brain-status 2>&1)"
+      # Silent and exit 0 is what "no backend" looks like, and an empty picker is not an answer.
+      [[ -n $status ]] || status="no brain backend configured"
+      printf '%s\n' "$status" | pick Brain >/dev/null || true
+      ;;
     posture)
       p="$(printf '%s\n' \
         $'\tscoped\tthe default: writes are confirmed' \
