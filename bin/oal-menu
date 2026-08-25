@@ -79,6 +79,28 @@ menu_agent() {
   esac
 }
 
+# The Hermes surface, and it only appears when Hermes is the backend. The contract's four verbs are
+# backend-neutral on purpose; boards, gateways and workers are things one particular agent has, and
+# putting them behind a neutral verb set would either bloat the contract or waste the machine.
+menu_hermes() {
+  local chosen board
+  chosen="$(printf '%s\n' \
+    $'\tstatus\tgateways running and what is waiting' \
+    $'\tboards\tkanban boards on this Hermes' \
+    $'\twaiting\ttasks that want a person' | pick Hermes)" || return 0
+  case "${chosen%%$'\t'*}" in
+    status)  run "Hermes status" oal-hermes-status ;;
+    boards)  oal-hermes kanban boards 2>/dev/null | pick Boards >/dev/null || true ;;
+    waiting)
+      # One board at a time: the picker is a list, not a report, and 49 rows from ten boards with no
+      # board named against them would be worse than useless.
+      board="$(oal-hermes kanban boards 2>/dev/null | awk '{for(i=1;i<=NF;i++) if ($i ~ /^[a-z0-9-]+$/) {print $i; exit}}' | pick Board)" || return 0
+      oal-hermes kanban list --board "$board" 2>/dev/null |
+        grep -vE '^(Board:|$)' | pick "$board" >/dev/null || true
+      ;;
+  esac
+}
+
 menu_system() {
   local chosen
   chosen="$(printf '%s\n' \
@@ -100,17 +122,20 @@ case "$route" in
   layout) menu_layout ;;
   agent) menu_agent ;;
   system) menu_system ;;
+  hermes) menu_hermes ;;
   -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
   root)
     chosen="$(printf '%s\n' \
       $'\tTheme\tcolours, wallpaper, and everything themed' \
       $'\tLayout\tpanels and dock' \
       $'\tAgent\tposture and MCP servers' \
+      $'\tHermes\tgateways, boards and what is waiting' \
       $'\tSystem\tlock, log out, restart' | pick Agentarchy)" || exit 0
     case "${chosen%%$'\t'*}" in
       Theme) menu_theme ;;
       Layout) menu_layout ;;
       Agent) menu_agent ;;
+      Hermes) menu_hermes ;;
       System) menu_system ;;
     esac
     ;;

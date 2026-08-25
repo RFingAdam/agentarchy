@@ -60,11 +60,22 @@ if [[ ${1:-} == --refresh ]]; then
     if [[ -n $brain ]] && timeout 10 oal-brain-status >/dev/null 2>&1; then brain_up=1; fi
   fi
 
+  # What the Hermes this machine talks to is doing. Free queries -- boards and gateway state are
+  # local to the Hermes host, not model calls -- but they are ssh round trips, so they belong here on
+  # the timer rather than on the panel's repaint.
+  hermes_up=0 hermes_attention=0
+  if command -v oal-hermes-status >/dev/null; then
+    brief="$(timeout 45 oal-hermes-status --brief 2>/dev/null)"
+    [[ $brief =~ up=([0-9]+) ]] && hermes_up="${BASH_REMATCH[1]}"
+    [[ $brief =~ attention=([0-9]+) ]] && hermes_attention="${BASH_REMATCH[1]}"
+  fi
+
   # The timestamp goes in the file so the read path can judge staleness without a stat(1).
   printf -v now '%(%s)T' -1
   tmp="$(mktemp)"
-  printf '{"ts":%s,"model":"%s","mcp":%s,"pct":"%s","brain":"%s","brain_up":%s}\n' \
-    "$now" "${model:-}" "${mcp:-0}" "${pct:-}" "${brain:-}" "$brain_up" >"$tmp"
+  printf '{"ts":%s,"model":"%s","mcp":%s,"pct":"%s","brain":"%s","brain_up":%s,"gateways":%s,"attention":%s}\n' \
+    "$now" "${model:-}" "${mcp:-0}" "${pct:-}" "${brain:-}" "$brain_up" \
+    "${hermes_up:-0}" "${hermes_attention:-0}" >"$tmp"
   mv -- "$tmp" "$state"
   exit 0
 fi
@@ -101,6 +112,12 @@ line+="$profile"
 # Only when one is configured, so a prompt on a machine with no brain is exactly what it was before.
 # A configured brain that is not answering says so: showing a dead one as live is worse than the two
 # extra characters it costs to be honest.
+# Tasks wanting a person, on the prompt as well as the panel. Only when there are some: a prompt
+# that says "0 waiting" on every line teaches people to stop reading it.
+attention=0
+[[ $body =~ \"attention\":([0-9]+) ]] && attention="${BASH_REMATCH[1]}"
+(( attention )) && line+="  ${attention} waiting"
+
 brain=""; brain_up=0
 [[ $body =~ \"brain\":\"([^\"]*)\" ]] && brain="${BASH_REMATCH[1]}"
 [[ $body =~ \"brain_up\":([0-9]+) ]] && brain_up="${BASH_REMATCH[1]}"

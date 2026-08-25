@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# oal:summary=What the Hermes this machine talks to is actually doing
+# oal:examples=oal-hermes-status
+
+# The answer to "you can only ask it a question". Hermes runs gateways, workers and boards; this is
+# the one screen that says which of them want you.
+#
+# Every query here is free. Boards and gateways are local state on the Hermes host, not model calls,
+# so this can be read on a timer without a bill.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+# States that mean a person or a worker still owes this task something. done and archived do not.
+ATTENTION_STATES="review blocked ready todo triage scheduled"
+
+# --brief is for the panel: three numbers on one line, nothing to parse a table for.
+brief=0
+[[ ${1:-} == --brief ]] && brief=1
+
+gateways="$(timeout 30 oal-hermes gateway list 2>/dev/null)" || {
+  echo "no Hermes configured. Set HERMES_SSH in ~/.config/oal/brain/hermes.env, or install Hermes here." >&2
+  exit 1
+}
+
+up="$(grep -c '✓' <<<"$gateways" || true)"
+down="$(grep -c '✗' <<<"$gateways" || true)"
+(( brief )) || printf 'gateways   %s running, %s stopped\n' "$up" "$down"
+if (( brief == 0 )); then
+  running="$(grep '✓' <<<"$gateways" | sed -E 's/^[^✓]*✓[[:space:]]*//; s/[[:space:]]*—.*//; s/[[:space:]]*\(current\)//' | tr '\n' ' ')"
+  [[ -n ${running// /} ]] && printf '           %s\n' "${running% }"
+fi
+
+boards="$(timeout 30 oal-hermes kanban boards 2>/dev/null)" || {
+  (( brief )) && printf 'up=%s down=%s attention=0\n' "$up" "$down"
+  exit 0
+}
+(( brief )) || echo
+
+# The board table carries per-state counts already, so the whole fleet is one call rather than one
+# call per board.
+total=0
+summary=()
+while IFS= read -r line; do
+  [[ $line =~ [a-z]+= ]] || continue
+  slug="$(awk '{for(i=1;i<=NF;i++) if ($i ~ /^[a-z0-9-]+$/) {print $i; exit}}' <<<"$line")"
+  [[ -n $slug ]] || continue
+  counts=""
+  n=0
+  for state in $ATTENTION_STATES; do
+    c="$(grep -oE "$state=[0-9]+" <<<"$line" | head -1 | cut -d= -f2)"
+    [[ -n ${c:-} && $c -gt 0 ]] || continue
+    counts+="$c $state, "
+    n=$((n + c))
+  done
+  (( n )) || continue
+  total=$((total + n))
+  summary+=("$(printf '  %-20s %s' "$slug" "${counts%, }")")
+done <<<"$boards"
+
+if (( brief )); then
+  printf 'up=%s down=%s attention=%s\n' "$up" "$down" "$total"
+elif (( total )); then
+  printf 'attention  %s task(s) across %s board(s)\n' "$total" "${#summary[@]}"
+  printf '%s\n' "${summary[@]}"
+else
+  printf 'attention  nothing waiting\n'
+fi

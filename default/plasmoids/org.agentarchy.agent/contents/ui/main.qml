@@ -27,6 +27,8 @@ PlasmoidItem {
     property string spend: ""
     property string brain: ""
     property bool brainUp: false
+    property int gateways: 0
+    property int attention: 0
 
     readonly property string hudCommand: "oal-agent-hud --json"
 
@@ -54,6 +56,8 @@ PlasmoidItem {
                 root.spend = j.pct || ""
                 root.brain = j.brain || ""
                 root.brainUp = j.brain_up === 1
+                root.gateways = j.gateways || 0
+                root.attention = j.attention || 0
             } catch (e) {
                 // A half-written cache is a transient, not a reason to blank the panel.
             }
@@ -115,8 +119,16 @@ PlasmoidItem {
                 font.pointSize: Kirigami.Theme.smallFont.pointSize
             }
 
-            // Only when there is something to say. A panel that always shows "0 mcp  %" teaches
-            // people to stop reading it.
+            // Tasks a person or a worker still owes something. Shown only when there are some: a
+            // panel that always reads "0" is one people stop looking at.
+            PlasmaComponents.Label {
+                visible: root.attention > 0
+                text: root.attention
+                font.pointSize: Kirigami.Theme.smallFont.pointSize
+                font.bold: true
+                color: Kirigami.Theme.negativeTextColor
+            }
+
             PlasmaComponents.Label {
                 visible: root.spend.length > 0
                 text: root.spend.split(".")[0] + "%"
@@ -163,6 +175,17 @@ PlasmoidItem {
                 PlasmaComponents.Label { text: i18n("Today"); opacity: 0.7; visible: root.spend.length > 0 }
                 PlasmaComponents.Label { text: root.spend.split(".")[0] + "%"; visible: root.spend.length > 0; Layout.fillWidth: true }
 
+                PlasmaComponents.Label { text: i18n("Gateways"); opacity: 0.7; visible: root.gateways > 0 }
+                PlasmaComponents.Label { text: i18n("%1 running", root.gateways); visible: root.gateways > 0; Layout.fillWidth: true }
+
+                PlasmaComponents.Label { text: i18n("Waiting"); opacity: 0.7; visible: root.attention > 0 }
+                PlasmaComponents.Label {
+                    visible: root.attention > 0
+                    text: i18n("%1 task(s) want attention", root.attention)
+                    color: Kirigami.Theme.negativeTextColor
+                    Layout.fillWidth: true
+                }
+
                 PlasmaComponents.Label { text: i18n("Brain"); opacity: 0.7 }
                 PlasmaComponents.Label {
                     // Configured and unreachable is a different state from not configured, and the
@@ -186,6 +209,18 @@ PlasmoidItem {
                     Layout.fillWidth: true
                     onClicked: {
                         exec.run("oal-ask")
+                        root.expanded = false
+                    }
+                }
+
+                PlasmaComponents.Button {
+                    // Only when there is a fleet to look at.
+                    visible: root.gateways > 0 || root.attention > 0
+                    text: i18n("Boards")
+                    icon.name: "view-task"
+                    Layout.fillWidth: true
+                    onClicked: {
+                        exec.run("oal-menu hermes")
                         root.expanded = false
                     }
                 }
