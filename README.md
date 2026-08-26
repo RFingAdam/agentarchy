@@ -7,7 +7,9 @@ Plasma 6** instead of Hyprland.
 
 ![Agentarchy on its default theme](docs/screenshots/desktop-agentarchy.webp)
 
-> **Status: pre-alpha.** What is described below exists and is tested. Anything that does not is on
+> **Status: pre-alpha**, currently
+> [v0.1.0](https://github.com/RFingAdam/agentarchy/releases/tag/v0.1.0).
+> What is described below exists and is tested. Anything that does not is on
 > the [issue tracker](https://github.com/RFingAdam/agentarchy/issues) rather than in this paragraph,
 > because a README that describes the roadmap in the present tense is how projects waste people's
 > evenings.
@@ -37,7 +39,7 @@ Then `sudo systemctl reboot`, and you land in a themed Plasma 6 Wayland session.
 
 | | |
 |---|---|
-| `OAL_REF=main` | branch or tag to clone |
+| `OAL_REF=v0.1.0` | install a tagged release rather than the tip of `main`, which moves |
 | `OAL_SKIP_DESKTOP=1` | build and install the package, then stop before touching the system |
 | `OAL_SKIP_MISE=0` | also install the mise tools. Skipped by default; they add minutes |
 | `OAL_SKIP_AGENT=1` | skip the coding-agent runtime |

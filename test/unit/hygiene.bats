@@ -115,3 +115,14 @@ readme_number() {
   # that cannot tell an example from an endorsement would force the explanation to be deleted.
   ! grep -qE '^[[:space:]]*\$?[[:space:]]*curl[^|]*\|[[:space:]]*(sudo )?(ba|z)?sh' "$SRC/README.md"
 }
+
+@test "the version the README advertises is the version this tree ships" {
+  # The counts drifted because nothing recomputed them. A version in prose drifts the same way and
+  # more embarrassingly: it is the first thing anyone checks against the releases page.
+  local shipped advertised
+  shipped="$(cat "$SRC/version")"
+  advertised="$(grep -oE 'releases/tag/v[0-9]+\.[0-9]+\.[0-9]+' "$SRC/README.md" | head -1 | sed 's|.*/v||')"
+  [ -n "$advertised" ] || { echo "the README links no release"; false; }
+  [ "$advertised" = "$shipped" ] || {
+    echo "README advertises v$advertised, version file says $shipped"; false; }
+}
