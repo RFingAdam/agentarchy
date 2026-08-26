@@ -17,6 +17,13 @@ PartOf=graphical-session.target
 # working one -- Wants= does not restart what is already running. Skip the start
 # instead; the unit stays enabled and starts for real at graphical login.
 ConditionEnvironment=WAYLAND_DISPLAY
+# fcitx5 is in no package list on this distribution, and this unit is enabled at
+# first run regardless -- so on every machine it failed at EXEC and, with
+# Restart=always and RestartSec=2, kept failing until systemd's rate limiter
+# stopped it. Twenty-two error lines on a fresh boot, which oal-doctor surfaced
+# the first time it ran on a clean install. The other units here already use
+# ConditionPath* to stay inert where they do not apply; this one had nothing.
+ConditionPathExists=/usr/bin/fcitx5
 
 [Service]
 Type=simple

@@ -1,0 +1,16 @@
+--- a/default/systemd/user/bt-agent.service
++++ b/default/systemd/user/bt-agent.service
+@@ -6,6 +6,13 @@
+ After=dbus.socket
+ Requires=dbus.socket
+ 
++# bt-agent comes from bluez-tools, which was in no package list, so this unit was enabled at first
++# run on every machine and its binary was never there. enable-user-units.sh says in as many words
++# that it is enabled so the first session has bluetooth pairing live immediately; it never has.
++# The package is listed now, and this stays so that removing it makes the unit inert rather than a
++# restart loop.
++ConditionPathExists=/usr/bin/bt-agent
++
+ [Service]
+ Type=simple
+ # If bluetoothd is unavailable (for example in VMs or machines without a

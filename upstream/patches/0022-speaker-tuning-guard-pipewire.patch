@@ -1,0 +1,15 @@
+--- a/default/systemd/user/oal-speaker-tuning.service
++++ b/default/systemd/user/oal-speaker-tuning.service
+@@ -10,6 +10,12 @@
+ # PipeWire goes away.
+ PartOf=pipewire.service
+ 
++# pipewire is a base package here and in practice always present, so this guard is belt and braces
++# rather than a fix. It is uniform on purpose: two sibling units were enabled with their binaries
++# absent and spent every boot in a restart loop, and a rule that asks "is this package guaranteed?"
++# is a rule someone answers wrongly. Anything this tree does not ship itself declines instead.
++ConditionPathExists=/usr/bin/pipewire
++
+ [Service]
+ Type=simple
+ # Hosts the tuning as a PipeWire *client* rather than loading it into the daemon

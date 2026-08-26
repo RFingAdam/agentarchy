@@ -36,6 +36,7 @@ wireplumber
 # --- hardware
 bluez
 bluez-utils
+bluez-tools
 power-profiles-daemon
 # Printing, with the discovery stack: cups alone finds nothing on a LAN. install/config/
 # enable-services.sh (vendored) enables cups-browsed and avahi-daemon, so the packages that own

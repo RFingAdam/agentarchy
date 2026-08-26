@@ -97,3 +97,27 @@ entries() { sed -e 's/#.*//' -e '/^[[:space:]]*$/d' -e 's/[[:space:]]//g' "$@"; 
   run grep -n 'DisplayServer=wayland' "$plasma"
   [ "$status" -ne 0 ]
 }
+
+@test "every shipped unit either has its binary or refuses to start without it" {
+  # oal-fcitx5.service was enabled at first run on every machine while fcitx5 was in no package
+  # list. With Restart=always and RestartSec=2 it failed at EXEC and kept failing until systemd's
+  # rate limiter stopped it, on every single boot. Nothing noticed, because a user unit failing
+  # quietly looks exactly like one that is not needed.
+  local unit exec bin missing=""
+  for unit in "$SRC"/default/systemd/user/*.service; do
+    exec="$(grep -m1 '^ExecStart=' "$unit" | sed 's/^ExecStart=//' | awk '{print $1}')"
+    [[ $exec == /* ]] || continue
+    bin="$(basename "$exec")"
+    # Ours, so it ships with the package and cannot go missing separately.
+    [ -x "$SRC/bin/$bin" ] && continue
+    # Anything else must decline to start rather than fail in a loop, whether or not we also list
+    # the package. "It is in a package list" is not a guarantee: a package can be removed, and a
+    # binary's name is frequently not its package's -- bt-agent comes from bluez-tools, which is
+    # exactly the mapping this test cannot do offline and should not try to.
+    grep -q "^ConditionPathExists=$exec" "$unit" && continue
+    missing+="$(basename "$unit") -> $exec"$'\n'
+  done
+  [ -z "$missing" ] || {
+    echo "units running a binary we do not ship, with no ConditionPathExists to guard it:"
+    echo "$missing"; false; }
+}
