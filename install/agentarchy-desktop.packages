@@ -82,6 +82,18 @@ papirus-icon-theme
 mpv
 kcalc
 
+# Local inference. This is what makes "agent-first operating system" true with no network, no
+# account and no bill -- and it is the clearest evidence the brain contract is not a bet on one
+# vendor, since it shares nothing with the others but four subcommands.
+#
+# The CPU build ships everywhere because it works everywhere. install/agent/local-inference.sh swaps
+# in ollama-cuda on a machine with an NVIDIA GPU; a VM gets CPU, because a virtio GPU is for graphics
+# and cannot do inference.
+#
+# No model ships with it. Models are gigabytes and choosing one for somebody is a worse default than
+# asking: `ollama pull qwen2.5:1.5b` is small enough for a laptop CPU.
+ollama
+
 # The browser. A desktop without one cannot open a link, and until now nothing here could: no
 # package named a browser, and xdg-settings had no default to report.
 #

@@ -118,6 +118,17 @@ the theme:
 It reads a cached file and never the network, and prints nothing at all when there is nothing to say.
 A prompt that stalls is worse than a prompt that is quiet.
 
+**It can think without the internet.** `ollama` ships, wired to the brain contract as a backend like
+any other, so `Meta+A` answers with no network, no account and no bill:
+
+```bash
+ollama pull qwen2.5:1.5b
+oal-brain-backend local
+```
+
+The CPU build ships everywhere and the CUDA build swaps in on a machine with an NVIDIA GPU. Nothing
+about this is specific to any vendor, which is rather the point of the next paragraph.
+
 **There is a contract for an OS-level brain.** Not a coding agent you launch -- a process that is
 already running, remembers, is reachable from somewhere other than the terminal you are sitting at,
 and can act on the machine. Agentarchy ships the contract and thin adapters; it ships no brain,
