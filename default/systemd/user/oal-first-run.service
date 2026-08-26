@@ -1,0 +1,25 @@
+# Finish first-login setup: install the post-update hooks, enable the user units, and show the
+# welcome cards.
+#
+# This unit is the piece that was missing. bin/oal-provision-first-run existed, was on PATH, and
+# nothing anywhere called it -- upstream drives it from a Hyprland autostart that was excluded from
+# vendoring as compositor-bound, so on this desktop the whole install/user/first-run directory was
+# dead code that read exactly like live code. That is also why nobody noticed the click targets
+# inside it had been pointing at commands this tree does not have.
+#
+# Safe to run every login: oal-provision-first-run checks `oal-done check first-run-user` and exits
+# immediately once it has succeeded.
+[Unit]
+Description=Finish first-login setup for Agentarchy
+After=graphical-session.target
+PartOf=graphical-session.target
+# It sends notifications and opens windows. Without a session it would run, do half its job, and
+# mark itself done.
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/oal-provision-first-run
+
+[Install]
+WantedBy=graphical-session.target

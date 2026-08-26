@@ -1,0 +1,105 @@
+#!/bin/bash
+
+# oal:summary=Choose, list or pull the model the local brain runs
+# oal:args=[name|--list|--pull <name>|--suggest]
+# oal:examples=oal-brain-model | oal-brain-model --suggest | oal-brain-model --pull qwen2.5:3b
+
+# Model choice matters less than the generation settings the local adapter now sets, but it is the
+# one knob a person actually wants, and `ollama pull qwen2.5:1.5b` is a thing you have to be told
+# once and then remember forever. This is the telling.
+set -uo pipefail
+BRAIN_CMD=oal-brain-model
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain"
+config="$config_dir/local.env"
+host="${OLLAMA_HOST:-127.0.0.1:11434}"
+[[ $host == http*://* ]] || host="http://$host"
+
+api() { curl -fsS --max-time "${2:-10}" "$host/api/$1" 2>/dev/null; }
+
+installed_models() { api tags | jq -r '.models[]?.name // empty' 2>/dev/null; }
+
+current() {
+  # The adapter's own answer, so this can never disagree with what actually runs.
+  # shellcheck disable=SC1090
+  [[ -r $config ]] && source "$config"
+  local m="${OAL_LOCAL_MODEL:-}"
+  [[ -n $m ]] || m="$(installed_models | head -1)"
+  printf '%s' "$m"
+}
+
+# Sized to memory, because the failure this prevents is not a slow answer -- it is a model that does
+# not fit, swaps, and makes the whole desktop unusable while it thinks.
+suggest() {
+  local kb gb
+  kb="$(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null)" || kb=0
+  [[ $kb =~ ^[0-9]+$ ]] || kb=0
+  gb=$(( kb / 1024 / 1024 ))
+  if   (( gb < 4 ));  then printf 'qwen2.5:0.5b'
+  elif (( gb < 8 ));  then printf 'qwen2.5:1.5b'
+  elif (( gb < 16 )); then printf 'qwen2.5:3b'
+  elif (( gb < 32 )); then printf 'qwen2.5:7b'
+  else                     printf 'qwen2.5:14b'
+  fi
+}
+
+case "${1:-}" in
+  "")
+    m="$(current)"
+    if [[ -n $m ]]; then
+      echo "$m"
+    else
+      echo "no model pulled. Suggested for this machine: $(suggest)" >&2
+      echo "  oal-brain-model --pull $(suggest)" >&2
+      exit 1
+    fi
+    ;;
+  --list)
+    m="$(current)"
+    found=0
+    while read -r name; do
+      [[ -n $name ]] || continue
+      found=1
+      if [[ $name == "$m" ]]; then printf '* %s\n' "$name"; else printf '  %s\n' "$name"; fi
+    done < <(installed_models)
+    (( found )) || { echo "no models pulled, and nothing to list. Try: oal-brain-model --pull $(suggest)" >&2; exit 1; }
+    ;;
+  --suggest)
+    gb=$(( $(awk '/^MemTotal:/ {print $2; exit}' /proc/meminfo 2>/dev/null || echo 0) / 1024 / 1024 ))
+    printf '%s   (this machine has %sGB of memory)\n' "$(suggest)" "$gb"
+    ;;
+  --pull)
+    shift
+    name="${1:-$(suggest)}"
+    command -v ollama >/dev/null || brain_fail "ollama is not installed"
+    # The CLI here rather than the API: pulling is the one operation where a progress bar is the
+    # point, and it is measured in gigabytes.
+    ollama pull "$name" || brain_fail "could not pull $name"
+    mkdir -p -- "$config_dir"
+    if [[ -r $config ]] && grep -q '^OAL_LOCAL_MODEL=' "$config"; then
+      sed -i "s|^OAL_LOCAL_MODEL=.*|OAL_LOCAL_MODEL=$name|" "$config"
+    else
+      printf 'OAL_LOCAL_MODEL=%s\n' "$name" >>"$config"
+    fi
+    echo "local brain model: $name"
+    ;;
+  -h|--help) sed -n '3,5p' "$0" | sed 's/^# oal://' ;;
+  -*) brain_fail "unknown option: $1" ;;
+  *)
+    name="$1"
+    installed_models | grep -qxF "$name" ||
+      brain_fail "'$name' is not pulled. Pull it first: oal-brain-model --pull $name"
+    mkdir -p -- "$config_dir"
+    if [[ -r $config ]] && grep -q '^OAL_LOCAL_MODEL=' "$config"; then
+      sed -i "s|^OAL_LOCAL_MODEL=.*|OAL_LOCAL_MODEL=$name|" "$config"
+    else
+      printf 'OAL_LOCAL_MODEL=%s\n' "$name" >>"$config"
+    fi
+    echo "local brain model: $name"
+    ;;
+esac

@@ -70,6 +70,7 @@ one subcommand:
 | `probe` | exit 0 if the backend is reachable. Must return quickly |
 | `ask` | read the prompt on **stdin**, write the answer as text on **stdout** |
 | `serve` | optional. Run in the foreground, for backends that want to be resident |
+| `interactive` | optional. Replace the process with a session a person sits in front of. Answer `interactive --check` with exit 0 first, or exit 1 to say the backend has none |
 
 **The prompt arrives on stdin, never in argv.** Prompts contain quotes, newlines and shell
 metacharacters as a matter of course, and argv is where those become somebody else's bug.
@@ -77,7 +78,16 @@ metacharacters as a matter of course, and argv is where those become somebody el
 An adapter is forbidden from doing anything on the machine's behalf directly. If a backend wants
 the desktop to change, it calls `oal-brain-do`, and it gets the same answer everything else does.
 
-### The three shipped
+`interactive` is what `bin/oal-agent` calls, and it is the reason there is no separate setting for
+"which agent". `oal-brain-backend` already answers that question, and a second source of truth for
+one question is how the first one goes stale.
+
+An adapter with no interactive mode says so by exiting 1. Two of the four do: `stub`, because a
+fixture that opened a REPL would make `oal-agent` look like it worked on a machine with no runtime,
+and `hermes`, because this adapter was once written against an invented HTTP API and none of it was
+right. Inventing an interactive invocation now would be the same mistake with a different flag.
+
+### The four shipped
 
 - **`stub`**: a test fixture, and it says so. Answers deterministically with no model, no network
   and no account, so "is this wired up on this machine" has an answer that cannot be confounded by
@@ -92,9 +102,42 @@ the desktop to change, it calls `oal-brain-do`, and it gets the same answer ever
   shares nothing with the others but the four subcommands.
 
   ```bash
-  ollama pull qwen2.5:1.5b        # small enough to answer on a laptop CPU
+  oal-brain-model --pull qwen2.5:1.5b   # or --suggest, which sizes one to this machine's memory
   oal-brain-backend local
   ```
+
+  It talks to Ollama's **HTTP API**, not `ollama run`. The CLI cannot be told how long to keep the
+  model loaded, when to stop generating, or what its system prompt is, and those three were most of
+  why the first version took 65 seconds cold and 33 warm to produce one sentence:
+
+  | | |
+  |---|---|
+  | `keep_alive` | the CLI leaves Ollama's five-minute default, so a question asked six minutes after the last one pays a full model load. On a desktop that is every question. |
+  | `num_predict` | nothing capped the answer, so a small model asked something open-ended kept going |
+  | a system prompt | which the CLI has no way to pass at all |
+
+  All three are settable in `~/.config/oal/brain/local.env`. The API also does not draw a spinner,
+  which is why the ANSI-stripping that used to be in this adapter is gone rather than kept.
+
+  Measured in the test VM, 8 vcpu, CPU only, `qwen2.5:1.5b`, answering grounded questions about the
+  machine:
+
+  | | before | after |
+  |---|---|---|
+  | first question, model cold | 65s | 8.4s |
+  | subsequent questions | 33s | 2.0 to 5.5s |
+
+  Of the remaining time, about 1.5s is gathering the facts and the rest is the model. `num_ctx`
+  defaults to **4096, matching Ollama's own default and not exceeding it**, which matters more than
+  the number: Ollama reloads a model whenever a request asks for a context size other than the one
+  loaded, so an adapter that insists on 8192 evicts every other client's model and has its own
+  evicted right back. That alone accounted for several 30-second answers while this was being
+  measured.
+
+  A 1.5B model still reasons like a 1.5B model. Asked "is my disk full?" on a machine at 34% it
+  answers "Yes, your disk is 34% full" often enough to notice: the number is right, the verdict is
+  not. The grounding is what makes the facts true; it cannot make the model bigger, and
+  `oal-brain-model --suggest` names something better if the machine has the memory for it.
 
   `probe` requires a model, not just an installed Ollama. Installed, serving and holding a model are
   three different things, and two of them is a brain that cannot answer.
@@ -162,6 +205,45 @@ when it is configured but not answering.
 `oal-brain-notify` exists so a brain running somewhere else can still reach this screen. It is a
 thin name over `oal-brain-do notify` rather than a second route to the notification service: one
 enforcement point, two spellings. A shortcut would be a hole with a friendly name.
+
+## A question about this machine arrives with this machine attached
+
+Ask an ungrounded model whether there are any problems with your operating system and it will tell
+you about operating systems, because that is all it was given. The first version of this asked
+qwen2.5:1.5b exactly that and got back a definition of the term. A frontier model fails the same way
+with better manners: it says it cannot see your system, which is true and equally useless.
+
+So `oal-brain-ask` attaches the facts first:
+
+```
+oal-brain-state       host, uptime, theme, layout, posture, session, battery
+oal-doctor            every health check that is not `ok`, summaries in full, detail trimmed
+```
+
+The facts go first, the instruction second, the question last: a model that truncates from the front
+loses evidence rather than its orders, and the question is in the position every instruct model
+attends to hardest.
+
+**Whether a question is about this machine is decided by a keyword match**, in
+`brain_question_is_local` in `default/brain/lib.sh`. Not by a model. It is cheap, it is testable, and
+a classifier that is itself a model can be wrong in ways that are hard to see, at which point the
+step meant to make answers trustworthy is one more thing that is not.
+
+The word list is deliberately conservative. Grounding a general question wastes context and, on a
+small model, crowds out the answer, so the cost of a false positive is real:
+
+```bash
+oal-brain-ask "are there any OS issues?"       # grounded
+oal-brain-ask "who wrote Hamlet?"              # not
+oal-brain-ask --no-context "is the disk full"  # forced off
+oal-brain-ask --context "hello"                # forced on
+```
+
+Gathering costs about a second. That is the price of an answer that is true, and it is paid before
+the model is called rather than instead of calling it.
+
+Only findings are included, never the checks that passed. Thirteen lines of "everything is fine" is
+how the one line that mattered gets pushed out of a small model's context.
 
 ## Jobs you walk away from
 

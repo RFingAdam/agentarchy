@@ -11,6 +11,7 @@
 # --- toolchain and shell basics
 base-devel
 git
+pacman-contrib
 jq
 gum
 bash-completion

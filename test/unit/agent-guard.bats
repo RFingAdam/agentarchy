@@ -13,7 +13,7 @@ setup() {
   GUARD="$SRC/agent/hooks/pretooluse-guard"
   export XDG_STATE_HOME="$BATS_TEST_TMPDIR/state"
   mkdir -p "$XDG_STATE_HOME/oal"
-  AUDIT="$XDG_STATE_HOME/oal/claude-audit"
+  AUDIT="$XDG_STATE_HOME/oal/audit"
 
   profile() { printf '%s' "$1" >"$XDG_STATE_HOME/oal/agent-profile"; }
 
@@ -127,11 +127,9 @@ setup() {
 }
 
 @test "an unreadable rule set denies everything" {
-  local copy="$BATS_TEST_TMPDIR/guard"
-  mkdir -p "$copy"
-  cp "$GUARD" "$copy/pretooluse-guard"
-  # No rules file beside it.
-  run bash -c "printf '%s' '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"ls\"}}' | '$copy/pretooluse-guard'"
+  # GUARD_RULES rather than moving the script: the rules are found through OAL_PATH now, so a copy
+  # of the hook in another directory finds them perfectly well and would prove nothing.
+  run bash -c "printf '%s' '{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"ls\"}}' | GUARD_RULES=/nonexistent '$GUARD'"
   [[ $output == *'"deny"'* ]]
   [[ $output == *"rule set unreadable"* ]]
 }

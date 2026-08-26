@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# oal:summary=Diagnose one of this machine's health findings with the configured agent
+# oal:args=<check-id>
+# oal:examples=oal-agent-diagnose failed-units | oal-agent-diagnose disk
+
+# Clicked from a health notification, or run by hand against any id in `oal-doctor --json`. Same
+# shape as oal-agent-crash: this gathers the facts and points at a skill, and the skill holds the
+# method so it is edited in one place and works with whichever agent is configured.
+
+set -euo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+id=${1:?usage: oal-agent-diagnose <check-id>   (see: oal-doctor --json)}
+
+skill="$OAL_PATH/default/agents/skills/diagnose-system/SKILL.md"
+
+report=$(timeout 60 oal-doctor --json 2>/dev/null) || true
+[[ -n $report ]] || { echo "oal-agent-diagnose: oal-doctor produced nothing" >&2; exit 1; }
+
+finding=$(printf '%s' "$report" | jq -r --arg id "$id" '
+  .checks[] | select(.id == $id)
+  | "  check:    \(.id)\n  severity: \(.severity)\n  summary:  \(.summary)"
+    + (if .detail then "\n  detail:\n" + (.detail | split("\n") | map("    " + .) | join("\n")) else "" end)
+' 2>/dev/null) || true
+
+if [[ -z $finding ]]; then
+  echo "oal-agent-diagnose: no check called '$id'." >&2
+  echo "Known checks: $(printf '%s' "$report" | jq -r '[.checks[].id] | join(", ")')" >&2
+  exit 1
+fi
+
+prompt=$(
+  cat <<PROMPT
+A health check on this Agentarchy machine is reporting a problem and I want to know why.
+
+What oal-doctor recorded:
+
+$finding
+
+Use the diagnose-system skill: it covers how to investigate each kind of finding, what to report,
+and when something is worth reporting upstream to Agentarchy. If your harness has no skill
+mechanism, read the skill file directly and follow it instead:
+
+  $skill
+
+The full report is available by running: oal-doctor --json
+PROMPT
+)
+
+exec oal-agent --prompt "$prompt"

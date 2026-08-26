@@ -12,7 +12,9 @@ export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
 
 say() { printf '%s: %s\n' "$1" "${2:-unknown}"; }
 
-say host "$(hostname 2>/dev/null)"
+# uname -n, not hostname: inetutils is not part of a base Arch install, so `hostname` is frequently
+# absent and this line reported the machine as "unknown" to every brain that asked.
+say host "$(uname -n 2>/dev/null)"
 say uptime "$(uptime -p 2>/dev/null | sed 's/^up //')"
 say theme "$(basename "$(readlink -f "${XDG_STATE_HOME:-$HOME/.local/state}/oal/current/theme" 2>/dev/null)" 2>/dev/null)"
 say layout "$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/oal/layout" 2>/dev/null)"

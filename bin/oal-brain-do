@@ -46,13 +46,19 @@ display="$(printf '%s ' "${argv[@]}")"; display="${display% }"
 # Fail closed, for the same reason the guard itself does. A brain that acts when the control that
 # governs it is missing is a brain with no control, and the machine cannot tell the difference from
 # the outside.
-command -v jq >/dev/null ||
-  brain_fail "jq is missing, so the guard cannot decide. Refusing: $display"
-[[ -x $BRAIN_GUARD ]] ||
-  brain_fail "the tool-call guard is not installed at $BRAIN_GUARD. Refusing: $display"
+#
+# The engine is sourced rather than forked, and asked directly rather than through a synthetic
+# Claude Code payload. The old spelling built `{tool_name, tool_input}`, piped it to the PreToolUse
+# hook and read a permissionDecision back out -- three processes and two jq invocations to ask a
+# question neither party needed a vendor's JSON to express, on a path where the only reason that
+# vendor appeared at all was that the rules happened to live inside its hook.
+[[ -r $BRAIN_GUARD_LIB ]] ||
+  brain_fail "the tool-call guard engine is not installed at $BRAIN_GUARD_LIB. Refusing: $display"
+# shellcheck source=default/guard/lib.sh
+source "$BRAIN_GUARD_LIB" || brain_fail "the guard engine could not be loaded. Refusing: $display"
 
-decision="$(jq -nc --arg c "$display" '{tool_name:"Bash", tool_input:{command:$c}}' |
-  "$BRAIN_GUARD" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecision // "deny"' 2>/dev/null)"
+decision="$(guard_decide brain Bash "$display" | cut -f1)"
+[[ -n $decision ]] || decision=deny
 
 case "$decision" in
   allow) ;;

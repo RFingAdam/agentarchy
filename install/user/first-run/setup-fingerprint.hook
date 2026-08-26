@@ -8,5 +8,5 @@ if oal-hw-fingerprint && [[ ! -f /etc/pam.d/oal-lock-fingerprint ]] &&
   oal-done ensure fingerprint-setup-invitation; then
   oal-notification-send -u critical -g 󰈷 "Setup Fingerprint Reader" \
     "Enable sudo and unlocking with your fingerprint." \
-    --exec "oal-launch-floating-terminal-with-presentation oal-setup-security-fingerprint"
+    --exec "oal-run-in-terminal oal-setup-security-fingerprint"
 fi

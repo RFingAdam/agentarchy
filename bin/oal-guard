@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# oal:summary=Ask this machine whether a tool call is allowed
+# oal:args=--tool <name> [text...]
+# oal:examples=oal-guard --tool Bash "rm -rf /tmp/x" | echo "sudo pacman -Syu" | oal-guard --tool Bash
+
+# The guard, for anything that is not Claude Code.
+#
+# Claude Code reaches the same engine through agent/hooks/pretooluse-guard, because it has a hook
+# contract of its own. Everything else -- Codex, a local Hermes, an MCP server, a shell script, a
+# person checking what the machine would say -- has this instead: a tool name, some text, and an
+# exit code.
+#
+#   0  allow    1  ask (a person would be asked; on an unattended path treat this as a refusal)
+#   2  deny     anything else means the guard itself failed, and MUST be treated as a refusal
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+# shellcheck source=default/guard/lib.sh
+source "$OAL_PATH/default/guard/lib.sh"
+
+tool=""
+runtime="${OAL_GUARD_RUNTIME:-cli}"
+quiet=0
+while (($#)); do
+  case "$1" in
+    --tool) shift; tool="${1:-}"; shift ;;
+    --runtime) shift; runtime="${1:-cli}"; shift ;;
+    --quiet|-q) quiet=1; shift ;;
+    -h|--help) sed -n '3,5p' "$0" | sed 's/^# oal://'; exit 0 ;;
+    --) shift; break ;;
+    -*) echo "oal-guard: unknown option: $1" >&2; exit 64 ;;
+    *) break ;;
+  esac
+done
+
+[[ -n $tool ]] || { echo "oal-guard: --tool is required" >&2; exit 64; }
+
+# Text from argv if given, otherwise stdin. A command being classified is full of quotes and
+# metacharacters, and stdin is the spelling that cannot lose any of them.
+if (($#)); then
+  input="$*"
+else
+  input="$(cat)"
+fi
+
+verdict="$(guard_decide "$runtime" "$tool" "$input")"
+rc=$?
+(( quiet )) || printf '%s\n' "$verdict"
+exit "$rc"

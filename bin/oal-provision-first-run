@@ -68,8 +68,10 @@ run_first_run_step() {
   fi
 }
 
-run_first_run_step "install Voxtype post-update hook" \
-  oal-hook-install post-update "$OAL_PATH/install/user/first-run/install-voxtype.hook"
+# The Voxtype invitation is not installed. default/voxtype/** is excluded from vendoring as
+# compositor-bound, so oal-voxtype-install does not exist on this tree: the card would offer to
+# install dictation and the click would land on nothing. An invitation to something unavailable is
+# worse than no invitation, because it costs the person a click to find out.
 run_first_run_step "install fingerprint setup post-update hook" \
   oal-hook-install post-update "$OAL_PATH/install/user/first-run/setup-fingerprint.hook"
 run_first_run_step "install agent setup post-update hook" \

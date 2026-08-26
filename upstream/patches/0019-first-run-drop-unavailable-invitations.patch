@@ -1,0 +1,24 @@
+--- a/install/user/first-run/setup-fingerprint.hook
++++ b/install/user/first-run/setup-fingerprint.hook
+@@ -8,5 +8,5 @@
+   oal-done ensure fingerprint-setup-invitation; then
+   oal-notification-send -u critical -g 󰈷 "Setup Fingerprint Reader" \
+     "Enable sudo and unlocking with your fingerprint." \
+-    --exec "oal-launch-floating-terminal-with-presentation oal-setup-security-fingerprint"
++    --exec "oal-run-in-terminal oal-setup-security-fingerprint"
+ fi
+--- a/bin/oal-provision-first-run
++++ b/bin/oal-provision-first-run
+@@ -68,8 +68,10 @@
+   fi
+ }
+ 
+-run_first_run_step "install Voxtype post-update hook" \
+-  oal-hook-install post-update "$OAL_PATH/install/user/first-run/install-voxtype.hook"
++# The Voxtype invitation is not installed. default/voxtype/** is excluded from vendoring as
++# compositor-bound, so oal-voxtype-install does not exist on this tree: the card would offer to
++# install dictation and the click would land on nothing. An invitation to something unavailable is
++# worse than no invitation, because it costs the person a click to find out.
+ run_first_run_step "install fingerprint setup post-update hook" \
+   oal-hook-install post-update "$OAL_PATH/install/user/first-run/setup-fingerprint.hook"
+ run_first_run_step "install agent setup post-update hook" \

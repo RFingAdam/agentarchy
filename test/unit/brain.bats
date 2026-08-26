@@ -27,6 +27,9 @@ fake_tree() {
   ln -sfn "$SRC/bin" "$FAKE/bin"
   ln -sfn "$SRC/agent" "$FAKE/agent"
   ln -sfn "$SRC/themes" "$FAKE/themes"
+  # The policy engine, which oal-brain-do sources. It moved out of agent/ when the guard was split
+  # from Claude Code's hook, so linking agent/ alone no longer brings it.
+  ln -sfn "$SRC/default/guard" "$FAKE/default/guard"
   ln -sfn "$SRC/default/brain/adapters" "$FAKE/default/brain/adapters"
   cp "$SRC/default/brain/lib.sh" "$FAKE/default/brain/lib.sh"
   cp "$SRC/default/brain/VERBS" "$FAKE/default/brain/VERBS"
@@ -103,8 +106,9 @@ add_verb() {
 }
 
 @test "a question round-trips through the configured backend" {
+  # --no-context so this measures the pipe and nothing else. Grounding has its own suite.
   oal-brain-backend stub >/dev/null
-  run oal-brain-ask "what theme am I using"
+  run oal-brain-ask --no-context "what theme am I using"
   [ "$status" -eq 0 ]
   [ "$output" = "stub: what theme am I using" ]
 }
@@ -161,11 +165,10 @@ add_verb() {
   # Fail closed, for the same reason the guard does. A brain that acts when the control governing it
   # is absent is a brain with no control, and from the outside those look identical.
   fake_tree
-  rm -f "$FAKE/agent"
-  mkdir -p "$FAKE/agent/hooks"
+  rm -f "$FAKE/default/guard"
   run env OAL_PATH="$FAKE" "$SRC/bin/oal-brain-do" state
   [ "$status" -ne 0 ]
-  [[ $output == *"guard is not installed"* ]]
+  [[ $output == *"guard engine is not installed"* ]]
 }
 
 @test "oal-brain-notify goes through the boundary rather than around it" {

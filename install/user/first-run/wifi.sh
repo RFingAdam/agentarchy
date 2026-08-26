@@ -1,11 +1,11 @@
 notify_update() {
   oal-notification-send -u critical -g  "Update System" "Click to update the system." \
-    --exec "oal-launch-floating-terminal-with-presentation oal-update"
+    --exec "oal-run-in-terminal oal-update"
 }
 
 notify_wifi() {
   oal-notification-send -u critical -g 󰖩 "Setup Wi-Fi" "Click to configure the wireless network." \
-    --exec "oal-shell shell toggle oal.network"
+    --exec "systemsettings kcm_networkmanagement"
 }
 
 announce_network() {

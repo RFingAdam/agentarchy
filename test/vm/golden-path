@@ -281,7 +281,9 @@ systemctl --user is-enabled oal-brain.service >/dev/null 2>&1 &&
 oal-brain-backend stub >/dev/null || { echo "FAIL brain-select: could not select the stub"; exit 1; }
 echo "PASS brain-select"
 
-answer="$(oal-brain-ask 'what theme am I using')"
+# --no-context so this measures the pipe and nothing else. A question about this machine now
+# arrives at the backend with the machine's state attached, which the machine stage below checks.
+answer="$(oal-brain-ask --no-context 'what theme am I using')"
 [ "$answer" = "stub: what theme am I using" ] &&
   echo "PASS brain-round-trip" || { echo "FAIL brain-round-trip: got '$answer'"; exit 1; }
 
@@ -337,6 +339,119 @@ GUEST
   cat -- "$art/brain.txt" >&2
 }
 stage brain brain_layer || fail "the brain contract (see $art/brain.txt)"
+
+# --- 6c-bis. the machine answering for itself --------------------------------------------------------
+
+# oal-doctor, the grounding it feeds, the watcher that reads it, and the MCP server that serves it.
+# Run in the guest because almost none of it is meaningful anywhere else: pacman, systemd units and
+# a real journal are the things being asked about.
+machine_answers() {
+  vm_ssh bash -s <<'GUEST' >"$art/machine.txt" 2>&1 || return 1
+set -u
+export OAL_PATH=/usr/share/agentarchy
+
+# --- the report --------------------------------------------------------------------------------
+report="$(oal-doctor --json)"; rc=$?
+[ "$rc" -le 2 ] &&
+  echo "PASS doctor-exits-with-a-verdict ($rc)" || { echo "FAIL doctor-exits-with-a-verdict: $rc"; exit 1; }
+printf '%s' "$report" | jq -e . >/dev/null 2>&1 &&
+  echo "PASS doctor-json-valid" || { echo "FAIL doctor-json-valid"; exit 1; }
+printf '%s' "$report" | jq -e 'all(.checks[]; has("id") and has("severity") and has("summary"))' >/dev/null &&
+  echo "PASS doctor-json-shape" || { echo "FAIL doctor-json-shape"; exit 1; }
+
+# On Arch, with a real pacman, these three must actually run rather than report unknown. That is the
+# half of oal-doctor the unit suite cannot reach, because CI has no pacman.
+for id in updates orphans pacnew; do
+  sev="$(printf '%s' "$report" | jq -r --arg i "$id" '.checks[]|select(.id==$i)|.severity')"
+  [ "$sev" != unknown ] &&
+    echo "PASS doctor-runs-$id ($sev)" || { echo "FAIL doctor-runs-$id: unknown on a machine with pacman"; exit 1; }
+done
+
+# It is read on a timer and injected into prompts, so it has a latency budget like the prompt does.
+start=$(date +%s%N); oal-doctor --quiet; end=$(date +%s%N)
+ms=$(( (end - start) / 1000000 ))
+echo "INFO doctor-latency ${ms}ms"
+[ "$ms" -lt 10000 ] &&
+  echo "PASS doctor-is-not-slow" || { echo "FAIL doctor-is-not-slow: ${ms}ms"; exit 1; }
+
+# --- grounding ---------------------------------------------------------------------------------
+oal-brain-backend stub >/dev/null
+grounded="$(oal-brain-ask 'are there any OS issues?')"
+case "$grounded" in
+  *"facts about the machine"*) echo "PASS ask-is-grounded" ;;
+  *) echo "FAIL ask-is-grounded: got '$grounded'"; exit 1 ;;
+esac
+# And it carries a fact from this machine, not a template.
+case "$grounded" in
+  *"host: $(uname -n)"*) echo "PASS ask-carries-real-facts" ;;
+  *) echo "FAIL ask-carries-real-facts: no hostname in the context"; exit 1 ;;
+esac
+plain="$(oal-brain-ask 'who wrote Hamlet?')"
+[ "$plain" = "stub: who wrote Hamlet?" ] &&
+  echo "PASS ask-leaves-general-questions-alone" || { echo "FAIL ask-leaves-general-questions-alone: got '$plain'"; exit 1; }
+
+# --- the root that was missing -------------------------------------------------------------------
+command -v oal-agent >/dev/null &&
+  echo "PASS agent-resolves" || { echo "FAIL agent-resolves: oal-agent is not on PATH"; exit 1; }
+# The alias every shell carries. `a` was bound to a command that did not exist.
+bash -lc 'type a' 2>/dev/null | grep -q 'oal-agent' &&
+  echo "PASS agent-alias-bound" || echo "WARN agent-alias-bound: 'a' is not aliased in a login shell"
+oal-agent-crash 2>&1 | grep -qi usage &&
+  echo "PASS agent-crash-resolves" || { echo "FAIL agent-crash-resolves: exit 127 territory"; exit 1; }
+oal-agent-diagnose not-a-check 2>&1 | grep -q 'Known checks:' &&
+  echo "PASS agent-diagnose-resolves" || { echo "FAIL agent-diagnose-resolves"; exit 1; }
+
+# --- the watcher ---------------------------------------------------------------------------------
+oal-watch --reset >/dev/null
+first="$(oal-watch --once)"
+second="$(oal-watch --once)"
+[ -z "$second" ] &&
+  echo "PASS watch-announces-transitions-only" || { echo "FAIL watch-announces-transitions-only: repeated '$second'"; exit 1; }
+systemctl --user is-enabled oal-watch.timer >/dev/null 2>&1 &&
+  echo "PASS watch-timer-enabled" || echo "WARN watch-timer-enabled: not enabled in this session"
+systemctl --user is-enabled oal-crash-watch.service >/dev/null 2>&1 &&
+  echo "PASS crash-watch-enabled" || { echo "FAIL crash-watch-enabled: the install did not enable it"; exit 1; }
+
+# --- a real crash, taking the real path ------------------------------------------------------------
+# The whole feature is that clicking the notification does something. Nothing short of an actual core
+# dump proves the pid reaches a command that can act on it.
+if command -v coredumpctl >/dev/null; then
+  ( sleep 30 & echo $! >/tmp/victim; wait ) >/dev/null 2>&1 &
+  sleep 1
+  victim="$(cat /tmp/victim 2>/dev/null)"
+  kill -SEGV "$victim" 2>/dev/null
+  sleep 3
+  if coredumpctl list "$victim" --no-pager --no-legend >/dev/null 2>&1; then
+    echo "PASS crash-dumped-core"
+    # The exact string oal-crash-watch hands the notification daemon.
+    oal-agent-crash "$victim" sleep /usr/bin/sleep SIGSEGV 2>&1 | grep -q 'oal-brain-backend' &&
+      echo "PASS crash-click-reaches-the-agent" ||
+      { echo "FAIL crash-click-reaches-the-agent: the click target did not run"; exit 1; }
+  else
+    echo "WARN crash-dumped-core: systemd-coredump recorded nothing"
+  fi
+else
+  echo "WARN crash-dumped-core: no coredumpctl"
+fi
+
+# --- the machine as an MCP server -------------------------------------------------------------------
+frames="$(printf '%s
+'   '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{}}}'   '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'   '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"os_status","arguments":{}}}'   | oal-mcp-serve 2>/dev/null)"
+[ "$(printf '%s
+' "$frames" | wc -l)" = 3 ] &&
+  echo "PASS mcp-serve-answers" || { echo "FAIL mcp-serve-answers: got $(printf '%s
+' "$frames" | wc -l) frames"; exit 1; }
+printf '%s
+' "$frames" | while IFS= read -r f; do printf '%s' "$f" | jq -e . >/dev/null || exit 1; done &&
+  echo "PASS mcp-frames-valid" || { echo "FAIL mcp-frames-valid"; exit 1; }
+printf '%s
+' "$frames" | jq -r 'select(.id==3)|.result.content[0].text' | grep -q 'failed-units' &&
+  echo "PASS mcp-os-status-is-the-real-report" || { echo "FAIL mcp-os-status-is-the-real-report"; exit 1; }
+
+oal-brain-backend --none >/dev/null
+GUEST
+}
+stage machine machine_answers || fail "the machine answering for itself (see $art/machine.txt)"
 
 # --- 6d. panel layouts ------------------------------------------------------------------------------
 

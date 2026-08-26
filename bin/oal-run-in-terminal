@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# oal:summary=Run a command in a terminal window, and keep it open afterwards
+# oal:args=<command> [args...]
+# oal:examples=oal-run-in-terminal oal-update
+
+# Upstream has a floating-terminal-with-presentation launcher for this. It is Hyprland-bound -- the
+# float and the presentation are both compositor rules -- so it was excluded from vendoring, and the
+# notifications that used it were left pointing at a command this tree does not have.
+#
+# This is the Plasma-shaped replacement: find a terminal, run the thing, and hold the window open at
+# the end. Holding it open is the whole point on a click path. A window that closes on the last line
+# of output is indistinguishable from one that never opened, which is exactly how the notifications
+# this replaces looked when they broke.
+set -uo pipefail
+
+(($#)) || { echo "Usage: oal-run-in-terminal <command> [args...]" >&2; exit 64; }
+
+if [[ ${1:-} == --hold-only ]]; then
+  # The inner half: run the command, then wait for a keypress. Split out so the outer half can pass
+  # a single argv through the terminal's -e without a quoting round trip.
+  shift
+  "$@"
+  rc=$?
+  printf '\n'
+  read -r -p "Press enter to close. " _ </dev/tty 2>/dev/null || true
+  exit "$rc"
+fi
+
+# -e is the one flag every one of these spells the same way.
+for t in ${TERMINAL:-} konsole ghostty alacritty foot kitty xterm; do
+  command -v "$t" >/dev/null || continue
+  # setsid so the window outlives whatever clicked it: a notification daemon reaps its children.
+  setsid "$t" -e oal-run-in-terminal --hold-only "$@" >/dev/null 2>&1 &
+  exit 0
+done
+
+echo "oal-run-in-terminal: no terminal emulator found" >&2
+exit 1

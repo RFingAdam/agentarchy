@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# oal:summary=Turn the health watcher's notifications on or off
+# oal:args=[on|off]
+# oal:examples=oal-toggle-health-watch | oal-toggle-health-watch off
+
+# Mirrors oal-toggle-crash-capture: a state file the unit's ConditionPathExists reads, rather than
+# enabling and disabling the unit, so the choice survives a reinstall that re-enables shipped units.
+set -euo pipefail
+
+toggle="${XDG_STATE_HOME:-$HOME/.local/state}/oal/toggles/health-watch-off"
+
+case "${1:-}" in
+  off)
+    mkdir -p -- "$(dirname "$toggle")"
+    : >"$toggle"
+    systemctl --user stop oal-watch.timer 2>/dev/null || true
+    echo "health watch off"
+    ;;
+  on)
+    rm -f -- "$toggle"
+    systemctl --user start oal-watch.timer 2>/dev/null || true
+    echo "health watch on"
+    ;;
+  "")
+    [[ -e $toggle ]] && echo off || echo on
+    ;;
+  *) echo "usage: oal-toggle-health-watch [on|off]" >&2; exit 64 ;;
+esac

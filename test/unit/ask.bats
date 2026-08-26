@@ -20,10 +20,12 @@ setup() {
 }
 
 @test "a question round-trips and the answer lands on stdout" {
+  # A general question, so the round trip is byte-exact. Anything about this machine now arrives at
+  # the backend with the machine's state attached -- see test/unit/brain-context.bats.
   oal-brain-backend stub >/dev/null
-  run oal-ask "what theme am I using"
+  run oal-ask "what is the capital of Peru"
   [ "$status" -eq 0 ]
-  [ "$output" = "stub: what theme am I using" ]
+  [ "$output" = "stub: what is the capital of Peru" ]
 }
 
 @test "the full answer is kept on disk, because a notification truncates" {

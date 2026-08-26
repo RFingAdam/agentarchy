@@ -1,5 +1,49 @@
 # The tool-call guard
 
+## Where it lives, and why that changed
+
+| | |
+|---|---|
+| `default/guard/lib.sh` | the decision engine. Sourced, names no runtime, needs no `jq` |
+| `default/guard/rules` | the policy. `tier \| tool \| pattern` |
+| `agent/hooks/pretooluse-guard` | Claude Code's PreToolUse hook: parse its payload, ask the engine, answer in its shape |
+| `bin/oal-guard` | a plain command for everything else, and for people |
+| `bin/oal-brain-do` | sources the engine directly, no fork |
+
+This used to be one file, shaped like Claude Code's hook API, with the rules beside it and the audit
+log named after it. That made the distribution's strongest claim its least portable piece: run
+Codex, or a local Hermes, and **nothing on the machine was gated at all**, while the README said a
+permission posture was enforced at the tool-call boundary.
+
+The policy was never vendor-specific. Only the wiring was. `test/unit/guard-neutral.bats` holds the
+split open: it fails if the engine so much as names a runtime, and it asserts that the hook and
+`oal-guard` reach the same verdict for the same call.
+
+The engine is **sourced rather than forked**. An adapter that shelled out would pay a process on
+every tool call, against a 50 ms budget that everything the agent does is charged.
+
+## Asking it yourself
+
+```bash
+echo "sudo pacman -Syu" | oal-guard --tool Bash
+# ask	confirm	needs confirmation, or a CONFIRM-<8 hex> token in the call
+```
+
+Exit code carries the decision: `0` allow, `1` ask, `2` deny. **Anything else means the guard itself
+failed and must be treated as a refusal** -- the one thing worse than a guard that breaks is a
+caller that reads the breakage as permission.
+
+## Adding a runtime
+
+Write an adapter that parses its hook payload, calls `guard_decide <runtime> <tool> <input>`, and
+answers in that runtime's shape. Pass a runtime name; it lands in the audit log, which is one file
+for the whole machine rather than one per agent, because the question people actually have is *what
+did anything on this machine try to do*.
+
+If a runtime has no hook mechanism at all, it cannot be gated this way and should be said so out
+loud rather than implied to be covered.
+
+
 Every tool call the agent makes passes through `agent/hooks/pretooluse-guard` before it runs. This
 is what makes "guarded by default" a property of the operating system rather than advice in a
 README, and it is the control that has to exist before anything resident is added (issue #13).
@@ -10,7 +54,7 @@ seatbelt, not a cage.
 
 ## The three tiers
 
-Rules live in `agent/hooks/rules`, one per line, `tier | tool | pattern`. First match wins, so order
+Rules live in `default/guard/rules`, one per line, `tier | tool | pattern`. First match wins, so order
 matters and the dangerous rules come first.
 
 | Tier | What happens | For |
@@ -44,7 +88,7 @@ existed for goes straight through, which is worse than having none, because you 
 
 ## The audit log
 
-Every decision, including the allowed ones, appends to `~/.local/state/oal/claude-audit/YYYY-MM.log`
+Every decision, including the allowed ones, appends to `~/.local/state/oal/audit/YYYY-MM.log`
 as tab-separated `timestamp, decision, tier, tool, reason, pattern`.
 
 The matched pattern goes in the log and never in the decision returned to the agent. Reasons are

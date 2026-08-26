@@ -1,0 +1,16 @@
+# Notice when a health check starts failing, and offer a diagnosis.
+#
+# Enabled by default, like oal-brain-sweep and unlike oal-brain.service: this one reads a report and
+# raises a notification. It starts no agent and changes nothing until somebody clicks.
+[Unit]
+Description=Notice when something on this machine breaks
+After=graphical-session.target
+# Needs the session bus to notify. Without one it would run, find things, and tell nobody.
+ConditionEnvironment=WAYLAND_DISPLAY
+# Set by oal-toggle-health-watch, so a machine whose owner turned this off stays off across logins
+# without the unit itself having to be disabled.
+ConditionPathExists=!%h/.local/state/oal/toggles/health-watch-off
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/oal-watch --once

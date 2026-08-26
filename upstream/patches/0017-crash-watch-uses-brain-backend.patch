@@ -1,0 +1,16 @@
+--- a/bin/oal-crash-watch
++++ b/bin/oal-crash-watch
+@@ -61,7 +61,12 @@
+     # The toast only offers a diagnosis, so it has nothing to offer until an
+     # agent is chosen. Checked per crash, not at startup, so picking one takes
+     # effect without restarting this service.
+-    [[ -n $(oal-default-agent) ]] || continue
++    #
++    # oal-brain-backend, not upstream's oal-default-agent, which was excluded
++    # from vendoring and does not exist here. That made this line fail with 127,
++    # produce no output, and `continue` -- so every crash was silently skipped
++    # and the watcher announced nothing it was ever started for.
++    [[ -n $(oal-brain-backend) ]] || continue
+ 
+     # Only this user's crashes; a daemon dumping core is a sysadmin's problem.
+     [[ $uid =~ ^[0-9]+$ ]] || continue

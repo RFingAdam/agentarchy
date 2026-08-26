@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# oal:summary=Launch the configured agent, interactively or with a prompt
+# oal:args=[--inline] [--prompt <text>]
+# oal:examples=oal-agent | oal-agent --prompt "why did konsole crash"
+
+# The root of the agent family. oal-agent-crash, oal-agent-prompt and the `a` alias all end here, and
+# until now they ended at exit 127: upstream's launcher was excluded from vendoring as terminal-bound,
+# the commands calling it were not, and upstream/DANGLING.txt recorded every broken reference without
+# anything ever reading the file.
+#
+# Which agent runs is deliberately not a setting of its own. oal-brain-backend already answers "what
+# does this machine talk to", and a second source of truth for one question is how the first goes
+# stale.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+BRAIN_CMD=oal-agent
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+inline=0
+prompt=""
+have_prompt=0
+
+while (($#)); do
+  case "$1" in
+    --inline) inline=1; shift ;;
+    --prompt) shift; (($#)) || brain_fail "--prompt needs some text"; prompt="$1"; have_prompt=1; shift ;;
+    -h|--help) sed -n '3,5p' "$0" | sed 's/^# oal://'; exit 0 ;;
+    --) shift; prompt="$*"; have_prompt=1; break ;;
+    -*) brain_fail "unknown option: $1" ;;
+    *) prompt="$*"; have_prompt=1; break ;;
+  esac
+done
+
+backend="$(brain_backend)"
+[[ -n $backend ]] ||
+  brain_fail "no agent backend is configured. Choose one with 'oal-brain-backend <name>', or see 'oal-brain-backend --list'."
+adapter="$(brain_adapter "$backend")" ||
+  brain_fail "the configured backend '$backend' has no adapter installed"
+
+# --- opening a window when there is not one --------------------------------------------------------
+#
+# A crash notification is clicked from the desktop, where there is no terminal at all. Falling back to
+# a headless run there means minutes of silence and then a toast, for work the person asked to watch.
+
+# Opening a window when there is not one.
+#
+# A crash notification is clicked from the desktop, where there is no terminal at all. Falling back
+# to a headless run there means minutes of silence and then a toast, for work the person asked to
+# watch. bin/oal-run-in-terminal owns finding a terminal and holding it open afterwards, because the
+# first-run notifications need exactly the same thing and two implementations of it is one too many.
+relaunch_in_terminal() {
+  command -v oal-run-in-terminal >/dev/null ||
+    brain_fail "no terminal to run in, and oal-run-in-terminal is not installed"
+  if ((have_prompt)); then
+    oal-run-in-terminal oal-agent --inline --prompt "$prompt"
+  else
+    oal-run-in-terminal oal-agent --inline
+  fi
+  exit 0
+}
+
+# stdout, not stdin: a prompt arriving on a pipe is still worth answering in the terminal it was
+# piped from.
+[[ -t 1 ]] || (( inline )) || relaunch_in_terminal
+
+# --- with a prompt: the backend's own agent, tools and all -----------------------------------------
+
+if ((have_prompt)); then
+  [[ -n ${prompt//[[:space:]]/} ]] || brain_fail "the prompt is empty"
+  # Through oal-brain-ask rather than the adapter directly, so grounding, the posture and the guard
+  # are the same ones every other path answers to. There is no second route to a model here.
+  exec oal-brain-ask -- "$prompt"
+fi
+
+# --- without one: an interactive session -----------------------------------------------------------
+
+if ! "$adapter" interactive --check >/dev/null 2>&1; then
+  echo "oal-agent: '$backend' has no interactive mode." >&2
+  echo "Ask it something instead: oal-agent --prompt \"...\", or oal-ask" >&2
+  exit 1
+fi
+
+exec "$adapter" interactive

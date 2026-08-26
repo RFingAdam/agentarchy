@@ -36,7 +36,12 @@ STUB
   while IFS='|' read -r id kind package args visibility profiles description; do
     id="$(xargs <<<"$id")"
     [[ -n $id && $id != \#* ]] || continue
-    [[ $(xargs <<<"$kind") =~ ^(uvx|npx)$ ]] || { echo "$id: kind '$kind'"; return 1; }
+    [[ $(xargs <<<"$kind") =~ ^(uvx|npx|oal)$ ]] || { echo "$id: kind '$kind'"; return 1; }
+    # `oal` runs a bare command from PATH, so the package column has to name something this
+    # repository actually ships -- otherwise the catalog registers a server that cannot start.
+    if [[ $(xargs <<<"$kind") == oal ]]; then
+      [[ -x "$SRC/bin/$(xargs <<<"$package")" ]] || { echo "$id: kind oal names a missing command"; return 1; }
+    fi
     [[ -n $(xargs <<<"$package") ]] || { echo "$id: no package"; return 1; }
     [[ $(xargs <<<"$visibility") =~ ^(public|private|hardware|commercial)$ ]] ||
       { echo "$id: visibility '$visibility'"; return 1; }
@@ -129,7 +134,8 @@ STUB
   [ "$output" = "0" ]
   mcp install --profile minimal
   mcp status --count
-  [ "$output" = "4" ]
+  # Five: the four reference servers, plus the machine's own server that this repository ships.
+  [ "$output" = "5" ]
 }
 
 @test "a server registered outside any catalog is reported as external" {

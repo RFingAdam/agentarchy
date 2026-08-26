@@ -35,6 +35,7 @@ bin/oal-notification-dismiss -> oal-shell
 bin/oal-notification-wait -> oal-shell
 bin/oal-notification-weather -> oal-shell
 bin/oal-osd -> oal-shell
+bin/oal-provision-first-run -> oal-voxtype-install
 bin/oal-provision-user -> oal-provision-owner
 bin/oal-refresh-chromium -> oal-refresh-config
 bin/oal-refresh-herdr -> oal-refresh-config
@@ -123,8 +124,5 @@ install/provisioning/setup-form.sh -> oal-provision-owner
 install/user/first-run/install-voxtype.hook -> oal-launch-floating-terminal-with-presentation
 install/user/first-run/install-voxtype.hook -> oal-voxtype-install
 install/user/first-run/setup-agent.hook -> oal-default-agent
-install/user/first-run/setup-fingerprint.hook -> oal-launch-floating-terminal-with-presentation
 install/user/first-run/welcome.sh -> oal-menu-keybindings
-install/user/first-run/wifi.sh -> oal-launch-floating-terminal-with-presentation
-install/user/first-run/wifi.sh -> oal-shell
 install/user/mise-work.sh -> oal-provision-owner

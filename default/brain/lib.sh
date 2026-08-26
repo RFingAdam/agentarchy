@@ -11,9 +11,10 @@ OAL_PATH="${OAL_PATH:-$(dirname "$(dirname "$_brain_lib")")}"
 
 BRAIN_STATE="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/oal/brain"
 BRAIN_VERBS="$OAL_PATH/default/brain/VERBS"
-# Read by oal-brain-do, which is the only caller that acts rather than reports.
+# Read by oal-brain-do, which is the only caller that acts rather than reports. The engine, not
+# Claude Code's hook: the policy is the machine's and the hook is one runtime's way of reaching it.
 # shellcheck disable=SC2034
-BRAIN_GUARD="$OAL_PATH/agent/hooks/pretooluse-guard"
+BRAIN_GUARD_LIB="$OAL_PATH/default/guard/lib.sh"
 
 brain_fail() { echo "${BRAIN_CMD:-oal-brain}: $*" >&2; exit 1; }
 
@@ -186,4 +187,85 @@ brain_task_ids() {
   for d in "$BRAIN_TASKS"/*/; do
     [[ -f $d/meta ]] && basename -- "${d%/}"
   done | sort
+}
+
+# --- grounding ----------------------------------------------------------------------------------
+#
+# A question about this machine has to arrive at the model with the machine's actual state attached.
+# Without it, "are there any OS issues?" is answered from whatever the model remembers about
+# operating systems in general, which is how a 1.5B model came to explain that the term usually
+# refers to Linux or Windows. A larger model fails the same way with better manners: it says it
+# cannot see your system, which is true and equally useless.
+#
+# The routing is a keyword match rather than a model call. It is cheap, it is testable, and -- the
+# part that matters -- a classifier that is itself a model can hallucinate, and then the grounding
+# step becomes one more thing that can be wrong.
+
+# Words that mean "this computer" rather than "computers". Deliberately conservative: attaching
+# facts to a general question wastes context and, on a small model, actively crowds out the answer.
+# Not readonly: bats sources this library more than once in a single shell, and a readonly
+# reassignment is a hard error that would fail the suite rather than the code under test.
+BRAIN_LOCAL_WORDS='os|system|machine|computer|laptop|desktop|disk|drive|storage|space|memory|ram|swap|cpu|gpu|graphics|nvidia|driver|network|wifi|internet|connection|offline|boot|systemd|service|unit|daemon|journal|log|logs|error|errors|crash|crashed|update|updates|package|packages|pacman|orphan|theme|battery|temperature|thermal|hot|overheat|fan|slow|broken|wrong|issue|issues|problem|problems|fail|failed|failing|health|wrong with|going on|status'
+
+# True when the question is about the machine this is running on.
+brain_question_is_local() {
+  local q="${1,,}"
+  [[ $q =~ (^|[^a-z])(${BRAIN_LOCAL_WORDS})([^a-z]|$) ]]
+}
+
+# What the machine can say about itself right now, as plain lines. Not JSON, for the same reason
+# oal-brain-state is not JSON: both parse identically to a model, and only one of them is readable
+# by the person working out why it answered what it did.
+#
+# Only the checks that are not `ok`. A small model has a few thousand tokens of context and thirteen
+# lines of "everything is fine" is how the one line that mattered gets pushed out of it.
+brain_context() {
+  local state doctor
+  state="$(timeout 10 oal-brain-state 2>/dev/null)" || state=""
+  [[ -n $state ]] && printf '%s\n' "$state"
+
+  doctor="$(timeout 30 oal-doctor 2>/dev/null)"
+  # Exit 1 and 2 are findings, not failures. Only an empty result means the report did not run.
+  if [[ -z $doctor ]]; then
+    printf 'health: could not be determined\n'
+    return 0
+  fi
+  # Every check's summary, but detail only for the ones that are not ok.
+  #
+  # The first version dropped passing checks entirely, to save context. Asked "is my disk full?" on
+  # a machine with a healthy disk, the model correctly answered that it had not been told -- which
+  # is worse than useless, because the machine knew. Thirteen one-line summaries cost about a
+  # hundred words; it is the untruncated journal evidence that is expensive, and oal-doctor already
+  # prints detail only for findings.
+  local facts
+  facts="$(printf '%s\n' "$doctor" |
+    awk '
+      /^[a-z]/ { check = 0; print; next }
+      { if (++check > 2) next
+        line = $0
+        if (length(line) > 100) line = substr(line, 1, 100) "..."
+        print line }
+    ' || true)"
+  if [[ -z ${facts//[[:space:]]/} ]]; then
+    printf 'health: could not be determined\n'
+  else
+    printf 'health checks (severity, check, finding):\n%s\n' "$facts"
+  fi
+}
+
+# The facts, then the instruction, then the question. The instruction sits between them so that a
+# model which truncates from the front loses facts rather than its orders, and the question is last
+# because that is the position every instruct model attends to hardest.
+brain_ground() {
+  local facts="$1" question="$2"
+  cat <<GROUNDED
+These are facts about the machine you are running on, gathered a moment ago:
+
+$facts
+
+Answer the question using these facts. They are the only information you have about this machine --
+if they do not contain the answer, say so plainly rather than guessing. Be brief.
+
+Question: $question
+GROUNDED
 }
