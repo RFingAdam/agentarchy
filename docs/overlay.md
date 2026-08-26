@@ -29,7 +29,7 @@ were keeping private.
 contains**, and it will not handle secrets.
 
 That is a deliberate limit, not an unfinished feature. Cloning a repository and running a script out
-of it is exactly the shape `agent/hooks/rules` refuses when an agent tries it, and shipping a guard
+of it is exactly the shape `default/guard/rules` refuses when an agent tries it, and shipping a guard
 against downloaded code while offering a command that does precisely that would be incoherent. If
 your overlay carries an `apply.sh`, the command tells you it is there and leaves it alone. You read
 it, then you run it.

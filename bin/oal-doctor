@@ -292,24 +292,26 @@ check_gpu() {
 # --- the agent layer itself --------------------------------------------------------------------------
 
 check_agent() {
-  local posture backend guard="$OAL_PATH/agent/hooks/pretooluse-guard"
+  local posture engine="$OAL_PATH/default/guard/lib.sh"
+  local hook="$OAL_PATH/agent/hooks/pretooluse-guard"
   posture="$(run 5 oal-agent-profile)" || true
   [[ -n $posture ]] || posture=unknown
 
-  if [[ ! -x $guard ]]; then
-    record guard problem "the tool-call guard is missing or not executable" "$guard"
+  if [[ ! -r $engine ]]; then
+    record guard problem "the tool-call policy engine is missing" "$engine"
+  elif ! command -v claude >/dev/null; then
+    # The engine is what enforces; a hook is one runtime's way of reaching it. With no runtime
+    # installed there is nothing to wire, and reporting that as a fault would be a permanent red
+    # light on a machine where nothing is wrong.
+    record guard ok "policy engine present, posture $posture (no agent runtime installed to wire)"
   else
     local settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
-    if [[ -r $settings ]] && command -v jq >/dev/null; then
-      if jq -e --arg g "$guard" '[.hooks.PreToolUse[]?.hooks[]?.command] | index($g)' "$settings" >/dev/null 2>&1; then
-        record guard ok "tool calls are guarded, posture $posture"
-      else
-        record guard problem "the guard is installed but not registered with the agent runtime" \
-          "re-run: bash $OAL_PATH/install/agent/runtime.sh"
-      fi
+    if [[ -r $settings ]] && command -v jq >/dev/null &&
+       jq -e --arg g "$hook" '[.hooks.PreToolUse[]?.hooks[]?.command] | index($g)' "$settings" >/dev/null 2>&1; then
+      record guard ok "tool calls are guarded, posture $posture"
     else
-      # No runtime settings is not a fault. It only means nothing has registered the guard yet.
-      record guard warn "no agent runtime settings found, so nothing is guarded yet" "posture $posture"
+      record guard problem "Claude Code is installed but its tool calls are not routed through the guard" \
+        "re-run: bash $OAL_PATH/install/agent/runtime.sh"
     fi
   fi
 

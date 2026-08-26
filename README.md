@@ -131,11 +131,23 @@ used ones. Nothing is installed by default. `oal-mcp-import` registers a catalog
 private, licence-gated or hardware-bound servers need no change here and never appear in this
 repository.
 
-**The permission posture is a machine setting.** `oal-agent-profile trusted|scoped|untrusted`, with
-`scoped` the default: reading and searching are free, writing and installing are confirmed, and every
-posture refuses to read `.env` files and private keys. It is enforced at the tool-call boundary by a
-hook that runs before every call the agent makes, fails closed, and writes an audit log --
-[docs/agent-guard.md](docs/agent-guard.md).
+**The permission posture is a machine setting, and it is not one vendor's.**
+`oal-agent-profile trusted|scoped|untrusted`, with `scoped` the default: reading and searching are
+free, writing and installing are confirmed, and every posture refuses to read `.env` files and
+private keys. It fails closed and writes one audit log for the whole machine.
+
+The decision engine names no runtime and the policy lives in `default/guard/rules`. Claude Code
+reaches it through its PreToolUse hook; anything else reaches the same answers through `oal-guard`,
+which takes a tool name and some text and answers in its exit code:
+
+```bash
+echo "sudo pacman -Syu" | oal-guard --tool Bash
+# ask	confirm	needs confirmation, or a CONFIRM-<8 hex> token in the call
+```
+
+Honest limit: a runtime is gated once something calls the guard before its tool calls. Claude Code
+has a hook for that and is wired by the install. For anything without one, `oal-guard` is the
+mechanism and the wiring is yours -- [docs/agent-guard.md](docs/agent-guard.md).
 
 **The prompt shows what the agent is doing** -- model, posture, MCP servers registered, and how much
 of today's limit is gone. It is rendered from the same `colors.toml` as the desktop, so it follows

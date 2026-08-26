@@ -4,8 +4,14 @@ set -e
 
 # Agentarchy ships no default agent, so invite once rather than picking one. An
 # agent already chosen means the invitation has nothing to offer.
-if [[ -z $(oal-default-agent) ]] && oal-done ensure agent-setup-invitation; then
-  oal-notification-send -u critical -g 󰚩 "Set your default agent" \
-    "Let your favorite agent help with Agentarchy." \
-    --exec "oal menu summon setup.default.agent"
+#
+# oal-brain-backend, not upstream's oal-default-agent, which was excluded from
+# vendoring and does not exist here: the substitution came back empty either
+# way, so the invitation fired whether or not an agent had been chosen. The
+# click target was upstream's Quickshell menu route, which this tree has no
+# implementation of at all.
+if [[ -z $(oal-brain-backend 2>/dev/null) ]] && oal-done ensure agent-setup-invitation; then
+  oal-notification-send -u critical -g 󰚩 "Choose an agent" \
+    "Pick which agent this machine talks to." \
+    --exec "oal-menu agent"
 fi

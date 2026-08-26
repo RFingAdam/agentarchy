@@ -127,7 +127,19 @@ referenced_commands() {
   # window that closes on the last line of the answer is the same as no window.
   grep -q 'relaunch_in_terminal' "$SRC/bin/oal-agent"
   grep -q -- '-t 1' "$SRC/bin/oal-agent"
-  grep -q 'Press enter to close' "$SRC/bin/oal-agent"
+  # Holding it open lives in oal-run-in-terminal, which the first-run notifications need too. One
+  # implementation, not two.
+  grep -q 'oal-run-in-terminal' "$SRC/bin/oal-agent"
+  grep -q 'Press enter to close' "$SRC/bin/oal-run-in-terminal"
+  [ -x "$SRC/bin/oal-run-in-terminal" ]
+}
+
+@test "oal-run-in-terminal survives the daemon that spawned it" {
+  # A notification daemon reaps its children, so a window launched from a click has to be detached
+  # or it dies with the click.
+  grep -q 'setsid' "$SRC/bin/oal-run-in-terminal"
+  run "$SRC/bin/oal-run-in-terminal"
+  [ "$status" -eq 64 ]
 }
 
 @test "the references upstream records as dangling now resolve here" {

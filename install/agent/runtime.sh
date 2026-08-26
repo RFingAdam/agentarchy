@@ -96,7 +96,11 @@ UNIT
 # nothing in oal-bootstrap.sh runs that directory at all. It is the ISO's first-boot path, and on a
 # bootstrap install the crash watcher had therefore never once started -- which is also why nobody
 # noticed that the notification it raises pointed at a command that did not exist.
-for unit in oal-brain-sweep.service oal-crash-watch.service; do
+#
+# oal-first-run.service is that directory's missing caller. bin/oal-provision-first-run was on PATH
+# with nothing invoking it, because upstream drives it from a compositor autostart we do not vendor.
+# It guards itself with `oal-done`, so enabling it here costs one no-op per login afterwards.
+for unit in oal-brain-sweep.service oal-crash-watch.service oal-first-run.service; do
   systemctl --user enable "$unit" 2>/dev/null ||
     log "note: enable it later with 'systemctl --user enable $unit'"
 done

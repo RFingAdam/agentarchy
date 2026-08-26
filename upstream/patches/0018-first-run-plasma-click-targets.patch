@@ -1,0 +1,76 @@
+--- a/install/user/first-run/setup-agent.hook
++++ b/install/user/first-run/setup-agent.hook
+@@ -4,8 +4,14 @@
+ 
+ # Agentarchy ships no default agent, so invite once rather than picking one. An
+ # agent already chosen means the invitation has nothing to offer.
+-if [[ -z $(oal-default-agent) ]] && oal-done ensure agent-setup-invitation; then
+-  oal-notification-send -u critical -g 󰚩 "Set your default agent" \
+-    "Let your favorite agent help with Agentarchy." \
+-    --exec "oal menu summon setup.default.agent"
++#
++# oal-brain-backend, not upstream's oal-default-agent, which was excluded from
++# vendoring and does not exist here: the substitution came back empty either
++# way, so the invitation fired whether or not an agent had been chosen. The
++# click target was upstream's Quickshell menu route, which this tree has no
++# implementation of at all.
++if [[ -z $(oal-brain-backend 2>/dev/null) ]] && oal-done ensure agent-setup-invitation; then
++  oal-notification-send -u critical -g 󰚩 "Choose an agent" \
++    "Pick which agent this machine talks to." \
++    --exec "oal-menu agent"
+ fi
+--- a/install/user/first-run/welcome.sh
++++ b/install/user/first-run/welcome.sh
+@@ -1,5 +1,10 @@
++# The shortcuts this desktop actually binds, and a click target it actually has.
++# Upstream's cheatsheet and its oal-menu-keybindings viewer are both Quickshell
++# surfaces that were never vendored, so the old card advertised a key that does
++# nothing and opened a command that does not exist.
++#
+ # Real newlines, not a literal \n: the card renders the body as it arrives, and
+ # elides past three lines.
+-oal-notification-send -u critical -g  "Learn Keybindings" \
+-  $'Super + K for cheatsheet.\nSuper + Space for Agentarchy Menu.' \
+-  --exec oal-menu-keybindings
++oal-notification-send -u critical -g  "Two keys worth knowing" \
++  $'Super + Space opens the Agentarchy menu.\nSuper + A asks this machine a question.' \
++  --exec oal-menu
+--- a/install/user/first-run/wifi.sh
++++ b/install/user/first-run/wifi.sh
+@@ -1,11 +1,11 @@
+ notify_update() {
+   oal-notification-send -u critical -g  "Update System" "Click to update the system." \
+-    --exec "oal-launch-floating-terminal-with-presentation oal-update"
++    --exec "oal-run-in-terminal oal-update"
+ }
+ 
+ notify_wifi() {
+   oal-notification-send -u critical -g 󰖩 "Setup Wi-Fi" "Click to configure the wireless network." \
+-    --exec "oal-shell shell toggle oal.network"
++    --exec "systemsettings kcm_networkmanagement"
+ }
+ 
+ announce_network() {
+--- a/install/user/first-run/enable-user-units.sh
++++ b/install/user/first-run/enable-user-units.sh
+@@ -2,7 +2,7 @@
+ 
+ # Enable AND start the user systemd units we ship. Runs at first-run rather
+ # than at finalize-user time because the user manager isn't live during the
+-# ISO chroot — by first-run, the Hyprland/uwsm session is up and
++# ISO chroot: by first-run the Plasma session is up and
+ # `systemctl --user enable --now` both writes the correct .wants symlinks
+ # (based on each unit's [Install]/WantedBy) and starts the services so the
+ # first session has bluetooth pairing, sleep lock, etc. live immediately
+@@ -18,4 +18,10 @@
+   oal-sleep-lock.service \
+   oal-migrate-notify.service \
+   oal-fcitx5.service \
+-  oal-crash-watch.service
++  oal-crash-watch.service \
++  oal-watch.timer
++
++# install/agent/runtime.sh enables the crash and health watchers as well, because
++# nothing runs this directory on a bootstrap install: it is the ISO's path. Both
++# are `enable --now` and idempotent, so the overlap costs nothing and neither path
++# has to know whether the other ran.

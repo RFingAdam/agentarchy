@@ -60,7 +60,22 @@ oal_mcp_row() { oal_mcp_catalog | awk -F'\x1f' -v id="$1" '$1 == id'; }
 # editing ~/.claude.json: that file is the agent's, it holds credentials, and the design's rule is
 # that nothing reads it into a path we control.
 
-oal_mcp_runtime_available() { command -v claude >/dev/null; }
+# The runtimes this knows how to register a server with, in preference order. Claude Code is the
+# only one implemented, and that is a statement about what has been tested rather than a preference:
+# adding a second is a case arm here and one in oal_mcp_register. It is deliberately not guessed at
+# from memory -- the hermes brain adapter's header records what happened the last time an interface
+# was invented rather than read.
+oal_mcp_runtimes() { printf '%s\n' claude; }
+
+oal_mcp_runtime() {
+  local r
+  while read -r r; do
+    command -v "$r" >/dev/null && { printf '%s' "$r"; return 0; }
+  done < <(oal_mcp_runtimes)
+  return 1
+}
+
+oal_mcp_runtime_available() { oal_mcp_runtime >/dev/null; }
 
 oal_mcp_registered() {
   oal_mcp_runtime_available || return 0

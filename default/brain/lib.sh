@@ -11,9 +11,10 @@ OAL_PATH="${OAL_PATH:-$(dirname "$(dirname "$_brain_lib")")}"
 
 BRAIN_STATE="${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/oal/brain"
 BRAIN_VERBS="$OAL_PATH/default/brain/VERBS"
-# Read by oal-brain-do, which is the only caller that acts rather than reports.
+# Read by oal-brain-do, which is the only caller that acts rather than reports. The engine, not
+# Claude Code's hook: the policy is the machine's and the hook is one runtime's way of reaching it.
 # shellcheck disable=SC2034
-BRAIN_GUARD="$OAL_PATH/agent/hooks/pretooluse-guard"
+BRAIN_GUARD_LIB="$OAL_PATH/default/guard/lib.sh"
 
 brain_fail() { echo "${BRAIN_CMD:-oal-brain}: $*" >&2; exit 1; }
 

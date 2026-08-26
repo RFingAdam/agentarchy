@@ -9,7 +9,7 @@
 #
 # It is applied DECLARATIVELY. This command reads known files and acts on them; it does not execute
 # anything the overlay contains. Cloning a repository and running a script out of it is precisely the
-# shape agent/hooks/rules blocks when an agent tries it, and it would be incoherent to ship a guard
+# shape default/guard/rules blocks when an agent tries it, and it would be incoherent to ship a guard
 # against downloaded code while offering a command that does exactly that. If an overlay needs to run
 # something, its owner runs it, having read it.
 set -euo pipefail
