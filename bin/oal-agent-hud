@@ -65,9 +65,25 @@ if [[ ${1:-} == --refresh ]]; then
   # the timer rather than on the panel's repaint.
   hermes_up=0 hermes_attention=0
   if command -v oal-hermes-status >/dev/null; then
-    brief="$(timeout 45 oal-hermes-status --brief 2>/dev/null)"
+    # Generous, because the first call of a session builds the multiplexed connection and that alone
+    # costs about forty seconds. Every later one rides it and takes a second or two. This runs on a
+    # five-minute timer in the background, so a slow first pass costs nobody anything -- whereas
+    # cutting it short leaves the panel reading zero and the menu with an empty cache, which is what
+    # it did.
+    brief="$(timeout 180 oal-hermes-status --brief 2>/dev/null)"
     [[ $brief =~ up=([0-9]+) ]] && hermes_up="${BASH_REMATCH[1]}"
     [[ $brief =~ attention=([0-9]+) ]] && hermes_attention="${BASH_REMATCH[1]}"
+  fi
+
+  # Keep what the menu and panel show, so opening either is a file read. Live answers are still one
+  # `oal-hermes-status` away; what must never happen is a click that hangs for thirty seconds.
+  if (( hermes_attention > 0 )) || (( hermes_up > 0 )); then
+    timeout 180 oal-hermes-status 2>/dev/null >"$state_dir/hermes-status.txt.new" &&
+      mv -f "$state_dir/hermes-status.txt.new" "$state_dir/hermes-status.txt" ||
+      rm -f "$state_dir/hermes-status.txt.new"
+    timeout 180 oal-hermes-waiting --json 2>/dev/null >"$state_dir/hermes-waiting.json.new" &&
+      mv -f "$state_dir/hermes-waiting.json.new" "$state_dir/hermes-waiting.json" ||
+      rm -f "$state_dir/hermes-waiting.json.new"
   fi
 
   # The timestamp goes in the file so the read path can judge staleness without a stat(1).

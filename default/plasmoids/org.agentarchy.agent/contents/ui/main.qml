@@ -30,6 +30,11 @@ PlasmoidItem {
     property int gateways: 0
     property int attention: 0
 
+    // The tasks themselves, not just how many. Read from the cache the agent timer fills, so opening
+    // this is a file read -- asking Hermes directly takes seconds and a popup that hangs is a popup
+    // nobody opens twice.
+    property var waiting: []
+
     readonly property string hudCommand: "oal-agent-hud --json"
 
     Plasma5Support.DataSource {
@@ -39,6 +44,14 @@ PlasmoidItem {
 
         onNewData: function (source, data) {
             disconnectSource(source)
+            if (source === "oal-hermes-waiting --cached --json") {
+                try {
+                    root.waiting = JSON.parse((data["stdout"] || "").trim() || "[]")
+                } catch (e) {
+                    root.waiting = []
+                }
+                return
+            }
             if (source !== root.hudCommand) {
                 return
             }
@@ -70,6 +83,7 @@ PlasmoidItem {
 
     function refresh() {
         exec.run(root.hudCommand)
+        exec.run("oal-hermes-waiting --cached --json")
     }
 
     Component.onCompleted: refresh()
@@ -139,8 +153,8 @@ PlasmoidItem {
     }
 
     fullRepresentation: PlasmaExtras.Representation {
-        Layout.minimumWidth: Kirigami.Units.gridUnit * 16
-        Layout.minimumHeight: Kirigami.Units.gridUnit * 12
+        Layout.minimumWidth: Kirigami.Units.gridUnit * 24
+        Layout.minimumHeight: Kirigami.Units.gridUnit * 20
 
         header: PlasmaExtras.PlasmoidHeading {
             RowLayout {
@@ -197,7 +211,52 @@ PlasmoidItem {
                 }
             }
 
-            Item { Layout.fillHeight: true }
+            PlasmaExtras.Heading {
+                level: 5
+                text: i18n("Waiting on you")
+                visible: root.waiting.length > 0
+                Layout.topMargin: Kirigami.Units.smallSpacing
+            }
+
+            PlasmaComponents.ScrollView {
+                visible: root.waiting.length > 0
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+
+                ListView {
+                    model: root.waiting
+                    clip: true
+                    spacing: 0
+
+                    delegate: PlasmaComponents.ItemDelegate {
+                        width: ListView.view.width
+                        // One click. The dashboard is where claiming and promoting live, and sending
+                        // people there beats reimplementing it behind three more clicks.
+                        onClicked: {
+                            exec.run("oal-hermes-dashboard")
+                            root.expanded = false
+                        }
+                        contentItem: RowLayout {
+                            spacing: Kirigami.Units.smallSpacing
+                            PlasmaComponents.Label {
+                                text: modelData.status
+                                font.pointSize: Kirigami.Theme.smallFont.pointSize
+                                color: modelData.status === "review" || modelData.status === "blocked"
+                                    ? Kirigami.Theme.negativeTextColor
+                                    : Kirigami.Theme.disabledTextColor
+                                Layout.minimumWidth: Kirigami.Units.gridUnit * 4
+                            }
+                            PlasmaComponents.Label {
+                                text: modelData.title
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
+                        }
+                    }
+                }
+            }
+
+            Item { Layout.fillHeight: root.waiting.length === 0 }
 
             RowLayout {
                 Layout.fillWidth: true
@@ -214,13 +273,12 @@ PlasmoidItem {
                 }
 
                 PlasmaComponents.Button {
-                    // Only when there is a fleet to look at.
                     visible: root.gateways > 0 || root.attention > 0
-                    text: i18n("Boards")
+                    text: i18n("Dashboard")
                     icon.name: "view-task"
                     Layout.fillWidth: true
                     onClicked: {
-                        exec.run("oal-menu hermes")
+                        exec.run("oal-hermes-dashboard")
                         root.expanded = false
                     }
                 }

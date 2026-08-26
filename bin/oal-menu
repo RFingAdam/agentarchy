@@ -90,8 +90,8 @@ menu_hermes() {
     $'\twaiting\tthe tasks that want a person' | pick Hermes)" || return 0
   case "${chosen%%$'\t'*}" in
     dashboard) run "Hermes dashboard" oal-hermes-dashboard ;;
-    status)    run "Hermes status" oal-hermes-status ;;
-    waiting)   oal-hermes-waiting 2>/dev/null | pick Waiting >/dev/null || true ;;
+    status)    run "Hermes status" oal-hermes-status --cached ;;
+    waiting)   oal-hermes-waiting --cached 2>/dev/null | pick Waiting >/dev/null || true ;;
   esac
 }
 

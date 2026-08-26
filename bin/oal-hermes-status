@@ -21,10 +21,34 @@ ATTENTION_STATES="review blocked ready todo triage scheduled"
 brief=0
 [[ ${1:-} == --brief ]] && brief=1
 
-gateways="$(timeout 30 oal-hermes gateway list 2>/dev/null)" || {
-  echo "no Hermes configured. Set HERMES_SSH in ~/.config/oal/brain/hermes.env, or install Hermes here." >&2
+# --cached is what a menu opens with. Asking Hermes takes seconds; a person clicking a menu entry
+# should see the last answer immediately and be told how old it is, not watch a picker hang.
+if [[ ${1:-} == --cached ]]; then
+  cache="${XDG_STATE_HOME:-$HOME/.local/state}/oal/hermes-status.txt"
+  if [[ -s $cache ]]; then
+    cat "$cache"
+    printf -v now '%(%s)T' -1
+    age=$(( (now - $(stat -c %Y "$cache")) / 60 ))
+    printf '\nas of %s minute(s) ago. oal-hermes-status for live.\n' "$age"
+    exit 0
+  fi
+  echo "nothing cached yet. Run oal-hermes-status, or wait for the agent timer." >&2
   exit 1
-}
+fi
+
+# 90, not 30. A cold multiplexed connection costs about forty seconds to establish -- the master has
+# to be built before anything rides it -- and 30 cut it off every time the timer found a cold link.
+# The caller wraps this in its own timeout; this one only has to be longer than the work.
+gateways="$(timeout 90 oal-hermes gateway list 2>/dev/null)" || gw_rc=$?
+if [[ -z ${gateways:-} ]]; then
+  # Two different failures, and saying the wrong one sends people to edit a config that was correct.
+  if [[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/hermes.env" ]] || command -v hermes >/dev/null; then
+    echo "Hermes is configured but did not answer in time (exit ${gw_rc:-?}). It may be slow or unreachable." >&2
+  else
+    echo "no Hermes configured. Set HERMES_SSH in ~/.config/oal/brain/hermes.env, or install Hermes here." >&2
+  fi
+  exit 1
+fi
 
 up="$(grep -c '✓' <<<"$gateways" || true)"
 down="$(grep -c '✗' <<<"$gateways" || true)"
@@ -34,7 +58,7 @@ if (( brief == 0 )); then
   [[ -n ${running// /} ]] && printf '           %s\n' "${running% }"
 fi
 
-boards="$(timeout 30 oal-hermes kanban boards 2>/dev/null)" || {
+boards="$(timeout 90 oal-hermes kanban boards 2>/dev/null)" || {
   (( brief )) && printf 'up=%s down=%s attention=0\n' "$up" "$down"
   exit 0
 }
