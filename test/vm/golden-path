@@ -407,8 +407,10 @@ plain="$(oal-brain-ask 'who wrote Hamlet?')"
 command -v oal-agent >/dev/null &&
   echo "PASS agent-resolves" || { echo "FAIL agent-resolves: oal-agent is not on PATH"; exit 1; }
 # The alias every shell carries. `a` was bound to a command that did not exist.
-bash -lc 'type a' 2>/dev/null | grep -q 'oal-agent' &&
-  echo "PASS agent-alias-bound" || echo "WARN agent-alias-bound: 'a' is not aliased in a login shell"
+# -i, not -l: bash does not expand aliases in a non-interactive shell whatever else it sources, so
+# `bash -lc 'type a'` reports nothing on a machine where the alias is perfectly well bound.
+bash -ic 'type a' 2>/dev/null | grep -q 'oal-agent' &&
+  echo "PASS agent-alias-bound" || { echo "FAIL agent-alias-bound: 'a' is not bound to oal-agent"; exit 1; }
 oal-agent-crash 2>&1 | grep -qi usage &&
   echo "PASS agent-crash-resolves" || { echo "FAIL agent-crash-resolves: exit 127 territory"; exit 1; }
 oal-agent-diagnose not-a-check 2>&1 | grep -q 'Known checks:' &&
@@ -436,10 +438,16 @@ if command -v coredumpctl >/dev/null; then
   sleep 3
   if coredumpctl list "$victim" --no-pager --no-legend >/dev/null 2>&1; then
     echo "PASS crash-dumped-core"
-    # The exact string oal-crash-watch hands the notification daemon.
-    oal-agent-crash "$victim" sleep /usr/bin/sleep SIGSEGV 2>&1 | grep -q 'oal-brain-backend' &&
-      echo "PASS crash-click-reaches-the-agent" ||
-      { echo "FAIL crash-click-reaches-the-agent: the click target did not run"; exit 1; }
+    # The exact string oal-crash-watch hands the notification daemon. What is being proved is that
+    # it RUNS: this command sat at exit 127 for the life of the tree because bin/oal-agent did not
+    # exist. Asserting on its output instead would be asserting on which backend happens to be
+    # selected and whether there is a terminal to open, neither of which is the bug.
+    crash_out="$(oal-agent-crash "$victim" sleep /usr/bin/sleep SIGSEGV 2>&1)"; crash_rc=$?
+    if [ "$crash_rc" -eq 127 ] || grep -qi 'command not found' <<<"$crash_out"; then
+      echo "FAIL crash-click-reaches-the-agent: exit $crash_rc -- $(head -1 <<<"$crash_out")"
+      exit 1
+    fi
+    echo "PASS crash-click-reaches-the-agent (exit $crash_rc)"
   else
     echo "WARN crash-dumped-core: systemd-coredump recorded nothing"
   fi
@@ -533,15 +541,36 @@ mkdir -p /tmp/oal-menu-shim
 rm -f /tmp/oal-menu-shim/n
 cat > /tmp/oal-menu-shim/kdialog <<'SHIM'
 #!/bin/bash
-# Answer with a tag, as kdialog does. One index per call: Agent, then posture, then trusted.
+# Answer with a tag, as kdialog does, choosing by LABEL rather than by position.
+#
+# It used to answer with hardcoded indexes, and adding one entry to the top of the root menu shifted
+# every one of them: the run then walked into Layout instead of Agent and reported the posture
+# unchanged, which reads exactly like the menu being broken. A shim that has to be renumbered every
+# time the menu gains a row is a shim that will eventually be renumbered wrongly.
 n=$(cat /tmp/oal-menu-shim/n 2>/dev/null || echo 0)
 echo $((n + 1)) > /tmp/oal-menu-shim/n
 case "$n" in
-  0) echo 2 ;;
-  1) echo 1 ;;
-  2) echo 2 ;;
+  0) want=Agent ;;
+  1) want=posture ;;
+  2) want=trusted ;;
   *) exit 1 ;;
 esac
+# kdialog is given --menu <prompt> then tag/label pairs. Walk the pairs and answer with the tag
+# whose label matches, leaving every line of the real parsing and dispatch in the path.
+seen_menu=0
+while (($#)); do
+  if [[ $1 == --menu ]]; then shift 2; seen_menu=1; continue; fi
+  if (( seen_menu )); then
+    tag="$1"; label="${2:-}"; shift 2 2>/dev/null || shift
+    # A word match, not a substring one: "untrusted" contains "trusted", so a substring test picked
+    # the wrong posture and the run reported the menu setting untrusted when it had been asked for
+    # trusted.
+    [[ $label =~ (^|[^a-zA-Z])"$want"([^a-zA-Z]|$) ]] && { printf '%s\n' "$tag"; exit 0; }
+    continue
+  fi
+  shift
+done
+exit 1
 SHIM
 chmod +x /tmp/oal-menu-shim/kdialog
 before="$(oal-agent-profile)"
