@@ -12,11 +12,43 @@ Plasma 6** instead of Hyprland.
 > because a README that describes the roadmap in the present tense is how projects waste people's
 > evenings.
 
+## Install
+
+There is no ISO yet, so this installs **onto an existing Arch Linux system**, and it changes that
+system: it installs packages, writes to `/etc`, sets your login session and reboots you into Plasma.
+Try it in a virtual machine before a machine you care about.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/RFingAdam/agentarchy/main/oal-bootstrap.sh
+less oal-bootstrap.sh     # 167 lines, and it is about to reconfigure your computer
+bash oal-bootstrap.sh
+```
+
+Download, read, then run, rather than `curl | bash`. Not out of politeness: `default/guard/rules`
+blocks exactly that pattern when an agent tries it, and recommending it here while refusing it there
+would make one of the two theatre.
+
+Run it as your **normal user, not root** -- `makepkg` refuses to build as root and the user setup has
+to land in your home directory. Everything that needs root goes through `sudo`, so the user has to be
+a sudoer. Every step is idempotent: a second run reinstalls the same package set and exits rather
+than failing.
+
+Then `sudo systemctl reboot`, and you land in a themed Plasma 6 Wayland session.
+
+| | |
+|---|---|
+| `OAL_REF=main` | branch or tag to clone |
+| `OAL_SKIP_DESKTOP=1` | build and install the package, then stop before touching the system |
+| `OAL_SKIP_MISE=0` | also install the mise tools. Skipped by default; they add minutes |
+| `OAL_SKIP_AGENT=1` | skip the coding-agent runtime |
+
+From a checkout, `./oal-bootstrap.sh` uses the tree it sits in rather than cloning.
+
 ## What actually works today
 
 - A vanilla Arch cloud image becomes an installed, themed Plasma 6 Wayland session in about
   **six minutes**, unattended and reproducibly. `test/vm/golden-path` proves it on every change:
-  14 stages, 91 assertions, a real reboot in the middle, and screenshots of the result.
+  15 stages, 116 assertions, a real reboot in the middle, and screenshots of the result.
 - **The theme engine.** One `colors.toml` per theme drives 19 application templates: switching a
   theme retints Plasma, Konsole, the SDDM greeter, the lock screen, the icon set, the shell prompt,
   the menu, VS Code, helix, btop, tmux, foot and the rest, in one command. 21 themes ship, 2 of them
@@ -69,7 +101,7 @@ every source.
 
 ## What came from Omarchy, and why you cannot see it
 
-668 files and 302 `oal-*` commands: the theme engine (33), application installers (25), hardware
+653 files and 342 `oal-*` commands: the theme engine (35), application installers (25), hardware
 helpers (24), update and removal tooling (40), the system menu (10), plus audio, Plymouth,
 notification and package wrappers.
 
@@ -78,7 +110,7 @@ Everything **visible** in Omarchy is Hyprland and Quickshell -- the bar, the lau
 management, the on-screen menus. All of it was deliberately left behind (121 excluded scripts,
 `shell/**`, `config/hypr/**`), because none of it applies to Plasma. What was kept is the layer
 underneath the shell, and most of it has no route to the screen until the menu and layout land.
-83 commands still need porting; `upstream/NEEDS-PORT.txt` lists them.
+81 commands still need porting; `upstream/NEEDS-PORT.txt` lists them.
 
 So: the theme engine is real and working. The rest is inherited machinery waiting for a front end.
 

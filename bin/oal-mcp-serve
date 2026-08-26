@@ -26,7 +26,10 @@ export PATH="$OAL_PATH/bin:$PATH"
 
 command -v jq >/dev/null || { echo "oal-mcp-serve: jq is required" >&2; exit 1; }
 
-SERVER_VERSION="$(cat "$OAL_PATH/VERSION" 2>/dev/null || echo 0.0.1)"
+# Lowercase, because that is the file this tree actually ships and PKGBUILD installs. Reading
+# VERSION found nothing and fell through to a hardcoded 0.0.1 that could never have been right,
+# quietly, because a missing file and a wrong case look identical to `cat`.
+SERVER_VERSION="$(cat "$OAL_PATH/version" 2>/dev/null || echo unknown)"
 DEFAULT_PROTOCOL=2024-11-05
 
 read -r -d '' TOOLS <<'JSON' || true

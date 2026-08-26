@@ -9,7 +9,7 @@
 # matters. Copying the working tree also means what you built is what you are looking at.
 
 pkgname=agentarchy
-pkgver=0.0.1.dev
+pkgver=0.1.0
 pkgrel=1
 pkgdesc="Arch + KDE Plasma 6 desktop with an agent-first oal-* toolchain"
 arch=('any')

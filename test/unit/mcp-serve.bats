@@ -150,3 +150,14 @@ INIT='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":
   [[ $output == *os_status* ]]
   [[ $output == *os_do* ]]
 }
+
+@test "it reports the version this tree actually ships" {
+  # It read VERSION, uppercase. The file is `version`, lowercase, so this fell through to a
+  # hardcoded 0.0.1 for every client that asked -- silently, because a missing file and a wrong case
+  # are the same thing to `cat`.
+  local shipped
+  shipped="$(cat "$SRC/version")"
+  [ -n "$shipped" ]
+  run drive "$INIT"
+  [ "$(echo "$output" | jq -r '.result.serverInfo.version')" = "$shipped" ]
+}
