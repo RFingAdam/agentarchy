@@ -103,8 +103,9 @@ add_verb() {
 }
 
 @test "a question round-trips through the configured backend" {
+  # --no-context so this measures the pipe and nothing else. Grounding has its own suite.
   oal-brain-backend stub >/dev/null
-  run oal-brain-ask "what theme am I using"
+  run oal-brain-ask --no-context "what theme am I using"
   [ "$status" -eq 0 ]
   [ "$output" = "stub: what theme am I using" ]
 }

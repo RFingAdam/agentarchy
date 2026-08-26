@@ -1,0 +1,207 @@
+#!/bin/bash
+
+# oal:summary=Serve this machine's own state to an agent over MCP
+# oal:args=[--tools]
+# oal:examples=oal-mcp-serve --tools | claude mcp add agentarchy -- oal-mcp-serve
+
+# The other direction of the agent layer. Everything else here lets this machine talk to an agent;
+# this lets any agent ask the machine about itself -- Claude Code, Hermes, or whatever replaces them,
+# because MCP is the one interface all of them already speak.
+#
+# It is also the first row of default/mcp/CATALOG that points at something this repository ships
+# rather than something it fetches from a registry, which is worth knowing when reading that file.
+#
+# Read-only, with one exception. os_do is the write path, and it goes through oal-brain-do, which is
+# the only genuinely backend-neutral enforcement point in this tree: the guard's own output is Claude
+# Code's hook contract, so routing writes through oal-brain-do is what makes them gated for every
+# consumer of this server rather than for one vendor's client.
+#
+# stdio JSON-RPC, one message per line. Nothing but protocol may go to stdout; diagnostics go to
+# stderr, and a stray echo here is a client that reports the server as malformed.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+command -v jq >/dev/null || { echo "oal-mcp-serve: jq is required" >&2; exit 1; }
+
+SERVER_VERSION="$(cat "$OAL_PATH/VERSION" 2>/dev/null || echo 0.0.1)"
+DEFAULT_PROTOCOL=2024-11-05
+
+read -r -d '' TOOLS <<'JSON' || true
+[
+  { "name": "os_status",
+    "description": "Health of this machine: failed units, journal errors, OOM kills, disk, thermals, pending updates, orphaned packages, unmerged .pacnew files, network, GPU driver, and the agent layer itself. Returns a severity per check. Call this first for any question about what is wrong with the machine.",
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false } },
+
+  { "name": "os_state",
+    "description": "What this machine is currently doing: hostname, uptime, desktop theme, panel layout, agent permission posture, session type and battery.",
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false } },
+
+  { "name": "os_units",
+    "description": "systemd units in a failed state, system and user.",
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false } },
+
+  { "name": "os_logs",
+    "description": "Read the systemd journal for the current boot.",
+    "inputSchema": { "type": "object", "properties": {
+        "unit":     { "type": "string", "description": "Limit to one unit, e.g. sshd.service" },
+        "priority": { "type": "string", "enum": ["emerg","alert","crit","err","warning","notice","info","debug"],
+                      "description": "Lowest priority to include. Defaults to err." },
+        "grep":     { "type": "string", "description": "Only entries matching this extended regex" },
+        "lines":    { "type": "integer", "minimum": 1, "maximum": 500, "description": "How many of the most recent entries. Defaults to 50." }
+      }, "additionalProperties": false } },
+
+  { "name": "os_packages",
+    "description": "Package state: pending updates from the local sync database, and orphaned packages.",
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false } },
+
+  { "name": "os_devices",
+    "description": "Whether this machine's lab instruments and USB serial devices are reachable without root, and why not if they are not.",
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false } },
+
+  { "name": "os_tasks",
+    "description": "Long-running agent tasks on this machine and what became of them, including any held by a restart.",
+    "inputSchema": { "type": "object", "properties": {}, "additionalProperties": false } },
+
+  { "name": "os_do",
+    "description": "Act on the machine, through the four-verb contract. Every call is checked against the verb set and then against this machine's tool-call guard, which may refuse. Verbs: state; theme <name>; notify <summary> [body]; open <desktop-id>.",
+    "inputSchema": { "type": "object", "properties": {
+        "verb": { "type": "string", "enum": ["state","theme","notify","open"] },
+        "args": { "type": "array", "items": { "type": "string" }, "maxItems": 2 }
+      }, "required": ["verb"], "additionalProperties": false } }
+]
+JSON
+TOOLS="$(printf '%s' "$TOOLS" | jq -c .)" || { echo "oal-mcp-serve: tool list is not valid JSON" >&2; exit 1; }
+
+if [[ ${1:-} == --tools ]]; then
+  printf '%s' "$TOOLS" | jq -r '.[] | "\(.name)\t\(.description[0:80])"'
+  exit 0
+fi
+
+send() { printf '%s\n' "$1"; }
+
+reply()   { send "$(jq -nc --argjson id "$1" --argjson r "$2" '{jsonrpc:"2.0", id:$id, result:$r}')"; }
+fault()   { send "$(jq -nc --argjson id "$1" --argjson c "$2" --arg m "$3" '{jsonrpc:"2.0", id:$id, error:{code:$c, message:$m}}')"; }
+
+# Every tool answers as text. A model reads JSON and prose equally well, and a human debugging why
+# it said something reads only one of them.
+text_result() {
+  jq -nc --arg t "$1" --argjson err "${2:-false}" '{content:[{type:"text", text:$t}], isError:$err}'
+}
+
+# --- the tools -----------------------------------------------------------------------------------
+
+tool_os_status()   { timeout 60 oal-doctor 2>&1; return 0; }
+tool_os_state()    { timeout 15 oal-brain-state 2>&1; return 0; }
+tool_os_tasks()    { timeout 15 oal-brain-tasks 2>&1 || true; }
+tool_os_devices()  { timeout 30 oal-mcp-doctor 2>&1 || true; }
+
+tool_os_units() {
+  {
+    echo "system:"
+    timeout 10 systemctl --failed --no-legend --plain --no-pager 2>&1 | sed 's/^/  /'
+    echo "user:"
+    timeout 10 systemctl --user --failed --no-legend --plain --no-pager 2>&1 | sed 's/^/  /'
+  } 2>&1
+}
+
+tool_os_packages() {
+  if ! command -v pacman >/dev/null; then echo "pacman is not on this machine"; return 0; fi
+  echo "pending updates (from the sync database already on disk):"
+  timeout 20 pacman -Qu 2>/dev/null | sed 's/^/  /' || true
+  echo "orphaned packages:"
+  timeout 20 pacman -Qtdq 2>/dev/null | sed 's/^/  /' || true
+}
+
+tool_os_logs() {
+  local args="$1" unit priority grep_re lines
+  unit="$(jq -r '.unit // empty' <<<"$args")"
+  priority="$(jq -r '.priority // "err"' <<<"$args")"
+  grep_re="$(jq -r '.grep // empty' <<<"$args")"
+  lines="$(jq -r '.lines // 50' <<<"$args")"
+
+  # Validated rather than trusted. These become argv for journalctl, and a tool whose arguments come
+  # from a model is exactly where an unchecked string becomes somebody else's problem.
+  [[ $lines =~ ^[0-9]+$ ]] && (( lines >= 1 && lines <= 500 )) || lines=50
+  case "$priority" in emerg|alert|crit|err|warning|notice|info|debug) ;; *) priority=err ;; esac
+
+  local -a cmd=(journalctl -b --no-pager -q -n "$lines" -p "$priority" -o short-iso)
+  if [[ -n $unit ]]; then
+    [[ $unit =~ ^[A-Za-z0-9@._:-]+$ ]] || { echo "not a unit name: $unit"; return 0; }
+    cmd+=(-u "$unit")
+  fi
+  [[ -n $grep_re ]] && cmd+=(-g "$grep_re")
+  timeout 30 "${cmd[@]}" 2>&1 || true
+}
+
+tool_os_do() {
+  local args="$1" verb
+  verb="$(jq -r '.verb // empty' <<<"$args")"
+  [[ -n $verb ]] || { echo "os_do needs a verb"; return 1; }
+  local -a argv=("$verb")
+  while IFS= read -r a; do [[ -n $a ]] && argv+=("$a"); done < <(jq -r '.args[]? // empty' <<<"$args")
+  # oal-brain-do checks the verb set and then the guard, and refuses the guard's confirm tier
+  # because on this path there is nobody to ask. Its refusal is the answer, not an error to retry.
+  timeout 60 oal-brain-do "${argv[@]}" 2>&1
+}
+
+# --- the loop -------------------------------------------------------------------------------------
+
+while IFS= read -r line; do
+  [[ -n ${line//[[:space:]]/} ]] || continue
+  method="$(jq -r '.method // empty' <<<"$line" 2>/dev/null)" || continue
+  id="$(jq -c '.id // null' <<<"$line" 2>/dev/null)" || id=null
+  [[ -n $method ]] || continue
+
+  # A notification has no id and takes no response. Answering one is a protocol violation that some
+  # clients treat as fatal.
+  if [[ $id == null ]]; then
+    continue
+  fi
+
+  case "$method" in
+    initialize)
+      protocol="$(jq -r '.params.protocolVersion // empty' <<<"$line")"
+      [[ -n $protocol ]] || protocol="$DEFAULT_PROTOCOL"
+      reply "$id" "$(jq -nc --arg p "$protocol" --arg v "$SERVER_VERSION" \
+        '{protocolVersion:$p, capabilities:{tools:{}},
+          serverInfo:{name:"agentarchy", version:$v},
+          instructions:"This server is the machine itself. Call os_status before answering any question about what is wrong with this computer, and answer from what it returns rather than from general knowledge."}')"
+      ;;
+    tools/list)
+      reply "$id" "$(jq -nc --argjson t "$TOOLS" '{tools:$t}')"
+      ;;
+    tools/call)
+      name="$(jq -r '.params.name // empty' <<<"$line")"
+      arguments="$(jq -c '.params.arguments // {}' <<<"$line")"
+      case "$name" in
+        os_status|os_state|os_units|os_packages|os_devices|os_tasks)
+          out="$("tool_$name" 2>&1)"
+          reply "$id" "$(text_result "${out:-(no output)}" false)"
+          ;;
+        os_logs)
+          out="$(tool_os_logs "$arguments" 2>&1)"
+          reply "$id" "$(text_result "${out:-(nothing logged)}" false)"
+          ;;
+        os_do)
+          if out="$(tool_os_do "$arguments" 2>&1)"; then
+            reply "$id" "$(text_result "${out:-done}" false)"
+          else
+            reply "$id" "$(text_result "${out:-refused}" true)"
+          fi
+          ;;
+        *)
+          fault "$id" -32602 "no tool called '$name'"
+          ;;
+      esac
+      ;;
+    ping)
+      reply "$id" '{}'
+      ;;
+    *)
+      fault "$id" -32601 "method not implemented: $method"
+      ;;
+  esac
+done

@@ -1,11 +1,15 @@
 #!/bin/bash
 
 # oal:summary=Ask the configured brain something and print its answer
-# oal:args=<prompt>
-# oal:examples=oal-brain-ask "what is using my disk" | echo "..." | oal-brain-ask
+# oal:args=[--context|--no-context] <prompt>
+# oal:examples=oal-brain-ask "any OS issues?" | echo "..." | oal-brain-ask --no-context
 
 # The prompt goes to the adapter on stdin, never in argv. Prompts contain quotes, newlines and shell
 # metacharacters as a matter of course, and argv is where those turn into somebody else's bug.
+#
+# A question about this machine gets the machine's state attached before it is sent. Whether it is a
+# question about this machine is decided by a keyword match in default/brain/lib.sh -- deterministic,
+# so it is testable and cannot itself be wrong in an interesting way.
 set -uo pipefail
 BRAIN_CMD=oal-brain-ask
 bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -13,6 +17,19 @@ export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
 export PATH="$OAL_PATH/bin:$PATH"
 # shellcheck source=default/brain/lib.sh
 source "$OAL_PATH/default/brain/lib.sh"
+
+want_context=auto
+while (($#)); do
+  case "$1" in
+    --context)    want_context=yes; shift ;;
+    --no-context) want_context=no; shift ;;
+    -h|--help)    sed -n '3,5p' "$0" | sed 's/^# oal://'; exit 0 ;;
+    # Everything after -- is the question, even if it starts with a dash. oal-agent relies on this.
+    --)           shift; break ;;
+    -*)           brain_fail "unknown option: $1" ;;
+    *)            break ;;
+  esac
+done
 
 backend="$(brain_backend)"
 [[ -n $backend ]] ||
@@ -23,7 +40,23 @@ adapter="$(brain_adapter "$backend")" ||
 # Arguments if given, otherwise stdin. Both spellings exist because a person types the first and a
 # script pipes the second.
 if (( $# > 0 )); then
-  printf '%s\n' "$*" | "$adapter" ask
+  prompt="$*"
 else
-  "$adapter" ask
+  prompt="$(cat)"
 fi
+[[ -n ${prompt//[[:space:]]/} ]] || brain_fail "the question is empty"
+
+ground=0
+case "$want_context" in
+  yes) ground=1 ;;
+  no)  ground=0 ;;
+  auto) brain_question_is_local "$prompt" && ground=1 ;;
+esac
+
+if (( ground )); then
+  # Gathering costs about a second. That is the price of an answer that is true, and it is paid
+  # before the model is called rather than instead of calling it.
+  prompt="$(brain_ground "$(brain_context)" "$prompt")"
+fi
+
+printf '%s\n' "$prompt" | "$adapter" ask

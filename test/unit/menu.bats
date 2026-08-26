@@ -126,3 +126,56 @@ setup() {
   [ "$status" -eq 0 ]
   [ "${lines[0]}" = gruvbox ]
 }
+
+@test "the health route offers real findings and dispatches the one chosen" {
+  # kdialog is shimmed, not oal-menu-select. tasks/lessons.md records why: shimming the picker made
+  # the menu's own test return the value oal-menu expected, and it stayed green for the entire time
+  # the menu was completely dead.
+  local shim="$BATS_TEST_TMPDIR/shim"
+  mkdir -p "$shim"
+
+  # kdialog answers with the index tag, so 0 is "pick the first row offered".
+  cat >"$shim/kdialog" <<'SH'
+#!/bin/bash
+printf '%s\n' 0
+SH
+  # Record what the menu decided to diagnose, rather than actually launching an agent.
+  cat >"$shim/oal-agent-diagnose" <<SH
+#!/bin/bash
+printf '%s' "\$1" >"$BATS_TEST_TMPDIR/diagnosed"
+SH
+  chmod +x "$shim/kdialog" "$shim/oal-agent-diagnose"
+
+  PATH="$shim:$SRC/bin:$PATH" OAL_PATH="$SRC" run "$SRC/bin/oal-menu" health
+  [ "$status" -eq 0 ]
+  [ -f "$BATS_TEST_TMPDIR/diagnosed" ]
+
+  # It has to be an id oal-doctor actually reports, not the summary the picker displayed.
+  local chose
+  chose="$(cat "$BATS_TEST_TMPDIR/diagnosed")"
+  [ -n "$chose" ]
+  "$SRC/bin/oal-doctor" --json | jq -e --arg id "$chose" 'any(.checks[]; .id == $id)' >/dev/null
+}
+
+@test "the health route puts problems above passing checks" {
+  # The finding worth acting on should be the row under the cursor, not the eleventh entry.
+  local shim="$BATS_TEST_TMPDIR/shim2"
+  mkdir -p "$shim"
+  cat >"$shim/kdialog" <<SH
+#!/bin/bash
+# Record the order the menu offered, then cancel.
+printf '%s\n' "\$@" >"$BATS_TEST_TMPDIR/offered"
+exit 1
+SH
+  chmod +x "$shim/kdialog"
+  PATH="$shim:$SRC/bin:$PATH" OAL_PATH="$SRC" run "$SRC/bin/oal-menu" health
+  [ -f "$BATS_TEST_TMPDIR/offered" ]
+
+  # Whatever the worst severity present is, its first row must come before any 'ok' row.
+  local worst_line ok_line
+  worst_line="$(grep -nE 'problem|warn' "$BATS_TEST_TMPDIR/offered" | head -1 | cut -d: -f1)"
+  ok_line="$(grep -n 'ok$' "$BATS_TEST_TMPDIR/offered" | head -1 | cut -d: -f1)"
+  if [ -n "$worst_line" ] && [ -n "$ok_line" ]; then
+    [ "$worst_line" -lt "$ok_line" ]
+  fi
+}

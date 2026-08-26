@@ -111,7 +111,40 @@ menu_system() {
 }
 
 route="${1:-root}"
+# What is wrong with this machine, one click from the dock.
+#
+# oal-doctor without a surface here would be the same mistake this whole menu was rewritten to fix:
+# something present, correct, and on a path nobody looks at. Selecting a finding hands it to the
+# configured agent, which is the same thing clicking its notification does.
+menu_health() {
+  local report rows=() chosen id
+  report="$(oal-doctor --json 2>/dev/null)" || true
+  if [[ -z $report ]]; then
+    oal-notification-send "Health" "oal-doctor produced nothing" 2>/dev/null || true
+    return 0
+  fi
+
+  # Findings first, then the rest, so the thing worth acting on is the thing under the cursor.
+  while IFS=$'\t' read -r id severity summary; do
+    [[ -n $id ]] || continue
+    rows+=("$(printf '\t%s\t%s' "$summary" "$severity")")
+  done < <(printf '%s' "$report" | jq -r '
+    .checks
+    | sort_by(if .severity == "problem" then 0 elif .severity == "warn" then 1
+              elif .severity == "unknown" then 2 else 3 end)
+    | .[] | [.id, .severity, .summary] | @tsv')
+
+  chosen="$(printf '%s\n' "${rows[@]}" | pick Health)" || return 0
+  [[ -n $chosen ]] || return 0
+
+  # Back from the summary to the id, because the picker answers with what it displayed.
+  id="$(printf '%s' "$report" | jq -r --arg s "${chosen%%$'\t'*}" '.checks[] | select(.summary == $s) | .id' | head -1)"
+  [[ -n $id ]] || return 0
+  run "Diagnose $id" oal-agent-diagnose "$id"
+}
+
 case "$route" in
+  health) menu_health ;;
   theme) menu_theme ;;
   layout) menu_layout ;;
   agent) menu_agent ;;
@@ -120,12 +153,14 @@ case "$route" in
   -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
   root)
     chosen="$(printf '%s\n' \
+      $'\tHealth\twhat is wrong with this machine, and ask about it' \
       $'\tTheme\tcolours, wallpaper, and everything themed' \
       $'\tLayout\tpanels and dock' \
       $'\tAgent\tposture and MCP servers' \
       $'\tHermes\tgateways, boards and what is waiting' \
       $'\tSystem\tlock, log out, restart' | pick Agentarchy)" || exit 0
     case "${chosen%%$'\t'*}" in
+      Health) menu_health ;;
       Theme) menu_theme ;;
       Layout) menu_layout ;;
       Agent) menu_agent ;;
@@ -133,5 +168,5 @@ case "$route" in
       System) menu_system ;;
     esac
     ;;
-  *) echo "oal-menu: no route '$route' (try theme, layout, agent, system)" >&2; exit 1 ;;
+  *) echo "oal-menu: no route '$route' (try health, theme, layout, agent, hermes, system)" >&2; exit 1 ;;
 esac

@@ -103,6 +103,7 @@ settle() {
 @test "nothing enables the resident brain, and the sweep is enabled" {
   # The sweep only reads a journal and reports, so there is no decision to hand over. The resident
   # brain is an always-on process with tool access and stays the owner's call.
-  grep -q 'enable oal-brain-sweep.service' "$SRC/install/agent/runtime.sh"
+  grep -A3 'for unit in' "$SRC/install/agent/runtime.sh" | grep -q 'oal-brain-sweep.service'
+  grep -A3 'for unit in' "$SRC/install/agent/runtime.sh" | grep -q 'systemctl --user enable'
   ! grep -rhE '^[^#]*systemctl[^#]*enable[^#]*oal-brain\.service' "$SRC/install" "$SRC/PKGBUILD" 2>/dev/null | grep -q .
 }

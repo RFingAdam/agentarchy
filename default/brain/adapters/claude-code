@@ -20,5 +20,12 @@ case "${1:-}" in
     # metacharacter problem the contract avoids by using stdin does not exist at this hop.
     exec claude -p "$prompt"
     ;;
-  *) echo "usage: claude-code describe|probe|ask" >&2; exit 1 ;;
+  interactive)
+    command -v claude >/dev/null || exit 1
+    [[ ${2:-} == --check ]] && exit 0
+    # No -p: this is the session a person sits in front of, with the same guard and posture as any
+    # other Claude Code session on the machine.
+    exec claude
+    ;;
+  *) echo "usage: claude-code describe|probe|ask|interactive" >&2; exit 1 ;;
 esac

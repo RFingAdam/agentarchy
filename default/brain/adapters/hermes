@@ -116,5 +116,11 @@ case "${1:-}" in
     # The JSON-RPC/WebSocket backend, in the foreground, which is what a systemd unit wants.
     exec hermes serve
     ;;
+  interactive)
+    # Deliberately unsupported rather than guessed at. This adapter was once written against an
+    # invented HTTP API and none of it was right; inventing an interactive invocation now would be
+    # the same mistake with a different flag. Ask it a question instead.
+    exit 1
+    ;;
   *) echo "usage: hermes describe|probe|ask|serve" >&2; exit 1 ;;
 esac

@@ -1,0 +1,13 @@
+# Ten minutes. Slow enough that it costs nothing, fast enough that a disk filling up is noticed
+# before it is full. Only transitions are announced, so the interval does not set how often anyone
+# is interrupted -- how often something actually breaks does.
+[Unit]
+Description=Check this machine's health every ten minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

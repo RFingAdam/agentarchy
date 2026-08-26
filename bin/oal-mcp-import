@@ -53,6 +53,10 @@ while IFS= read -r line; do
 
   case "$(trim "${parts[1]}")" in
     uvx | npx) ;;
+    # Deliberately not `oal`. That kind runs a bare command from PATH, and it exists for the one
+    # server this repository ships. Honouring it here would make any imported catalog a way to
+    # register an arbitrary local command as an MCP server.
+    oal) oal_mcp_die "$file: '$id' uses kind 'oal', which is reserved for servers this distribution ships" ;;
     *) oal_mcp_die "$file: '$id' has kind '$(trim "${parts[1]}")' (expected uvx or npx)" ;;
   esac
   [[ -n $(trim "${parts[2]}") ]] || oal_mcp_die "$file: '$id' has no package"

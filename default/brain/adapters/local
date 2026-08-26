@@ -4,26 +4,63 @@
 #
 # This is the backend that makes "agent-first operating system" true when the internet is not
 # available and nobody has an API key -- and it is the clearest evidence the brain contract is not a
-# bet on any one vendor. It shares nothing with Hermes or Claude Code except the four subcommands
-# every adapter answers.
+# bet on any one vendor. It shares nothing with Hermes or Claude Code except the subcommands every
+# adapter answers.
+#
+# The HTTP API rather than `ollama run`. The CLI cannot be told how long to keep the model loaded or
+# when to stop generating, and both of those were most of why the first version took 65 seconds cold
+# and 33 warm to answer a question whose answer was one sentence:
+#
+#   keep_alive    the CLI leaves ollama's 5-minute default, so a question asked six minutes after
+#                 the last one pays a full model load again. On a desktop that is every question.
+#   num_predict   nothing capped the answer, so a small model asked something open-ended would keep
+#                 going until it ran out of things to say.
+#   a system prompt   which the CLI has no way to pass at all.
+#
+# It also removes the ANSI-stripping that used to be here. That only existed because `ollama run`
+# draws a spinner and rewrites the line as it streams, and those escapes are invisible in a terminal
+# and garbage in a desktop notification, which is where this answer goes.
 #
 # Which model, in order:
 #   OAL_LOCAL_MODEL in ~/.config/oal/brain/local.env
-#   whatever `ollama list` shows first
+#   whatever the server lists first
 #
-# Pull one with: ollama pull qwen2.5:1.5b   (small enough to answer on a laptop's CPU)
+# Pull one with: oal-brain-model --pull qwen2.5:1.5b
 set -uo pipefail
 
 config="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/local.env"
 # shellcheck disable=SC1090
 [[ -r $config ]] && source "$config"
 
-have_ollama() { command -v ollama >/dev/null; }
+# Ollama's own variable, so pointing this at a box on the LAN needs no setting of ours.
+host="${OLLAMA_HOST:-127.0.0.1:11434}"
+[[ $host == http*://* ]] || host="http://$host"
 
-# The first model, so a machine with exactly one just works and nobody has to name it.
-first_model() {
-  ollama list 2>/dev/null | awk 'NR>1 && $1 != "" {print $1; exit}'
-}
+# Long enough that a desktop stops reloading the model between questions, short enough that a
+# laptop reclaims the memory after a session.
+keep_alive="${OAL_LOCAL_KEEP_ALIVE:-30m}"
+# A grounded answer is a few sentences. Uncapped is how a 1.5B model turns one into six.
+num_predict="${OAL_LOCAL_NUM_PREDICT:-300}"
+# 4096, which is both ollama's own default and ample: a grounded prompt is about 250 tokens. It
+# matters that this MATCHES the default rather than merely being large enough -- ollama reloads the
+# model whenever a request asks for a context size different from the one already loaded, so an
+# adapter that insists on 8192 makes every request from any other client evict its model, and every
+# request from this one evict theirs.
+num_ctx="${OAL_LOCAL_NUM_CTX:-4096}"
+
+# Kept deliberately short. A longer prompt spelling out what the severity labels mean was tried and
+# made a 1.5B model answer with the bare label ("warn") instead of a sentence, and slowed prefill.
+# Small models are steered by short instructions and derailed by long ones; the grounding is what
+# makes answers true, and this only has to stop the model inventing around it.
+SYSTEM_PROMPT="${OAL_LOCAL_SYSTEM:-You are the assistant built into this computer. When the question comes with facts about the machine, answer only from those facts and never invent details they do not contain. If the facts do not answer the question, say so. Be brief and concrete.}"
+
+api() { curl -fsS --max-time "${2:-120}" "$host/api/$1"; }
+
+have_ollama() { command -v ollama >/dev/null; }
+serving() { api version 3 >/dev/null 2>&1; }
+
+# The first model the server holds, so a machine with exactly one just works and nobody names it.
+first_model() { api tags 5 2>/dev/null | jq -r '.models[0].name // empty' 2>/dev/null; }
 
 model() {
   local m="${OAL_LOCAL_MODEL:-}"
@@ -35,12 +72,15 @@ case "${1:-}" in
   describe)
     if ! have_ollama; then
       echo "Ollama (not installed)"
+    elif ! serving; then
+      echo "Ollama, installed but not answering on $host"
     else
       m="$(model)"
+      ver="$(api version 3 2>/dev/null | jq -r '.version // empty' 2>/dev/null)"
       if [[ -n $m ]]; then
-        printf 'Ollama %s, running %s locally\n' "$(ollama --version 2>/dev/null | grep -oE '[0-9]+\.[0-9.]+' | head -1)" "$m"
+        printf 'Ollama %s, running %s locally\n' "${ver:-?}" "$m"
       else
-        echo "Ollama, with no model pulled yet"
+        echo "Ollama ${ver:-}, with no model pulled yet"
       fi
     fi
     ;;
@@ -48,29 +88,51 @@ case "${1:-}" in
     # Installed, serving, AND holding a model. Two of the three is a brain that cannot answer, and
     # reporting that as reachable puts a lie on the panel.
     have_ollama || exit 1
-    ollama list >/dev/null 2>&1 || exit 1
+    serving || exit 1
     [[ -n "$(model)" ]] || exit 1
     ;;
   ask)
     have_ollama || { echo "local: ollama is not installed" >&2; exit 1; }
+    serving || { echo "local: ollama is not answering on $host (systemctl status ollama)" >&2; exit 1; }
     m="$(model)"
     [[ -n $m ]] || {
-      echo "local: no model pulled. Try: ollama pull qwen2.5:1.5b" >&2
+      echo "local: no model pulled. Try: oal-brain-model --pull qwen2.5:1.5b" >&2
       exit 1
     }
     prompt="$(cat)"
     [[ -n $prompt ]] || { echo "local: empty prompt" >&2; exit 1; }
-    # The prompt goes on stdin, as everywhere else in this contract: a question is full of quotes and
-    # newlines and argv is where those become somebody else's bug.
-    # The escapes are stripped because ollama draws a spinner and rewrites the line as it streams.
-    # Those control codes are invisible in a terminal and garbage in a desktop notification, which
-    # is where this answer is going. Cursor moves and erase-line included, not just colour.
-    printf '%s' "$prompt" | ollama run "$m" 2>/dev/null | sed -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' -e 's/\r//g'
+
+    # jq builds the request, so a prompt full of quotes and newlines cannot break out of the JSON.
+    # That is the same reason the contract puts the prompt on stdin in the first place.
+    body="$(jq -nc \
+      --arg model "$m" --arg prompt "$prompt" --arg system "$SYSTEM_PROMPT" \
+      --arg keep "$keep_alive" \
+      --argjson predict "$num_predict" --argjson ctx "$num_ctx" \
+      '{model:$model, prompt:$prompt, system:$system, stream:false, keep_alive:$keep,
+        options:{num_predict:$predict, num_ctx:$ctx, temperature:0.3}}')" ||
+      { echo "local: could not build the request" >&2; exit 1; }
+
+    out="$(curl -fsS --max-time 600 -H 'Content-Type: application/json' \
+      -d "$body" "$host/api/generate" 2>/dev/null)" ||
+      { echo "local: the request to $host failed" >&2; exit 1; }
+
+    answer="$(printf '%s' "$out" | jq -r '.response // empty' 2>/dev/null)"
+    [[ -n $answer ]] || { echo "local: the model returned nothing" >&2; exit 1; }
+    printf '%s\n' "$answer"
+    ;;
+  interactive)
+    have_ollama || exit 1
+    m="$(model)"
+    [[ -n $m ]] || exit 1
+    [[ ${2:-} == --check ]] && exit 0
+    # `ollama run` with no prompt on stdin is its own REPL, and it is the same loaded model the ask
+    # path uses, so sitting in it does not pay a second load.
+    exec ollama run "$m"
     ;;
   serve)
     # Ollama has its own system service and it is enabled by the install. Supervising it from the
     # brain's unit as well would be two things restarting one process.
     exit 1
     ;;
-  *) echo "usage: local describe|probe|ask|serve" >&2; exit 1 ;;
+  *) echo "usage: local describe|probe|ask|serve|interactive" >&2; exit 1 ;;
 esac

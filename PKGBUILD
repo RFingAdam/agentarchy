@@ -93,7 +93,12 @@ package() {
   # actually turn on.
   if [[ -d default/systemd/user ]]; then
     install -d "$pkgdir/usr/lib/systemd/user"
+    # .timer as well as .service. The glob was .service only, so the first timer added to this
+    # directory would have shipped to /usr/share/agentarchy and been impossible to enable -- the
+    # same failure this block exists to fix, one file extension later.
     install -m644 default/systemd/user/*.service "$pkgdir/usr/lib/systemd/user/"
+    compgen -G 'default/systemd/user/*.timer' >/dev/null &&
+      install -m644 default/systemd/user/*.timer "$pkgdir/usr/lib/systemd/user/"
   fi
 
   # The panel applet. Plasma reads applets from /usr/share/plasma/plasmoids by package id, so a copy

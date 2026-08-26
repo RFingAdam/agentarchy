@@ -73,7 +73,11 @@ oal_mcp_register() { # oal_mcp_register <id> <kind> <package> <args...>
   case "$kind" in
     uvx) cmd=(uvx "$package") ;;
     npx) cmd=(npx -y "$package") ;;
-    *) oal_mcp_die "$id: unknown kind '$kind' (expected uvx or npx)" ;;
+    # A server this distribution ships, already on PATH. Only the shipped catalog may use this kind:
+    # oal-mcp-import refuses it, because a kind that runs a bare command turns an imported data file
+    # into a way to register anything on the machine as a server.
+    oal) cmd=("$package") ;;
+    *) oal_mcp_die "$id: unknown kind '$kind' (expected uvx, npx or oal)" ;;
   esac
   (($#)) && cmd+=("$@")
   claude mcp add "$id" -- "${cmd[@]}"

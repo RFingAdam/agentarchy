@@ -86,6 +86,37 @@ So: the theme engine is real and working. The rest is inherited machinery waitin
 
 This is the part worth switching for, and the part no other distribution does.
 
+**Ask the machine what is wrong with it, and it answers from facts.** Not from what a model
+remembers about operating systems:
+
+```bash
+oal-doctor              # failed units, journal errors, OOM kills, disk, thermals,
+                        # pending updates, .pacnew files, network, GPU driver, agent layer
+oal-doctor --json       # the same report, for something that is not a person
+```
+
+`Meta+A` and `oal-brain-ask` attach that report to any question about this machine before it reaches
+a model. Whether a question is about this machine is a keyword match rather than a model call, so it
+is cheap, testable, and cannot itself hallucinate. It works offline, and it is the difference between
+an assistant that is on your desktop and one that is *of* it.
+
+**Any agent gets the same thing, over MCP.** `oal-mcp-serve` exposes the machine to whatever client
+you run: `os_status`, `os_state`, `os_units`, `os_logs`, `os_packages`, `os_devices`, `os_tasks`
+read-only, and one write tool that goes through the four-verb contract and the guard.
+
+```bash
+oal-mcp-install agentarchy
+```
+
+That is the answer to "why run my agent here rather than on Ubuntu": on this machine it can see the
+machine, and every action it takes is checked.
+
+**When something breaks, the desktop notices.** `oal-watch` runs the health report on a timer and
+raises a notification for findings that are *new* -- clicking it hands that one finding, plus a skill
+describing how to investigate it, to whichever agent is configured. A core dump takes the same path.
+Only transitions are announced, because a watcher that repeats itself is one people turn off.
+[docs/events.md](docs/events.md).
+
 **MCP servers are managed like packages** -- not a JSON file you hand-edit and hope you got right:
 
 ```bash
@@ -122,9 +153,14 @@ A prompt that stalls is worse than a prompt that is quiet.
 any other, so `Meta+A` answers with no network, no account and no bill:
 
 ```bash
-ollama pull qwen2.5:1.5b
+oal-brain-model --suggest             # sized to this machine's memory
+oal-brain-model --pull qwen2.5:1.5b
 oal-brain-backend local
 ```
+
+It drives Ollama's HTTP API rather than `ollama run`, which is what makes it usable rather than
+merely present: the CLI cannot be told to keep the model loaded between questions, when to stop
+generating, or what its system prompt is, and those three were most of the wait.
 
 The CPU build ships everywhere and the CUDA build swaps in on a machine with an NVIDIA GPU. Nothing
 about this is specific to any vendor, which is rather the point of the next paragraph.
@@ -135,7 +171,7 @@ and can act on the machine. Agentarchy ships the contract and thin adapters; it 
 installs none, and enables none.
 
 ```bash
-oal-brain-backend --list        # adapters: stub, claude-code, hermes
+oal-brain-backend --list        # adapters: stub, claude-code, local, hermes
 oal-brain-backend claude-code   # choosing one is the entire opt-in
 oal-brain-ask "what is using my disk"
 oal-brain-do notify "Build finished"

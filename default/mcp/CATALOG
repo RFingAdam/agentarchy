@@ -25,6 +25,11 @@
 # ones, not a curated set that reflects one person's work. Opinionated defaults are
 # good; an opinionated *catalogue* is a lock-in.
 
+# The only row here that points at something this repository ships rather than something it
+# fetches from a registry. It is what makes an agent running on this machine able to ask the
+# machine about itself, which is the one thing it cannot get anywhere else.
+agentarchy | oal | oal-mcp-serve |  | public | minimal,dev | This machine itself: health, logs, failed units, packages, devices and agent tasks
+
 filesystem | npx | @modelcontextprotocol/server-filesystem | $HOME | public | minimal,dev | Read and write files under paths you name
 git | uvx | mcp-server-git |  | public | minimal,dev | Read, search and inspect a git repository
 fetch | uvx | mcp-server-fetch |  | public | minimal,dev | Retrieve a URL and convert it to text

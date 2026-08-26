@@ -88,13 +88,23 @@ AccuracySec=30s
 WantedBy=timers.target
 UNIT
 
-# Report interrupted tasks at login. Enabled, unlike oal-brain.service: this one reads a journal and
-# says what it found. It starts nothing and resumes nothing, so there is no decision to hand over.
-systemctl --user enable oal-brain-sweep.service 2>/dev/null ||
-  log "note: enable it later with 'systemctl --user enable oal-brain-sweep.service'"
+# The units that watch and report. All three read something and say what they found; none of them
+# starts an agent or changes the machine, so there is no decision to hand over and they are enabled.
+# oal-brain.service, which does run a resident backend, stays disabled.
+#
+# oal-crash-watch is here rather than only in install/user/first-run/enable-user-units.sh because
+# nothing in oal-bootstrap.sh runs that directory at all. It is the ISO's first-boot path, and on a
+# bootstrap install the crash watcher had therefore never once started -- which is also why nobody
+# noticed that the notification it raises pointed at a command that did not exist.
+for unit in oal-brain-sweep.service oal-crash-watch.service; do
+  systemctl --user enable "$unit" 2>/dev/null ||
+    log "note: enable it later with 'systemctl --user enable $unit'"
+done
 
 if systemctl --user daemon-reload 2>/dev/null && systemctl --user enable --now oal-agent-hud.timer 2>/dev/null; then
   log "agent state timer enabled"
+  systemctl --user enable --now oal-watch.timer 2>/dev/null ||
+    log "note: enable the health watch later with 'systemctl --user enable --now oal-watch.timer'"
 else
   # Normal during a chroot install: there is no user bus to talk to yet.
   log "agent state timer written; enable it after first login with 'systemctl --user enable --now oal-agent-hud.timer'"

@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# oal:summary=Notice when something on this machine breaks, and offer to diagnose it
+# oal:args=[--once] [--reset]
+# oal:hidden=true
+
+# The generalisation of upstream's crash watcher. That one watches for exactly one event -- a core
+# dump -- gathers its facts, and hands them to an agent along with a skill describing the method.
+# The mechanism is right and the scope was one row long.
+#
+# There is deliberately no second table format here. oal-doctor already enumerates what can be wrong
+# with this machine, in a structured form, with a severity per finding. That IS the event table, and
+# inventing a parallel one would mean two lists to keep in step and one of them silently going stale.
+#
+# Only transitions are announced. A disk that was 96% full an hour ago and still is has not become
+# news, and a watcher that says so every ten minutes is one people turn off -- after which nothing is
+# watched at all, which is worse than never having had it.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/oal"
+seen_file="$state_dir/watch-seen"
+
+# nf-md-stethoscope, escaped so this file reads without a Nerd Font installed.
+readonly GLYPH=$'\U000f0f70'
+
+notify=1
+for arg in "$@"; do
+  case "$arg" in
+    --reset) rm -f -- "$seen_file"; echo "watch state cleared"; exit 0 ;;
+    # Report to stdout and put nothing on anybody's screen. The test suite runs this command for
+    # real, and a test suite that raises desktop notifications on the developer's machine is a test
+    # suite people stop running.
+    --no-notify) notify=0 ;;
+    --once) ;;
+    -h|--help) sed -n '3,4p' "$0" | sed 's/^# oal://'; exit 0 ;;
+    *) echo "oal-watch: unknown option: $arg" >&2; exit 64 ;;
+  esac
+done
+[[ -n ${OAL_WATCH_NO_NOTIFY:-} ]] && notify=0
+
+# The toast's only offer is a diagnosis, so it has nothing to offer until an agent is chosen. This
+# is the same rule oal-crash-watch follows, and it is why a machine that never opted into an agent
+# gets no agent-flavoured popups at all.
+if (( notify )) && [[ -z $(oal-brain-backend 2>/dev/null) ]]; then
+  notify=0
+fi
+
+command -v jq >/dev/null || { echo "oal-watch: jq is required" >&2; exit 1; }
+
+report="$(timeout 60 oal-doctor --json 2>/dev/null)" || true
+[[ -n $report ]] || { echo "oal-watch: oal-doctor produced nothing" >&2; exit 1; }
+
+# `unknown` is not announced. A check that could not run is a gap in the report, not an event, and
+# waking someone for it teaches them the notification means nothing.
+now="$(printf '%s' "$report" | jq -r '.checks[] | select(.severity == "problem" or .severity == "warn") | .id' | sort)"
+
+mkdir -p -- "$state_dir"
+before=""
+[[ -r $seen_file ]] && before="$(sort <"$seen_file")"
+
+fresh="$(comm -23 <(printf '%s\n' "$now") <(printf '%s\n' "$before") | grep -v '^$' || true)"
+printf '%s\n' "$now" | grep -v '^$' >"$seen_file" || true
+
+[[ -n $fresh ]] || exit 0
+
+while IFS= read -r id; do
+  [[ -n $id ]] || continue
+  summary="$(printf '%s' "$report" | jq -r --arg id "$id" '.checks[] | select(.id == $id) | .summary')"
+  severity="$(printf '%s' "$report" | jq -r --arg id "$id" '.checks[] | select(.id == $id) | .severity')"
+  urgency=normal
+  [[ $severity == problem ]] && urgency=critical
+
+  # --exec rather than a libnotify action, matching oal-crash-watch: the click is run from the
+  # notification's own exec hint, and %q so a summary full of punctuation survives the round trip.
+  exec_command="$(printf 'oal-agent-diagnose %q' "$id")"
+
+  if (( notify )); then
+    oal-notification-send \
+      --urgency "$urgency" \
+      --glyph "$GLYPH" \
+      --exec "$exec_command" \
+      "$summary" \
+      "Click to diagnose with your agent" >/dev/null 2>&1 || true
+  fi
+
+  echo "$severity $id: $summary"
+done <<<"$fresh"

@@ -17,5 +17,11 @@ case "${1:-}" in
     # Folded to one line so a caller can compare the answer to what it sent.
     printf 'stub: %s\n' "$(printf '%s' "$prompt" | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
     ;;
+  interactive)
+    # No REPL. A fixture that opened one would make oal-agent look like it worked on a machine with
+    # no runtime installed, and the whole point of this adapter is that it cannot be the reason for
+    # a false yes.
+    exit 1
+    ;;
   *) echo "usage: stub describe|probe|ask" >&2; exit 1 ;;
 esac

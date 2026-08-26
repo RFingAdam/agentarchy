@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# oal:summary=Launch the configured agent, interactively or with a prompt
+# oal:args=[--inline] [--prompt <text>]
+# oal:examples=oal-agent | oal-agent --prompt "why did konsole crash"
+
+# The root of the agent family. oal-agent-crash, oal-agent-prompt and the `a` alias all end here, and
+# until now they ended at exit 127: upstream's launcher was excluded from vendoring as terminal-bound,
+# the commands calling it were not, and upstream/DANGLING.txt recorded every broken reference without
+# anything ever reading the file.
+#
+# Which agent runs is deliberately not a setting of its own. oal-brain-backend already answers "what
+# does this machine talk to", and a second source of truth for one question is how the first goes
+# stale.
+set -uo pipefail
+
+bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
+export PATH="$OAL_PATH/bin:$PATH"
+BRAIN_CMD=oal-agent
+# shellcheck source=default/brain/lib.sh
+source "$OAL_PATH/default/brain/lib.sh"
+
+inline=0
+prompt=""
+have_prompt=0
+hold=0
+
+while (($#)); do
+  case "$1" in
+    --inline) inline=1; shift ;;
+    --prompt) shift; (($#)) || brain_fail "--prompt needs some text"; prompt="$1"; have_prompt=1; shift ;;
+    # Set only when this command opened the terminal itself, so the window does not close on the
+    # last line of an answer somebody was about to read.
+    --hold) hold=1; shift ;;
+    -h|--help) sed -n '3,5p' "$0" | sed 's/^# oal://'; exit 0 ;;
+    --) shift; prompt="$*"; have_prompt=1; break ;;
+    -*) brain_fail "unknown option: $1" ;;
+    *) prompt="$*"; have_prompt=1; break ;;
+  esac
+done
+
+backend="$(brain_backend)"
+[[ -n $backend ]] ||
+  brain_fail "no agent backend is configured. Choose one with 'oal-brain-backend <name>', or see 'oal-brain-backend --list'."
+adapter="$(brain_adapter "$backend")" ||
+  brain_fail "the configured backend '$backend' has no adapter installed"
+
+# --- opening a window when there is not one --------------------------------------------------------
+#
+# A crash notification is clicked from the desktop, where there is no terminal at all. Falling back to
+# a headless run there means minutes of silence and then a toast, for work the person asked to watch.
+
+terminal_argv() {
+  local t
+  for t in ${TERMINAL:-} konsole ghostty alacritty foot kitty xterm; do
+    command -v "$t" >/dev/null || continue
+    # -e is the one flag all of these spell the same way.
+    printf '%s\0-e\0' "$t"
+    return 0
+  done
+  return 1
+}
+
+relaunch_in_terminal() {
+  local -a term
+  mapfile -d '' -t term < <(terminal_argv) ||
+    brain_fail "no terminal emulator found to open, and no terminal to run in"
+  ((${#term[@]})) ||
+    brain_fail "no terminal emulator found to open, and no terminal to run in"
+  # setsid so the session outlives whatever clicked it. A notification daemon reaps its children.
+  if ((have_prompt)); then
+    setsid "${term[@]}" oal-agent --inline --hold --prompt "$prompt" >/dev/null 2>&1 &
+  else
+    setsid "${term[@]}" oal-agent --inline --hold >/dev/null 2>&1 &
+  fi
+  exit 0
+}
+
+# stdout, not stdin: a prompt arriving on a pipe is still worth answering in the terminal it was
+# piped from.
+[[ -t 1 ]] || (( inline )) || relaunch_in_terminal
+
+finish() {
+  (( hold )) || return 0
+  printf '\n'
+  read -r -p "Press enter to close. " _ </dev/tty 2>/dev/null || true
+}
+
+# --- with a prompt: the backend's own agent, tools and all -----------------------------------------
+
+if ((have_prompt)); then
+  [[ -n ${prompt//[[:space:]]/} ]] || brain_fail "the prompt is empty"
+  # Through oal-brain-ask rather than the adapter directly, so grounding, the posture and the guard
+  # are the same ones every other path answers to. There is no second route to a model here.
+  oal-brain-ask -- "$prompt"
+  rc=$?
+  finish
+  exit "$rc"
+fi
+
+# --- without one: an interactive session -----------------------------------------------------------
+
+if ! "$adapter" interactive --check >/dev/null 2>&1; then
+  echo "oal-agent: '$backend' has no interactive mode." >&2
+  echo "Ask it something instead: oal-agent --prompt \"...\", or oal-ask" >&2
+  finish
+  exit 1
+fi
+
+if (( hold )); then
+  "$adapter" interactive
+  rc=$?
+  finish
+  exit "$rc"
+fi
+exec "$adapter" interactive
