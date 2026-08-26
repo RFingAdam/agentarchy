@@ -30,7 +30,6 @@ bin/oal-menu-emoji -> oal-shell
 bin/oal-menu-images -> oal-shell
 bin/oal-menu-input -> oal-shell
 bin/oal-menu-timezone -> oal-shell
-bin/oal-migrate-notify -> oal-launch-floating-terminal-with-presentation
 bin/oal-notification-dismiss -> oal-shell
 bin/oal-notification-wait -> oal-shell
 bin/oal-notification-weather -> oal-shell

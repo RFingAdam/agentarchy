@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # oal:summary=Run every local quality gate (what CI runs)
-# Seven gates, all of which must print PASS:
+# Eight gates, all of which must print PASS:
 #   1. shellcheck         native scripts under bin/ and install/ (vendored ones are INFO only)
 #   2. bats               test/unit
 #   3. branding           the upstream project name outside its allowlist (content and file names)
@@ -8,6 +8,8 @@
 #   5. gitleaks           secrets in the committed history
 #   6. gitleaks-worktree  secrets in files that are not committed yet (staged copy, see that script)
 #   7. vendor-drift       the vendored tree still matches upstream/PIN + upstream/patches
+#   8. dangling           no shipped desktop entry, unit, notification click or alias names a
+#                         command this tree does not have
 set -euo pipefail
 export LC_ALL=C
 # shellcheck source=bin/oal-dev-lib.sh
@@ -43,4 +45,8 @@ gate gitleaks     gitleaks detect --no-banner --redact --source . -c .gitleaks.t
 # VM images under .vm/ and .vm-cache/ into memory. The script header has the detail.
 gate gitleaks-worktree bin/oal-dev-gitleaks-worktree
 gate vendor-drift bin/oal-dev-sync-upstream --check
+# Seven defects in one week were this shape: something handed to another system that could not
+# resolve it. Handing over always succeeds -- the notification sends, the unit enables, the alias
+# defines -- so only the consumer fails, later, quietly. This checks the handover points.
+gate dangling     bin/oal-dev-dangling-check
 exit $fail

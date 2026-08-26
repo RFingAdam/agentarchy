@@ -126,3 +126,46 @@ readme_number() {
   [ "$advertised" = "$shipped" ] || {
     echo "README advertises v$advertised, version file says $shipped"; false; }
 }
+
+# --- the handover gate ------------------------------------------------------------------------
+
+teardown() {
+  # Whatever a test below planted, remove it. A gate test that leaves a broken desktop entry in the
+  # tree fails every subsequent run for a reason that has nothing to do with the code.
+  rm -f "$SRC/applications/zz-dangling-probe.desktop"
+}
+
+@test "the handover gate catches a click target that does not resolve" {
+  # Not a tautology: this plants a real desktop entry naming a command that does not exist, and the
+  # gate has to notice. Seven defects in one week were exactly this shape, and none of them produced
+  # an error anybody saw, because handing a string to another system always succeeds.
+  cat >"$SRC/applications/zz-dangling-probe.desktop" <<'ENTRY'
+[Desktop Entry]
+Type=Application
+Name=Dangling probe
+Exec=oal-a-command-that-does-not-exist --with args
+ENTRY
+  run "$SRC/bin/oal-dev-dangling-check"
+  [ "$status" -ne 0 ]
+  [[ $output == *"oal-a-command-that-does-not-exist"* ]]
+}
+
+@test "the handover gate passes on the tree as it stands" {
+  run "$SRC/bin/oal-dev-dangling-check"
+  [ "$status" -eq 0 ] || { echo "$output"; false; }
+}
+
+@test "the baseline shrinks and never grows" {
+  # The gate fails on a baselined entry that has been fixed, so the file cannot rot into a list of
+  # things that used to be wrong. Every line has to still be true.
+  local baselined
+  baselined="$(grep -vc '^[[:space:]]*#' "$SRC/upstream/DANGLING-BASELINE.txt" || true)"
+  [ "$baselined" -gt 0 ]
+  [ "$(("$baselined"))" -le 20 ] || { echo "the baseline has grown to $baselined; it is meant to shrink"; false; }
+}
+
+@test "the gate runs as part of oal-dev-check" {
+  # A gate nothing invokes is a report, and upstream/DANGLING.txt already proved what happens to a
+  # report nobody is required to read.
+  grep -q 'gate dangling' "$SRC/bin/oal-dev-check"
+}

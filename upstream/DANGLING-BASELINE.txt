@@ -1,0 +1,41 @@
+# Handovers this tree ships that name a command it does not have.
+#
+# Read by bin/oal-dev-dangling-check, which fails if anything appears that is NOT in this list, and
+# also fails if anything here is fixed and not removed. The set may shrink. It must never grow.
+#
+# Everything below is inherited from upstream and tracked:
+#
+#   oal-launch-webapp, oal-webapp-handler-*   the webapp launchers are Hyprland-bound and were
+#   oal-launch-battlenet                      excluded from vendoring. These entries ship to
+#                                             /usr/share/agentarchy/applications, which no desktop
+#                                             environment reads, so they are inert rather than
+#                                             broken -- but they would become broken the moment
+#                                             somebody installed them properly, which is exactly the
+#                                             kind of surprise this file exists to keep visible.
+#
+#   oal-provision-owner                       upstream's owner-provisioning path, excluded. The unit
+#                                             is not enabled by anything here.
+#
+#   oal-launch-floating-terminal-with-presentation
+#                                             remaining in install-voxtype.hook only. That hook is
+#                                             deliberately not installed: default/voxtype is not
+#                                             vendored, so the invitation could never have worked.
+#                                             See the comment in bin/oal-provision-first-run.
+#
+# Issues #48 and #49 cover porting the commands behind these.
+#
+# Format: <file><TAB><command>
+applications/Basecamp.desktop	oal-launch-webapp
+applications/Discord.desktop	oal-launch-webapp
+applications/Google Contacts.desktop	oal-launch-webapp
+applications/Google Maps.desktop	oal-launch-webapp
+applications/Google Messages.desktop	oal-launch-webapp
+applications/Google Photos.desktop	oal-launch-webapp
+applications/HEY.desktop	oal-webapp-handler-hey
+applications/WhatsApp.desktop	oal-launch-webapp
+applications/X.desktop	oal-launch-webapp
+applications/YouTube.desktop	oal-launch-webapp
+applications/Zoom.desktop	oal-webapp-handler-zoom
+default/applications/battlenet.desktop	oal-launch-battlenet
+install/provisioning/oal-provision-owner.service	oal-provision-owner
+install/user/first-run/install-voxtype.hook	oal-launch-floating-terminal-with-presentation

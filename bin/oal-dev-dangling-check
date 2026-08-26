@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# oal:summary=Fail when a shipped command, entry, unit or click target names something that is not there
+# Usage: oal-dev-dangling-check [--list]
+#
+# The one gate this repository most needed and did not have.
+#
+# Seven separate defects in one week were the same shape: something present, correct, and handed to
+# another system that could not resolve it. A desktop entry installed where no desktop environment
+# reads. An applet with no width. Shortcuts in a format kglobalaccel silently blanks. A notification
+# whose click ran a command that did not exist. A unit enabled with its binary absent. Twice.
+#
+# None of them produced an error anybody saw, because in every case the *handing over* succeeds. The
+# notification sends. The unit enables. The alias defines. Only the consumer fails, later, quietly,
+# somewhere nobody is watching.
+#
+# So this checks the handover points, and only those. It deliberately does NOT parse shell to find
+# command invocations: that needs a real parser to do without false positives, and a gate people
+# have to argue with is a gate people disable. Every reference below comes from a structured field
+# whose extraction cannot be ambiguous:
+#
+#   Exec=            desktop entries
+#   ExecStart=       systemd units (and ExecStop=, ExecReload=)
+#   --exec "..."     notification click targets
+#   alias x='...'    shell aliases, which are live in every shell on the machine
+#
+# Known-unresolvable references inherited from upstream live in the baseline beside this script.
+# They are tracked, not fixed, and issues #48 and #49 cover porting them. The point of the baseline
+# is that the set may shrink and must never grow.
+set -euo pipefail
+export LC_ALL=C
+# shellcheck source=bin/oal-dev-lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/oal-dev-lib.sh"
+root="$(oal_dev_root)" || exit 1; cd "$root"
+
+baseline="$root/upstream/DANGLING-BASELINE.txt"
+
+# emit <where> <command>
+found=""
+note() { found+="$1"$'\t'"$2"$'\n'; }
+
+# First word of a command string, with any leading env assignments and quoting stripped.
+first_word() {
+  local s="${1#\"}"; s="${s#\'}"
+  s="${s#/usr/bin/}"; s="${s#/bin/}"
+  printf '%s' "${s%% *}"
+}
+
+scan() { # scan <file> <extractor regex> -- emits candidate command strings on stdout
+  # -e, because one of the patterns below starts with a dash and grep would read it as an option.
+  grep -v '^[[:space:]]*#' "$1" 2>/dev/null | grep -oE -e "$2" || true
+}
+
+# --- desktop entries ------------------------------------------------------------------------------
+while IFS= read -r f; do
+  while IFS= read -r line; do
+    cmd="$(first_word "${line#Exec=}")"
+    [[ $cmd == oal-* ]] || continue
+    [[ -x bin/$cmd ]] || note "$f" "$cmd"
+  done < <(scan "$f" '^Exec=.*')
+done < <(find applications default -name '*.desktop' -type f 2>/dev/null)
+
+# --- systemd units --------------------------------------------------------------------------------
+while IFS= read -r f; do
+  while IFS= read -r line; do
+    cmd="$(first_word "${line#*=}")"
+    [[ $cmd == oal-* ]] || continue
+    [[ -x bin/$cmd ]] || note "$f" "$cmd"
+  done < <(scan "$f" '^Exec(Start|Stop|Reload)=.*')
+done < <(find default/systemd install etc -name '*.service' -o -name '*.timer' 2>/dev/null)
+
+# --- notification click targets -------------------------------------------------------------------
+# The failure mode that hid the crash watcher: oal-notification-send cannot validate what it is
+# handed, so a dead click target is indistinguishable from a working one until somebody clicks.
+while IFS= read -r f; do
+  while IFS= read -r line; do
+    line="${line#--exec }"; line="${line#"${line%%[![:space:]]*}"}"
+    cmd="$(first_word "$line")"
+    [[ $cmd == oal-* ]] || continue
+    [[ -x bin/$cmd ]] || note "$f" "$cmd"
+  done < <(scan "$f" '--exec +"[^"]+"|--exec +[^ ]+')
+done < <(grep -rl -- '--exec' bin install default 2>/dev/null || true)
+
+# --- shell aliases ---------------------------------------------------------------------------------
+# Live in every shell on the machine. `a` was bound to a command that did not exist.
+if [[ -f default/bash/aliases ]]; then
+  while IFS= read -r line; do
+    line="${line#alias }"; line="${line#*=}"
+    cmd="$(first_word "$line")"
+    [[ $cmd == oal-* ]] || continue
+    [[ -x bin/$cmd ]] || note default/bash/aliases "$cmd"
+  done < <(scan default/bash/aliases "^alias [a-zA-Z0-9_-]+=.*")
+fi
+
+# --- compare against the baseline -------------------------------------------------------------------
+current="$(printf '%s' "$found" | grep -v '^$' | sort -u || true)"
+
+if [[ ${1:-} == --list ]]; then
+  printf '%s\n' "$current"
+  exit 0
+fi
+
+[[ -r $baseline ]] || { echo "oal-dev: baseline missing at $baseline" >&2; exit 1; }
+known="$(grep -v '^[[:space:]]*#' "$baseline" | grep -v '^$' | sort -u || true)"
+
+new="$(comm -23 <(printf '%s\n' "$current") <(printf '%s\n' "$known") | grep -v '^$' || true)"
+gone="$(comm -13 <(printf '%s\n' "$current") <(printf '%s\n' "$known") | grep -v '^$' || true)"
+
+rc=0
+if [[ -n $new ]]; then
+  echo "dangling: a shipped handover names something that is not there:" >&2
+  printf '%s\n' "$new" | sed 's/^/  /' >&2
+  echo "  (fix it, or if it is inherited and tracked, add it to $(basename "$baseline"))" >&2
+  rc=1
+fi
+if [[ -n $gone ]]; then
+  echo "dangling: the baseline lists references that no longer exist:" >&2
+  printf '%s\n' "$gone" | sed 's/^/  /' >&2
+  echo "  (good news: remove them from $(basename "$baseline") so it keeps shrinking)" >&2
+  rc=1
+fi
+exit "$rc"
