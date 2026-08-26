@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# Local inference, through Ollama. No network, no account, no bill.
+#
+# This is the backend that makes "agent-first operating system" true when the internet is not
+# available and nobody has an API key -- and it is the clearest evidence the brain contract is not a
+# bet on any one vendor. It shares nothing with Hermes or Claude Code except the four subcommands
+# every adapter answers.
+#
+# Which model, in order:
+#   OAL_LOCAL_MODEL in ~/.config/oal/brain/local.env
+#   whatever `ollama list` shows first
+#
+# Pull one with: ollama pull qwen2.5:1.5b   (small enough to answer on a laptop's CPU)
+set -uo pipefail
+
+config="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/local.env"
+# shellcheck disable=SC1090
+[[ -r $config ]] && source "$config"
+
+have_ollama() { command -v ollama >/dev/null; }
+
+# The first model, so a machine with exactly one just works and nobody has to name it.
+first_model() {
+  ollama list 2>/dev/null | awk 'NR>1 && $1 != "" {print $1; exit}'
+}
+
+model() {
+  local m="${OAL_LOCAL_MODEL:-}"
+  [[ -n $m ]] || m="$(first_model)"
+  printf '%s' "$m"
+}
+
+case "${1:-}" in
+  describe)
+    if ! have_ollama; then
+      echo "Ollama (not installed)"
+    else
+      m="$(model)"
+      if [[ -n $m ]]; then
+        printf 'Ollama %s, running %s locally\n' "$(ollama --version 2>/dev/null | grep -oE '[0-9]+\.[0-9.]+' | head -1)" "$m"
+      else
+        echo "Ollama, with no model pulled yet"
+      fi
+    fi
+    ;;
+  probe)
+    # Installed, serving, AND holding a model. Two of the three is a brain that cannot answer, and
+    # reporting that as reachable puts a lie on the panel.
+    have_ollama || exit 1
+    ollama list >/dev/null 2>&1 || exit 1
+    [[ -n "$(model)" ]] || exit 1
+    ;;
+  ask)
+    have_ollama || { echo "local: ollama is not installed" >&2; exit 1; }
+    m="$(model)"
+    [[ -n $m ]] || {
+      echo "local: no model pulled. Try: ollama pull qwen2.5:1.5b" >&2
+      exit 1
+    }
+    prompt="$(cat)"
+    [[ -n $prompt ]] || { echo "local: empty prompt" >&2; exit 1; }
+    # The prompt goes on stdin, as everywhere else in this contract: a question is full of quotes and
+    # newlines and argv is where those become somebody else's bug.
+    # The escapes are stripped because ollama draws a spinner and rewrites the line as it streams.
+    # Those control codes are invisible in a terminal and garbage in a desktop notification, which
+    # is where this answer is going. Cursor moves and erase-line included, not just colour.
+    printf '%s' "$prompt" | ollama run "$m" 2>/dev/null | sed -e 's/\x1b\[[0-9;?]*[A-Za-z]//g' -e 's/\r//g'
+    ;;
+  serve)
+    # Ollama has its own system service and it is enabled by the install. Supervising it from the
+    # brain's unit as well would be two things restarting one process.
+    exit 1
+    ;;
+  *) echo "usage: local describe|probe|ask|serve" >&2; exit 1 ;;
+esac

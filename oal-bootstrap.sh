@@ -150,6 +150,9 @@ oal-theme-set-kde "$OAL_DEFAULT_THEME"
 log "Installing the agent runtime"
 bash "$checkout/install/agent/runtime.sh"
 
+# Local inference, so the machine can answer with no network and no account.
+bash "$checkout/install/agent/local-inference.sh"
+
 # The greeter is the one surface that needs root, and an install is the last moment we have it
 # without asking. After this, retinting the login screen is a deliberate `oal-refresh-sddm <theme>`.
 oal-refresh-sddm "$OAL_DEFAULT_THEME"

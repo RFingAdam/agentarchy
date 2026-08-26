@@ -85,6 +85,27 @@ the desktop to change, it calls `oal-brain-do`, and it gets the same answer ever
 - **`claude-code`**: one invocation per question. Worth knowing what this composes to: the answer
   comes from an agent with its own tool access, governed by the same guard and the same
   `oal-agent-profile` as any other session. A question routed here can cause work.
+- **`local`**: inference on this machine, through Ollama. No network, no account, no bill.
+
+  This is what makes "agent-first operating system" true when the internet is not available and
+  nobody has an API key, and it is the clearest evidence this contract is not a bet on one vendor: it
+  shares nothing with the others but the four subcommands.
+
+  ```bash
+  ollama pull qwen2.5:1.5b        # small enough to answer on a laptop CPU
+  oal-brain-backend local
+  ```
+
+  `probe` requires a model, not just an installed Ollama. Installed, serving and holding a model are
+  three different things, and two of them is a brain that cannot answer.
+
+  The CPU build ships everywhere; `install/agent/local-inference.sh` swaps in `ollama-cuda` on a
+  machine with an NVIDIA GPU. **A VM gets CPU**: a virtio GPU is for graphics and cannot do
+  inference, and installing a CUDA build there would imply an acceleration that is not present.
+
+  No model ships. Models are gigabytes, and choosing one for somebody is a worse default than telling
+  them how.
+
 - **`hermes`**: [hermes-agent](https://github.com/NousResearch/hermes-agent), through its command
   line. Resident, with its own memory, scheduler and chat gateways; the shape this contract was
   designed against.
