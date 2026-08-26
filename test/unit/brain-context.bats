@@ -54,6 +54,17 @@ setup() {
   ! brain_question_is_local "tell me about those across the bay"
 }
 
+@test "the theme it reports is a theme, not the word 'theme'" {
+  # current/theme is a directory of rendered files here, not upstream's symlink into themes/<name>,
+  # so resolving the path gave the literal last component and every brain was told the machine's
+  # theme was called "theme". Grounding is only worth anything if the facts are true.
+  run oal-brain-state
+  local theme
+  theme="$(sed -n 's/^theme: //p' <<<"$output")"
+  [ "$theme" != theme ]
+  [ -n "$theme" ]
+}
+
 @test "the context carries machine state and health, and is not JSON" {
   run brain_context
   [ "$status" -eq 0 ]

@@ -324,8 +324,12 @@ oal-brain-sweep | grep -q interrupted &&
 # that left the dock's first icon dead.
 [ -f /usr/share/applications/oal-ask.desktop ] &&
   echo "PASS brain-ask-entry" || { echo "FAIL brain-ask-entry: oal-ask.desktop is not installed"; exit 1; }
-answer="$(oal-ask 'what theme am I using')"
-[ "$answer" = "stub: what theme am I using" ] &&
+# A general question, so the round trip through the desktop path is byte-exact. Anything about this
+# machine now arrives at the backend with the machine's state attached, which the machine stage
+# below checks on its own terms. "what theme am I using" used to be the question here and is exactly
+# the kind that is now grounded.
+answer="$(oal-ask 'what is the capital of Peru')"
+[ "$answer" = "stub: what is the capital of Peru" ] &&
   echo "PASS brain-ask-desktop" || { echo "FAIL brain-ask-desktop: got '$answer'"; exit 1; }
 [ -s "$HOME/.local/state/oal/last-answer.txt" ] &&
   echo "PASS brain-ask-answer-kept" || { echo "FAIL brain-ask-answer-kept: nothing written"; exit 1; }
@@ -386,6 +390,15 @@ case "$grounded" in
   *"host: $(uname -n)"*) echo "PASS ask-carries-real-facts" ;;
   *) echo "FAIL ask-carries-real-facts: no hostname in the context"; exit 1 ;;
 esac
+# The theme is a fact injected into every grounded question, and it was wrong: current/theme is a
+# directory here rather than upstream's symlink, so resolving the path reported the theme as
+# "theme". A machine with a theme installed is the only place that shows.
+case "$grounded" in
+  *"theme: theme"*) echo "FAIL ask-theme-is-a-theme: the context calls the theme 'theme'"; exit 1 ;;
+  *"theme: $(oal-theme-current)"*) echo "PASS ask-theme-is-a-theme ($(oal-theme-current))" ;;
+  *) echo "FAIL ask-theme-is-a-theme: no theme in the context"; exit 1 ;;
+esac
+
 plain="$(oal-brain-ask 'who wrote Hamlet?')"
 [ "$plain" = "stub: who wrote Hamlet?" ] &&
   echo "PASS ask-leaves-general-questions-alone" || { echo "FAIL ask-leaves-general-questions-alone: got '$plain'"; exit 1; }

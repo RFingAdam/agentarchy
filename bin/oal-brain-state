@@ -16,7 +16,12 @@ say() { printf '%s: %s\n' "$1" "${2:-unknown}"; }
 # absent and this line reported the machine as "unknown" to every brain that asked.
 say host "$(uname -n 2>/dev/null)"
 say uptime "$(uptime -p 2>/dev/null | sed 's/^up //')"
-say theme "$(basename "$(readlink -f "${XDG_STATE_HOME:-$HOME/.local/state}/oal/current/theme" 2>/dev/null)" 2>/dev/null)"
+# oal-theme-current, not a basename of the state path. Upstream keeps current/theme as a symlink
+# into themes/<name>, so resolving it gave the name; on this tree it is a directory of rendered
+# files, so `readlink -f` returned the path unchanged and every brain was told the theme was called
+# "theme". A fact that is confidently wrong is worse than one that is missing, and this one is
+# injected into every grounded question.
+say theme "$(oal-theme-current 2>/dev/null)"
 say layout "$(cat "${XDG_STATE_HOME:-$HOME/.local/state}/oal/layout" 2>/dev/null)"
 say agent-posture "$(oal-agent-profile 2>/dev/null)"
 say session "${XDG_SESSION_TYPE:-none}"
