@@ -40,8 +40,13 @@ over_ssh="${HERMES_SSH:-}"
 hermes_bin() { command -v hermes >/dev/null && printf 'hermes'; }
 
 # A login shell is not guaranteed over ssh, and hermes usually lives in ~/.local/bin.
+# Shares the multiplexed connection oal-hermes opens, so the panel's probe does not pay for a
+# handshake every time the timer fires.
 remote() {
-  ssh -T -o BatchMode=yes -o ConnectTimeout=8 "$over_ssh" \
+  local dir="${XDG_RUNTIME_DIR:-/tmp}/oal-ssh"
+  mkdir -p -- "$dir" 2>/dev/null
+  ssh -T -o BatchMode=yes -o ConnectTimeout=8 \
+    -o ControlMaster=auto -o "ControlPath=$dir/%C" -o ControlPersist=600 "$over_ssh" \
     "export PATH=\$PATH:\$HOME/.local/bin; $1" 2>/dev/null
 }
 

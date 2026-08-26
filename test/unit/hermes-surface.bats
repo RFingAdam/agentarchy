@@ -93,3 +93,30 @@ setup() {
   # A loopback-bound dashboard is explained with the tunnel, not opened at an address that cannot work.
   grep -q '127.0.0.1' "$SRC/bin/oal-hermes-dashboard"
 }
+
+@test "ssh connections are reused, or every click pays for a handshake" {
+  # Measured in the VM before this: 30s for status, 11s for waiting, 7s for the dashboard -- each
+  # opening a fresh connection. With multiplexing the second call was 1.5s. That gap is the whole
+  # difference between a menu that feels broken and one that feels slow.
+  grep -q 'ControlMaster=auto' "$SRC/bin/oal-hermes"
+  grep -q 'ControlMaster=auto' "$SRC/default/brain/adapters/hermes"
+  # Longer than the agent timer's interval, so the timer keeps the connection warm and a click never
+  # pays for the handshake.
+  grep -q 'ControlPersist=600' "$SRC/bin/oal-hermes"
+}
+
+@test "the menu opens on cached answers and says how old they are" {
+  # A picker that hangs for seconds is one people stop opening. Live is still one command away.
+  grep -q 'oal-hermes-status --cached' "$SRC/bin/oal-menu"
+  grep -q 'oal-hermes-waiting --cached' "$SRC/bin/oal-menu"
+  grep -q 'as of %s minute(s) ago' "$SRC/bin/oal-hermes-status"
+}
+
+@test "the panel lists real work, from the cache, never over the network" {
+  # The applet runs inside plasmashell. Opening a popup must not be able to stall the shell.
+  local q="$SRC/default/plasmoids/org.agentarchy.agent/contents/ui/main.qml"
+  grep -q 'oal-hermes-waiting --cached --json' "$q"
+  ! grep -qE 'oal-hermes-status[^-]|ssh ' "$q"
+  # One click to the place the work is actually done.
+  grep -q 'oal-hermes-dashboard' "$q"
+}

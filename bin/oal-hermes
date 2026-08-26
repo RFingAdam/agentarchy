@@ -26,6 +26,20 @@ config="${XDG_CONFIG_HOME:-$HOME/.config}/oal/brain/hermes.env"
 [[ -r $config ]] && source "$config"
 over_ssh="${HERMES_SSH:-}"
 
+# One connection, reused. Every call here was paying for a TCP handshake, a key exchange and an auth
+# round trip before Hermes even started -- 7 to 30 seconds a command, which is what made the menu
+# feel broken rather than slow. ControlMaster keeps the first connection open and later calls ride
+# it, so the second question costs what the answer costs.
+#
+# The socket lives under the user's runtime dir, which systemd cleans up at logout, so a stale master
+# cannot outlive the session that made it.
+oal_ssh_opts() {
+  local dir="${XDG_RUNTIME_DIR:-/tmp}/oal-ssh"
+  mkdir -p -- "$dir" 2>/dev/null
+  printf '%s\n' -o BatchMode=yes -o ConnectTimeout=8 \
+    -o ControlMaster=auto -o "ControlPath=$dir/%%C" -o ControlPersist=600
+}
+
 (($#)) || { echo "Usage: oal-hermes <hermes-args...>" >&2; exit 2; }
 
 if [[ -n $over_ssh ]]; then
@@ -37,7 +51,8 @@ if [[ -n $over_ssh ]]; then
   # arrives when the caller's stdin is an open pipe -- which it is inside a command substitution, a
   # systemd unit, or another ssh session. It worked by accident wherever stdin happened to be a
   # terminal, and hung everywhere the OS actually runs it.
-  exec ssh -n -T -o BatchMode=yes -o ConnectTimeout=8 "$over_ssh" "$remote_cmd"
+  mapfile -t sshopts < <(oal_ssh_opts)
+  exec ssh -n -T "${sshopts[@]}" "$over_ssh" "$remote_cmd"
 fi
 
 command -v hermes >/dev/null || {

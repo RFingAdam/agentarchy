@@ -16,18 +16,29 @@ export OAL_PATH="${OAL_PATH:-$(dirname "$bin_dir")}"
 export PATH="$OAL_PATH/bin:$PATH"
 
 as_json=0
+use_cache=0
 limit=8
 while (($#)); do
   case "$1" in
     --json) as_json=1; shift ;;
     --limit) limit="${2:-8}"; shift 2 ;;
+    --cached) use_cache=1; shift ;;
     *) echo "oal-hermes-waiting: unknown argument: $1" >&2; exit 1 ;;
   esac
 done
 
 command -v jq >/dev/null || { echo "oal-hermes-waiting: jq is required" >&2; exit 1; }
 
-boards="$(timeout 30 oal-hermes kanban boards 2>/dev/null)" || {
+if (( use_cache )); then
+  cache="${XDG_STATE_HOME:-$HOME/.local/state}/oal/hermes-waiting.json"
+  [[ -s $cache ]] || { echo "oal-hermes-waiting: nothing cached yet" >&2; exit 1; }
+  if (( as_json )); then cat "$cache"; else
+    jq -r '.[] | "\(.id)  \(.status)  [\(.board)]  \(.title)"' <"$cache"
+  fi
+  exit 0
+fi
+
+boards="$(timeout 90 oal-hermes kanban boards 2>/dev/null)" || {
   echo "oal-hermes-waiting: no Hermes configured" >&2; exit 1
 }
 
@@ -45,7 +56,7 @@ for slug in "${slugs[@]}"; do
   [[ -n $slug ]] || continue
   # --board goes before the subcommand. hermes takes `kanban --board X list`, and `kanban list
   # --board X` is a usage error it prints to stdout, so the mistake looks like an empty board.
-  rows="$(timeout 30 oal-hermes kanban --board "$slug" list --json 2>/dev/null)" || continue
+  rows="$(timeout 60 oal-hermes kanban --board "$slug" list --json 2>/dev/null)" || continue
   [[ -n ${rows//[[:space:]]/} ]] || continue
   all="$(jq -c --arg b "$slug" --argjson acc "$all" '
     ($acc + [ .[]
