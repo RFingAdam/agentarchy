@@ -1,0 +1,90 @@
+--- a/bin/oal-notification-send
++++ b/bin/oal-notification-send
+@@ -23,6 +23,9 @@
+       echo "Missing value for $1" >&2
+       exit 1
+     fi
++    # Accepted and deliberately unused: see the note further down about the oal-glyph hint. The
++    # flag stays so that two dozen call sites do not have to change over a decoration.
++    # shellcheck disable=SC2034
+     glyph=$2
+     parsed_option_args=2
+     return 0
+@@ -101,23 +104,44 @@
+ # Tag as a user-action toast so it pops through DND.
+ args+=("-a" "$app_name" "-u" "$urgency")
+ 
+-if [[ -n $glyph ]]; then
+-  args+=("--hint=string:oal-glyph:$glyph")
+-fi
++# -g is still accepted, and no longer sends anything. It used to go out as a custom hint,
++# oal-glyph, for the compositor shell to draw beside the text; that shell is not vendored here and
++# nothing else has ever read the hint. Callers keep passing glyphs, so the flag stays rather than
++# breaking two dozen call sites over a decoration.
+ 
++# image-path, unlike the two hints above, is in the freedesktop specification, so this one is read.
+ if [[ -n $image ]]; then
+   args+=("--hint=string:image-path:$image")
+ fi
+ 
+-# The shell runs the click command itself, from a copy it keeps alongside the
+-# on-screen popup. A libnotify action would instead keep this process blocked
+-# until the click, and die unanswered whenever the shell restarts underneath it.
+-if [[ -n $exec_command ]]; then
+-  args+=("--hint=string:oal-exec:$exec_command")
+-fi
++set -- "$headline"
++[[ -n $description ]] && set -- "$@" "$description"
+ 
+-if [[ -n $description ]]; then
+-  notify-send "${args[@]}" "$headline" "$description"
++if [[ -z $exec_command ]]; then
++  notify-send "${args[@]}" "$@"
++  exit 0
++fi
++
++# A click has to reach a command.
++#
++# This used to be a third custom hint, oal-exec, and the comment here explained that the compositor
++# shell ran the command itself from its own copy of the popup, and that a libnotify action would
++# instead block this process until the click. The first half stopped being true the day that shell
++# was left out of vendoring: nothing on this desktop reads oal-exec, so every "click to diagnose"
++# notification the machine has ever sent has been a dead popup. The second half is still true, and
++# is the reason the wait happens in a detached process rather than in the caller, which expects to
++# get its shell back immediately.
++#
++# --action=default is the specification's name for "the body was clicked", so it draws no extra
++# button; notify-send --wait prints the invoked key and exits when the popup is answered or expires.
++if command -v setsid >/dev/null; then
++  launch=(setsid --fork)
+ else
+-  notify-send "${args[@]}" "$headline"
++  launch=()
+ fi
++
++OAL_NOTIFY_EXEC="$exec_command" "${launch[@]}" bash -c '
++  key="$(notify-send --wait --action=default=Open "$@")" || exit 0
++  [[ $key == default ]] || exit 0
++  exec bash -c "$OAL_NOTIFY_EXEC"
++' oal-notification-send "${args[@]}" "$@" >/dev/null 2>&1 &
+--- a/bin/oal-notification-wait
++++ b/bin/oal-notification-wait
+@@ -16,11 +16,15 @@
+     GetServerInformation >/dev/null 2>&1
+ }
+ 
+-# The shell has to be up to serve the IPC, and it has to have claimed the
+-# notification bus name before notify-send has anywhere to deliver.
++# Owning org.freedesktop.Notifications is the whole question: it is what decides whether
++# notify-send has anywhere to deliver. It used to also require `oal-shell notifications ping`, the
++# compositor shell's own IPC -- and that shell is not vendored here, so the ping could never
++# succeed. The loop therefore ran its full length and gave up every single time, which cost every
++# crash ten seconds of nothing before oal-crash-watch abandoned the notification it was about to
++# send. The probe below was already right here, and its answer was being thrown away.
+ attempts=$((timeout * 10))
+ while (( attempts > 0 )); do
+-  if oal-shell notifications ping >/dev/null 2>&1 && notification_server_ready; then
++  if notification_server_ready; then
+     exit 0
+   fi
+   attempts=$((attempts - 1))

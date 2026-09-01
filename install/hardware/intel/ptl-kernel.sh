@@ -11,7 +11,10 @@ if oal-hw-match "XPS" && oal-hw-intel-ptl; then
   # stock kernel back in and the boot menu grows a second, slower entry.
   if pacman -Qq linux &>/dev/null; then
     echo "WARNING: stock linux kernel still installed alongside linux-ptl:"
-    pacman -Qi linux | grep -i "required by"
+    # || true because this line is informational and grep exits 1 when it matches nothing, which
+    # under the pipefail the install runner now sets would abort the whole hardware step over a
+    # warning that had nothing to warn about.
+    pacman -Qi linux | grep -i "required by" || true
   fi
 
   mkdir -p /etc/limine-entry-tool.d

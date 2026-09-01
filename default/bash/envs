@@ -1,11 +1,22 @@
-# Editor used by CLI
-export EDITOR="${EDITOR:-oal-launch-editor --inline}"
+# Editor used by CLI.
+#
+# nano, because it is installed. This named oal-launch-editor, which was excluded from vendoring as
+# compositor-bound and therefore does not exist on this tree -- and this file is sourced by
+# default/bash/rc, which oal-bootstrap.sh wires into ~/.bashrc and /etc/skel/.bashrc, so it was
+# live in every shell on the machine. `git commit` with no -m, `sudoedit`, `systemctl edit` and
+# `crontab -e` all failed with "command not found", and there was no terminal editor in any package
+# list to fall back to.
+#
+# Still overridable: anyone who wants their own sets EDITOR before this runs, and the install does
+# not argue.
+export EDITOR="${EDITOR:-nano}"
 export SUDO_EDITOR="$EDITOR"
 
-# Used by terminal programs (like gh) to open URLs detached from the terminal
-# process tree. Shell-scoped on purpose: exporting BROWSER session-wide makes
-# xdg-settings refuse to change the default browser.
-export BROWSER="${BROWSER:-oal-launch-browser}"
+# No BROWSER export. It used to name oal-launch-browser, also never vendored, so anything honouring
+# it (gh, and xdg-open's own fallback) got a command that was not there. Nothing sets it now, which
+# is the better answer anyway for the reason the old comment here gave: exporting BROWSER
+# session-wide makes xdg-settings refuse to change the default browser, and the default browser is
+# set properly by oal-provision-user.
 export BAT_THEME=ansi
 
 # Point starship at the themed prompt oal-theme-set-templates renders, so the prompt follows the

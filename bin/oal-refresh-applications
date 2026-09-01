@@ -2,16 +2,51 @@
 
 # oal:summary=Ensure default application launchers and mise wrappers are installed.
 
-# Copy .desktop declarations
-mkdir -p ~/.local/share/applications
-cp "$OAL_PATH"/applications/*.desktop ~/.local/share/applications/
+# What lands in the user's application launcher.
+#
+# This used to be `cp "$OAL_PATH"/applications/*.desktop ~/.local/share/applications/` -- a glob
+# over the whole vendored directory. PKGBUILD deliberately installs only three of those entries
+# system-wide, and says why in a comment: the rest name browsers and services this distribution does
+# not install, "and putting them in the launcher would advertise applications that are not there".
+# The glob put all eighteen into ~/.local/share/applications, which every desktop environment reads,
+# and then ran update-desktop-database over them. Fifteen were dead on arrival: nine web-app
+# shortcuts calling oal-launch-webapp, HEY and Zoom calling oal-webapp-handler-* (both of which also
+# claim a URL scheme), two calling xdg-terminal-exec, and imv and foot for packages nobody installs.
+#
+# So the packaging decision and the provisioning script disagreed, and the provisioning script won.
+# The list below is the same three, named rather than globbed, and anything the old glob left behind
+# is cleared on the next run.
+set -uo pipefail
+
+: "${OAL_PATH:=/usr/share/agentarchy}"
+apps="$HOME/.local/share/applications"
+mkdir -p "$apps"
+
+# Kept deliberately in step with the install -Dm644 lines in PKGBUILD's package(). If you add one
+# there, add it here; if it is not in both, it is in neither for somebody.
+ours=(oal-menu.desktop oal-ask.desktop hermes-dashboard.desktop)
+
+for entry in "${ours[@]}"; do
+  [[ -f "$OAL_PATH/applications/$entry" ]] && cp -- "$OAL_PATH/applications/$entry" "$apps/"
+done
+
+# Clear what the glob used to copy. Only entries this tree actually ships are considered, so a
+# desktop file somebody wrote themselves is never touched.
+for shipped in "$OAL_PATH"/applications/*.desktop; do
+  [[ -f $shipped ]] || continue
+  name="${shipped##*/}"
+  case " ${ours[*]} " in
+    *" $name "*) continue ;;
+  esac
+  [[ -f "$apps/$name" ]] && rm -f -- "$apps/$name"
+done
 
 if oal-cmd-present alacritty; then
-  cp "$OAL_PATH/default/alacritty/Alacritty.desktop" ~/.local/share/applications/
+  cp "$OAL_PATH/default/alacritty/Alacritty.desktop" "$apps/"
 fi
 
 if [[ -f "$OAL_PATH/install/user/mise.sh" ]]; then
   bash "$OAL_PATH/install/user/mise.sh"
 fi
 
-update-desktop-database ~/.local/share/applications
+update-desktop-database "$apps"

@@ -1,294 +1,213 @@
 ---
 name: oal
 description: >
-  REQUIRED for end-user customization of Linux desktop, window manager, or system config.
-  Use when editing ~/.config/hypr/, ~/.config/oal/,
-  ~/.config/alacritty/, ~/.config/foot/, ~/.config/kitty/, or ~/.config/ghostty/.
-  Triggers: Hyprland, window rules, animations, keybindings, monitors, gaps, borders,
-  blur, opacity, oal-shell, bar, terminal config, themes, background,
-  night light, idle, lock screen, screenshots, reminders, layer rules, workspace
-  settings, display config, and user-facing oal commands. Excludes Agentarchy
-  source development through `oal dev link` workflows.
+  REQUIRED for end-user customization of this machine's desktop or system config.
+  Use when editing KDE Plasma settings, keyboard shortcuts, panels, themes, terminal
+  config, or anything under ~/.config/oal/. Triggers: Plasma, KDE, KWin, panel, dock,
+  taskbar, widget, applet, keybinding, shortcut, monitor, display, theme, wallpaper,
+  colour scheme, lock screen, login screen, terminal config, notifications, agent
+  posture, MCP servers, and user-facing oal-* commands. Excludes Agentarchy source
+  development through `oal dev link` workflows.
 ---
 
 # Agentarchy Skill
 
-Manage [Agentarchy](https://github.com/RFingAdam/agentarchy) Linux systems - a beautiful, modern, opinionated Arch Linux distribution with Hyprland.
+Manage [Agentarchy](https://github.com/RFingAdam/agentarchy) systems: an Arch Linux
+distribution running **KDE Plasma 6 on Wayland**.
 
-This skill is for end-user customization on installed systems.
-It is not for contributing to Agentarchy source code.
+This skill is for end-user customization on installed systems. It is not for
+contributing to Agentarchy source code.
+
+> **This document was rewritten for KDE.** Agentarchy is derived from an upstream Hyprland
+> distribution, and this skill used to describe that desktop: `~/.config/hypr/`,
+> `hyprctl reload`, a Quickshell bar, and `~/.config/oal/extensions/oal-menu.jsonc` as the
+> live menu. **None of those exist here.** Hyprland, Quickshell, uwsm, waybar and walker
+> were all excluded from vendoring. If you find yourself about to edit a file under
+> `~/.config/hypr/` or run `hyprctl`, stop: you are working from the wrong document.
 
 ## When This Skill MUST Be Used
 
-**ALWAYS invoke this skill for end-user requests involving ANY of these:**
+- Keyboard shortcuts, panels, docks, widgets, window behaviour
+- Themes, wallpapers, colour schemes, the lock screen, the login screen
+- Terminal configuration, the shell prompt
+- Monitors and display configuration
+- The agent layer: posture, MCP servers, the brain backend, health
+- Anything under `~/.config/oal/`, `~/.local/state/oal/`, or any `oal-*` command
 
-- Editing ANY file in `~/.config/hypr/` (window rules, animations, keybindings, monitors, etc.)
-- Editing `~/.config/oal/shell.json` (status bar layout, widgets)
-- Editing terminal configs (alacritty, foot, kitty, ghostty)
-- Editing ANY file in `~/.config/oal/`
-- Window behavior, animations, opacity, blur, gaps, borders
-- Layer rules, workspace settings, display/monitor configuration
-- Themes, backgrounds, fonts, appearance changes
-- User-facing `oal` commands (`oal theme ...`, `oal refresh ...`, `oal restart ...`, etc.)
-- Screenshots, screen recording, reminders, night light, idle behavior, lock screen
+## Critical safety rules
 
-**If you're about to edit a config file in ~/.config/ on this system, STOP and use this skill first.**
+1. **Never hand-edit rendered files.** Everything under
+   `~/.local/state/oal/current/theme/` is generated from a palette on every theme change
+   and your edit will be gone at the next `oal-theme-set`. Change the palette or the
+   template instead (see Themes below).
+2. **Never hand-edit `kglobalshortcutsrc` values casually.** The format is
+   `shortcut,default,description`, **comma separated**. Write tabs or omit fields and
+   kglobalaccel cannot parse the line, silently blanks it on the next start, and
+   `kwriteconfig6` still reports success. This cost this project a shortcut that had
+   never once worked. Always read the value back *after* kglobalaccel has seen it, and
+   treat an **empty** value as failure, not just an absent key.
+3. **Prefer `kwriteconfig6` to editing `*rc` files by hand.** Plasma caches config and
+   several components rewrite these files; a hand edit made while a session is running is
+   often overwritten.
+4. **Back up before changing, and say what you changed.**
+5. **Do not `sudo` your way past a problem.** See Privilege below.
 
-**Do NOT use this skill for Agentarchy development tasks** (editing the Agentarchy source tree, creating migrations, or running `oal dev ...` workflows).
+## Privilege, and what the guard will refuse
 
-## Topic Guides
+Tool calls on this machine pass through a policy guard before they run
+(`oal-guard`, rules in `/usr/share/agentarchy/default/guard/rules`). It is not advisory.
 
-Deeper instructions for common areas live next to this file. Read the
-matching guide before starting:
+- `sudo`, package installs and removals, forced pushes, hard resets and writes under
+  `/etc` are **confirm** tier: they need a token the human mints with `oal-guard-confirm`
+  at their own terminal. **You cannot mint one.** Ask the user to run it and paste it.
+- Changing the agent posture (`oal-agent-profile trusted`), minting a token, and writing
+  to the guard's own state are **blocked outright**. Do not try; ask the user.
+- Reading `.env` files, private keys, `~/.aws/credentials`, `~/.netrc` and similar is
+  blocked whatever command does the reading.
 
-- [`hyprland.md`](hyprland.md) - keybindings, monitors, window rules, and other Hyprland config
-- [`plugins.md`](plugins.md) - the Agentarchy shell: bar layout, widgets, plugins, idle behavior
-- [`theming.md`](theming.md) - themes, backgrounds, and fonts
-- [`hooks.md`](hooks.md) - automation hooks that run on system events
-- [`capture.md`](capture.md) - screenshots, screen recordings, OCR text capture, and file sharing
-- [`contributing.md`](contributing.md) - reporting Agentarchy bugs and submitting fixes upstream
+Check the current posture with `oal-agent-profile` (no argument reads it, and is allowed).
 
-## Critical Safety Rules
-
-For privileged commands, follow the Privilege Escalation rules below: `sudo` when a terminal is available for the password prompt, `pkexec` when it is not. Do not wrap commands that already manage privilege elevation themselves.
-
-**For end-user customization tasks, NEVER modify anything in `/usr/share/agentarchy/`** - but READING is safe and encouraged.
-
-This directory is owned by the oal package. Any local changes will be
-overwritten on the next `oal update`.
-
-```
-/usr/share/agentarchy/     # READ-ONLY - NEVER EDIT (reading is OK)
-├── bin/                    # Command source (packaged binaries are on PATH)
-├── config/                 # Default config templates
-├── themes/                 # Stock themes
-├── default/                # System defaults
-├── shell/                  # Agentarchy shell source and defaults
-├── migrations/             # Update migrations
-└── install/                # Installation scripts
-```
-
-**Reading `/usr/share/agentarchy/` is SAFE and useful** - do it freely to:
-- Understand how oal commands work: `oal theme set --help` or `cat $(which oal-theme-set)`
-- See default configs before customizing: `cat "$OAL_PATH/config/oal/shell.json"`
-- Check stock theme files to copy for customization
-- Reference default hyprland settings: `cat /usr/share/agentarchy/default/hypr/*`
-
-**Always use these safe locations instead:**
-- `~/.config/` - User configuration (safe to edit)
-- `~/.config/oal/themes/<custom-name>/` - Custom themes
-- `~/.config/oal/hooks/` - Custom automation hooks
-
-If the request is to develop Agentarchy itself, this skill is out of scope. Follow repository development instructions instead of this skill.
-
-## Privilege Escalation
-
-For an interactive script or command run in a visible terminal, use `sudo` for
-privileged work. Agentarchy may grant passwordless `sudo` access to particular
-commands, and the terminal is the appropriate place to request a password
-when one is needed.
-
-Use `pkexec` only when the caller cannot interact with a terminal or cannot
-enter a password there, such as a command launched by an agent or a graphical
-background process. Do not replace `sudo` with `pkexec` merely because a
-command changes system state.
-
-## System Architecture
-
-Agentarchy is built on:
-
-| Component | Purpose | Config Location |
-|-----------|---------|-----------------|
-| **Arch Linux** | Base OS | `/etc/`, `~/.config/` |
-| **Hyprland** | Wayland compositor/WM | `~/.config/hypr/` |
-| **Agentarchy shell** | Status bar + notifications (Quickshell) | `~/.config/oal/shell.json` |
-| **Launcher/menus** | Quickshell menu | `~/.config/oal/extensions/oal-menu.jsonc` |
-| **Alacritty/Foot/Kitty/Ghostty** | Terminals | `~/.config/<terminal>/` |
-| **Agentarchy OSD** | On-screen display | Quickshell plugin |
-
-## Command Discovery
-
-Agentarchy ships a single `oal` CLI that dispatches to all `oal-*` binaries via `oal <group> <action>`. Always prefer this form — it is self-documenting and stable. The underlying `oal-*` binaries still exist on `PATH` and remain safe to read for source.
+## Command discovery
 
 ```bash
-# List every documented command and its summary (--all includes hidden commands)
-oal commands
-
-# Show the commands inside a group
-oal theme --help
-oal refresh --help
-oal restart --help
-
-# Show help for a specific command (does not execute it)
-oal theme set --help
-
-# Machine-readable listing (binary, route, summary, args, aliases)
-oal commands --json
-
-# Read a command's source to understand it
-cat $(which oal-theme-set)
+oal commands              # every documented command and its summary
+oal commands --all        # including hidden ones
+oal <group>               # the commands inside a group
+oal <group> <name> --help # help for one command, without running it
+oal commands --json       # machine-readable: binary, route, summary, args, aliases
 ```
 
-### Command Groups
+Commands live in `/usr/share/agentarchy/bin` and are symlinked onto `PATH`. Reading one
+is often faster than guessing: they are short shell scripts with a comment block on top.
 
-Run `oal --help` for the full list. The most common groups:
+## System architecture
 
-| Group | Purpose | Example |
-|-------|---------|---------|
-| `oal refresh` | Reset config to defaults (backs up first) | `oal refresh shell` |
-| `oal restart` | Restart a service/app | `oal restart shell` |
-| `oal toggle` | Toggle feature on/off | `oal toggle nightlight` |
-| `oal theme` | Theme management | `oal theme set <name>` |
-| `oal bar` | Bar layout and widgets | `oal bar move oal.clock --section right` |
-| `oal plugin` | Manage/clone shell plugins | `oal plugin clone oal.clock` |
-| `oal hook` | Install automation hooks | `oal hook install theme-set <script>` |
-| `oal install` | Install optional software / packages | `oal install docker dbs` |
-| `oal launch` | Launch apps | `oal launch browser` |
-| `oal capture` | Screenshots and recordings | `oal capture screenshot` |
-| `oal reminder` | Desktop notification reminders | `oal reminder 15 "Pickup Jack"` |
-| `oal pkg` | Package management | `oal pkg add <pkg>` |
-| `oal setup` | Interactive setup wizards | `oal setup security fingerprint` |
-| `oal update` | System updates | `oal update` |
+| Layer | What it is | Where its config lives |
+|---|---|---|
+| Compositor / WM | **KWin** (Wayland) | `~/.config/kwinrc`, System Settings |
+| Shell / panels | **plasmashell** | `~/.config/plasma-org.kde.plasma.desktop-appletsrc` |
+| Display manager | **SDDM** (autologin) | `/etc/sddm.conf.d/`, theme `oal` |
+| Launcher / menu | **`oal-menu`**, a kdialog picker | the tree is in `bin/oal-menu` itself |
+| Shortcuts | **kglobalaccel** | `~/.config/kglobalshortcutsrc` |
+| Theme engine | `oal-theme-*` | `themes/<name>/colors.toml`, templates in `default/themed/` |
+| Agent panel widget | `org.agentarchy.agent` | `/usr/share/plasma/plasmoids/` |
+| Notifications | plasmashell, via `notify-send` | `oal-notification-send` |
 
-## Configuration Locations
+`default/oal/oal-menu.jsonc` still exists in the tree. **Nothing reads it.** It is the
+inherited Quickshell menu definition. Editing it has no effect; edit `bin/oal-menu`.
 
-Hyprland config lives in `~/.config/hypr/` — see [`hyprland.md`](hyprland.md).
-The Agentarchy shell (bar, notifications, plugins, idle) is configured in
-`~/.config/oal/shell.json` — see [`plugins.md`](plugins.md).
-
-### Terminals
-
-```
-~/.config/alacritty/alacritty.toml
-~/.config/foot/foot.ini
-~/.config/kitty/kitty.conf
-~/.config/ghostty/config
-```
-
-**Command:** `oal restart terminal`
-
-### Other Configs
-
-| App | Location |
-|-----|----------|
-| btop | `~/.config/btop/btop.conf` |
-| fastfetch | `/etc/fastfetch/config.jsonc` default; `~/.config/fastfetch/config.jsonc` user override |
-| lazygit | `~/.config/lazygit/config.yml` |
-| starship | `~/.config/starship.toml` |
-| git | `~/.config/git/config` |
-
-## Safe Customization Patterns
-
-### Edit User Config Directly
-
-For simple changes, edit files in `~/.config/`:
+## Themes
 
 ```bash
-# 1. Read current config
-cat ~/.config/hypr/bindings.lua
-
-# 2. Backup before changes
-cp ~/.config/hypr/bindings.lua ~/.config/hypr/bindings.lua.bak.$(date +%s)
-
-# 3. Make changes with Edit tool
-
-# 4. Apply changes
-# - Hyprland: auto-reloads on save, but MUST validate with `hyprctl reload` and `hyprctl configerrors`
-# - Agentarchy shell: shell.json and user plugin code under ~/.config/oal/plugins/ hot-reload on save
-# - Menus/launcher: ~/.config/oal/extensions/oal-menu.jsonc hot-reloads on save
-# - Terminals: apply with `oal restart terminal` (reloads running terminals; foot picks changes up in new windows)
+oal-theme-list                 # what is installed
+oal-theme-current              # what is active
+oal-theme-set tokyo-night      # apply one, everywhere
 ```
 
-### Reset to Defaults -- ALWAYS SEEK USER CONFIRMATION BEFORE RUNNING
+One `colors.toml` per theme drives every templated config: Plasma's colour scheme, Konsole,
+the SDDM greeter, the lock screen, the icon colour, the shell prompt, the terminals and the
+editors. To change how a theme looks, edit `themes/<name>/colors.toml` and re-run
+`oal-theme-set`. To change what a config does with a palette, edit the matching
+`default/themed/<thing>.tpl` and re-run it.
 
-When customizations go wrong:
+`oal-theme-render <template> --file <colors.toml>` prints one rendered template without
+applying anything, which is the fast way to check a template change.
+
+Some of a theme applies live and some needs a new session; `oal-theme-set-kde` says which
+on screen. The login screen is deliberately separate: `oal-refresh-sddm <theme>`, and it
+needs root.
+
+## Layouts and shortcuts
 
 ```bash
-# Reset specific config (creates backup automatically)
-oal refresh shell
-oal refresh hyprland
-
-# The refresh command:
-# 1. Backs up current config with timestamp
-# 2. Copies default from $OAL_PATH/config/
-# 3. Restarts the component where the refresh needs it (e.g. `refresh shell`)
+oal-layout-set              # report the current layout
+oal-layout-set ubuntu       # thin top panel plus a floating dock
+oal-layout-set mint         # one taskbar along the bottom
 ```
 
-## System Commands
+Both are Plasma layout scripts (`default/layouts/*.js`) applied over D-Bus. They clear
+existing panels first, so re-applying is safe and does not stack duplicates. A layout
+apply also rewrites the two global shortcuts (`Meta+Space` for the menu, `Meta+A` to ask).
+
+## Configuration locations
+
+| What | Where |
+|---|---|
+| Agentarchy user config | `~/.config/oal/` |
+| Agentarchy state (generated) | `~/.local/state/oal/` |
+| Shipped defaults | `/usr/share/agentarchy/config/`, seeded via `/etc/skel` |
+| Terminal | Ghostty (`~/.config/ghostty/`) and Konsole are what ship |
+| Plasma | `~/.config/*rc`, via `kwriteconfig6` |
+
+`~/.config/` also contains config trees for alacritty, foot, kitty, imv and others that are
+seeded from `/etc/skel` but whose applications are **not installed**. Editing them does
+nothing until the application is there.
+
+## Safe customization pattern
 
 ```bash
-oal update                  # Full system update
-oal version                 # Show Agentarchy version
-oal debug --no-sudo --print # Debug info (ALWAYS use these flags)
-oal system lock             # Lock screen
-oal system shutdown         # Shutdown
-oal system reboot           # Reboot
+# 1. Read what is there now
+kreadconfig6 --file kwinrc --group Desktops --key Number
+
+# 2. Change it
+kwriteconfig6 --file kwinrc --group Desktops --key Number 4
+
+# 3. Read it back, and check the value rather than the exit code
+kreadconfig6 --file kwinrc --group Desktops --key Number
+
+# 4. Apply, where the component needs telling
+qdbus6 org.kde.KWin /KWin reconfigure
 ```
 
-**IMPORTANT:** Always run `oal debug` with `--no-sudo --print` flags to avoid interactive sudo prompts that will hang the terminal.
+For a shortcut, step 3 matters most: read it back after kglobalaccel has had a chance to
+process it and check the value is not empty.
+
+## Reset to defaults -- ALWAYS CONFIRM WITH THE USER FIRST
+
+```bash
+oal-refresh-config <path-relative-to-~/.config>   # one file, backed up first
+oal-reinstall-configs                             # all of them (destructive)
+oal-layout-set ubuntu                             # just the panels
+```
 
 ## Troubleshooting
 
 ```bash
-# Get debug information (ALWAYS use these flags to avoid interactive prompts)
-oal debug --no-sudo --print
-
-# Reset specific config to defaults
-oal refresh <app>
-
-# Refresh specific config file
-# config-file path is relative to ~/.config/
-# eg. `oal refresh config hypr/hyprland.lua` will refresh ~/.config/hypr/hyprland.lua
-oal refresh config <config-file>
-
-# Full reinstall of configs (nuclear option)
-oal reinstall
+oal-doctor                 # 13 checks, human readable
+oal-doctor --json          # the same, machine readable; exit code is the worst severity
+journalctl --user -b -p warning
+systemctl --user --failed
 ```
 
-## Decision Framework
+`oal-doctor` is the right first move for "something is wrong" and is cheap. If it reports a
+finding, `oal-agent-diagnose <id>` hands that one finding to the configured agent.
 
-When user requests system changes:
-
-1. **Is it a stock oal command?** Use it directly
-2. **Is it a config edit?** Edit in `~/.config/`, never `/usr/share/agentarchy/`
-3. **Is it a theme customization?** Follow [`theming.md`](theming.md); create a NEW custom theme directory
-4. **Is it automation?** Follow [`hooks.md`](hooks.md); use `oal hook install` and the hook `.d` directories
-5. **Is it a package install?** Use `oal pkg add <pkgs...>` (or `oal pkg aur add <pkgs...>` for AUR-only packages)
-6. **Is it built-in shell/plugin code?** Follow [`plugins.md`](plugins.md); clone it with `oal plugin clone`, never edit the packaged copy
-7. **Unsure if command exists?** Run `oal commands` (or `oal <group> --help` for one group)
-
-### Reminder Requests
-
-When the user asks to set a reminder, use `oal reminder <minutes> [message]` directly. Convert natural language durations to minutes and title-case short reminder labels when appropriate.
+## The agent layer
 
 ```bash
-oal reminder 15 "Pickup Jack"
-oal reminder 60 "Check laundry"
-oal reminder show
-oal reminder clear
+oal-agent-profile                 # read the posture
+oal-mcp-list / oal-mcp-status     # MCP servers in the catalog, and which are registered
+oal-brain-backend                 # which backend answers questions
+oal-brain-status                  # and whether it is reachable
+oal-ask "why is the disk full"    # ask the machine, answer arrives as a notification
+oal-watch --once                  # health check now
 ```
 
-## Out of Scope
+MCP server *registration* currently automates one runtime's CLI. `oal-mcp-serve` is the
+other direction: it exposes this machine to any MCP client, read-only apart from `os_do`,
+which routes through the guard.
 
-This skill intentionally does not cover Agentarchy source development. Do not use this skill for:
-- Editing files in `/usr/share/agentarchy/` (`bin/`, `config/`, `default/`, `shell/`, `themes/`, `migrations/`, etc.)
-- Creating or editing migrations
-- Running `oal dev ...` commands
+## Out of scope for this skill
 
-## Example Requests
+- Editing Agentarchy's own source (that is `oal dev link` and the repository's CLAUDE.md)
+- Anything Hyprland, Quickshell, uwsm, waybar or walker: not installed, not shipped
+- Package management beyond `oal-pkg-*`; this is Arch, `pacman` is right there
 
-- "Change my theme to catppuccin" -> `oal theme set catppuccin`
-- "Add a keybinding for Super+E to open file manager" -> Check existing bindings first, call `hl.unbind` if needed, then `o.bind` in `~/.config/hypr/bindings.lua`
-- "Configure my external monitor" -> Edit `~/.config/hypr/monitors.lua`
-- "Make the window gaps smaller" -> Edit `~/.config/hypr/looknfeel.lua`
-- "Turn on night light" -> `oal toggle nightlight` (for time-based schedules, edit `~/.config/hypr/hyprsunset.conf` profiles, then `oal restart hyprsunset`)
-- "Set a reminder to pickup jack in 15 minutes" -> `oal reminder 15 "Pickup Jack"`
-- "Show my reminders" -> `oal reminder show`
-- "Clear all reminders" -> `oal reminder clear`
-- "Customize the catppuccin theme colors" -> Overlay: put an edited `colors.toml` in `~/.config/oal/themes/catppuccin/`, then re-apply the theme (see `theming.md`)
-- "Run a script every time I change themes" -> Install it with `oal hook install theme-set <script>`
-- "Change how workspace labels are rendered" -> Clone `oal.workspaces`, which switches the bar to `<username>.workspaces`, then edit the clone
-- "Lock after ten minutes" -> Set `idle.lock` to `600` in `~/.config/oal/shell.json`
-- "Reset shell/bar to defaults" -> `oal refresh shell`
-- "Record my screen" -> `oal screenrecord --fullscreen`, then `oal screenrecord --stop-recording` (see `capture.md`)
-- "Report this bug to Agentarchy" -> Gather diagnostics and a capture of the problem, then file it (see `contributing.md`)
+## Example requests this skill covers
+
+- "Make Meta+Return open a terminal"
+- "Switch to the gruvbox theme"
+- "Put the panel at the bottom"
+- "Why is my login screen a different colour to my desktop"
+- "Add a second virtual desktop"
+- "What is my agent allowed to do right now"

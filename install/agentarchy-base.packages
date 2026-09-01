@@ -38,11 +38,15 @@ bluez
 bluez-utils
 bluez-tools
 power-profiles-daemon
-# Printing, with the discovery stack: cups alone finds nothing on a LAN. install/config/
-# enable-services.sh (vendored) enables cups-browsed and avahi-daemon, so the packages that own
-# those units have to be here.
+# Printing. cups plus avahi is the whole discovery stack a modern network printer needs: CUPS
+# does driverless IPP Everywhere over mDNS itself.
+#
+# cups-browsed is deliberately NOT here. It is the legacy CUPS-broadcast bridge, it listens on
+# UDP 631 for unauthenticated printer announcements, and it is the daemon at the centre of the
+# 2024 CUPS remote-execution chain (CVE-2024-47076 / 47175 / 47176 / 47177). The inbound port is
+# closed by install/config/firewall.sh either way, so this is not a hole being patched -- it is a
+# daemon that was buying discovery we already have.
 cups
-cups-browsed
 avahi
 
 # --- filesystem and boot
@@ -58,6 +62,10 @@ ufw
 age
 
 # --- terminal tooling
+# nano before anything clever: $EDITOR has to name something that exists. There was no terminal
+# editor in either list at all, so `git commit` with no -m, `sudoedit`, `systemctl edit` and
+# `crontab -e` all failed, and `visudo` fell back to a vi that was not installed either.
+nano
 ripgrep
 fd
 bat

@@ -33,7 +33,7 @@ fresh clone. If they are not there, the git log and `docs/` carry the decisions 
 - Plan mode for anything non-trivial; keep `tasks/todo.md` current; record corrections in
   `tasks/lessons.md`. Neither is committed, so anything a contributor needs belongs in the commit
   message, `docs/`, or a comment next to the code.
-- Before claiming done: `bin/oal-dev-check` must pass (seven `PASS` lines); paste its output in the PR.
+- Before claiming done: `bin/oal-dev-check` must pass (eight `PASS` lines); paste its output in the PR.
 - Owner-actions (things only Adam can do) go under the "Owner-actions" heading in `tasks/todo.md`.
 - Shell: `#!/usr/bin/env bash`, `set -euo pipefail`, shellcheck clean. Tests: bats under `test/unit`.
 - Commits: conventional prefixes, no AI co-author trailers.

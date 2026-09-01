@@ -22,6 +22,13 @@
 #   ExecStart=       systemd units (and ExecStop=, ExecReload=)
 #   --exec "..."     notification click targets
 #   alias x='...'    shell aliases, which are live in every shell on the machine
+#   export VAR=      environment variables naming a command, which are live in every shell too
+#
+# And one invariant rather than a reference: an entry this tree *delivers* -- installed by PKGBUILD
+# or copied into $HOME by provisioning -- may not be one of the known-unresolvable ones below. The
+# baseline excuses those on the grounds that nothing reads where they ship. That stopped being true
+# the moment something copied them somewhere that is read, and nothing here noticed, because a
+# baseline records a reference and not the file's destination.
 #
 # Known-unresolvable references inherited from upstream live in the baseline beside this script.
 # They are tracked, not fixed, and issues #48 and #49 cover porting them. The point of the baseline
@@ -90,6 +97,48 @@ if [[ -f default/bash/aliases ]]; then
     [[ -x bin/$cmd ]] || note default/bash/aliases "$cmd"
   done < <(scan default/bash/aliases "^alias [a-zA-Z0-9_-]+=.*")
 fi
+
+# --- environment variables that name a command ------------------------------------------------------
+# Same shape as an alias and the same blast radius: default/bash/envs is sourced by default/bash/rc,
+# which oal-bootstrap.sh wires into ~/.bashrc and /etc/skel/.bashrc. EDITOR named a command that was
+# excluded from vendoring, so `git commit`, `sudoedit`, `systemctl edit` and `crontab -e` all failed
+# on every install, and BROWSER named another one. Neither is an alias, a unit or a desktop entry, so
+# nothing here looked at them.
+if [[ -f default/bash/envs ]]; then
+  while IFS= read -r line; do
+    line="${line#export }"; line="${line#*=}"
+    # Strip quotes and a ${VAR:-...} default wrapper, which is how every one of these is written.
+    line="${line%\"}"; line="${line#\"}"
+    if [[ $line == '${'*':-'* ]]; then
+      line="${line#*:-}"; line="${line%\}}"
+    fi
+    cmd="$(first_word "$line")"
+    [[ $cmd == oal-* ]] || continue
+    [[ -x bin/$cmd ]] || note default/bash/envs "$cmd"
+  done < <(scan default/bash/envs '^export [A-Z_]+=.*')
+fi
+
+# --- entries this tree actually delivers --------------------------------------------------------------
+# PKGBUILD installs a named few system-wide and bin/oal-refresh-applications copies a named few into
+# the user's own applications directory. Anything in either set has to resolve: those are the two
+# places a desktop entry stops being a file in a share directory and starts being an icon somebody
+# clicks. The rest are tracked in the baseline precisely because they are delivered nowhere.
+delivered=()
+while IFS= read -r name; do delivered+=("$name"); done < <(
+  { grep -oE 'install -Dm644 applications/[^ ]+\.desktop' PKGBUILD 2>/dev/null | sed 's|.*/||'
+    sed -n 's/^ours=(\(.*\))$/\1/p' bin/oal-refresh-applications 2>/dev/null | tr ' ' '\n'
+  } | grep -E '\.desktop$' | sort -u
+)
+for name in "${delivered[@]}"; do
+  f="applications/$name"
+  [[ -f $f ]] || { note "$f" "(delivered but not in applications/)"; continue; }
+  while IFS= read -r line; do
+    cmd="$(first_word "${line#Exec=}")"
+    [[ $cmd == oal-* ]] || continue
+    [[ -x bin/$cmd ]] ||
+      note "$f" "$cmd (DELIVERED: this one is not inert, it is in a launcher)"
+  done < <(scan "$f" '^Exec=.*')
+done
 
 # --- compare against the baseline -------------------------------------------------------------------
 current="$(printf '%s' "$found" | grep -v '^$' | sort -u || true)"

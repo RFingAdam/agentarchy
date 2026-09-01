@@ -1,0 +1,113 @@
+--- a/bin/oal-system-lock
++++ b/bin/oal-system-lock
+@@ -1,14 +1,22 @@
+ #!/bin/bash
+ 
+-# oal:summary=Lock the computer and turn off the display
++# oal:summary=Lock the session
+ # oal:group=system
+ # oal:name=lock
+ # oal:examples=oal system lock
+ 
+-oal-shell lock lock >/dev/null
++# loginctl, not the compositor shell.
++#
++# This used to open with `oal-shell lock lock`, the Quickshell IPC, followed by `hyprctl
++# switchxkblayout`. Neither is vendored here, so the first exited 127 and the second silently did
++# nothing -- and since this file has no `set -e`, it went on to report success without ever locking
++# anything. On Plasma the session lock is logind's to take, and KScreenLocker answers it.
++set -uo pipefail
+ 
+-# Set keyboard layout to default (first layout)
+-hyprctl switchxkblayout all 0 > /dev/null 2>&1
++loginctl lock-session || {
++  echo "oal-system-lock: could not lock the session" >&2
++  exit 1
++}
+ 
+ # Ensure 1password is locked. Use timeout because `1password --lock` can
+ # otherwise leave a full Electron helper tree running after each lock.
+@@ -18,9 +26,3 @@
+     timeout --kill-after=1s 3s 1password --lock >/dev/null 2>&1 || true
+   ) 9>"${XDG_RUNTIME_DIR:-/tmp}/oal-1password-lock.lock" &
+ fi
+-
+-# Avoid running screensaver when locked
+-pkill -x ttfx 2>/dev/null || true
+-# ttfx handles SIGTERM asynchronously, so keep its terminal alive until it exits.
+-timeout 1s pidwait -x ttfx 2>/dev/null || true
+-pkill -f '[o]rg.oal.screensaver' 2>/dev/null || true
+--- a/bin/oal-system-logout
++++ b/bin/oal-system-logout
+@@ -1,13 +1,15 @@
+ #!/bin/bash
+ 
+-# oal:summary=Log out after closing application windows
++# oal:summary=End the session
+ # oal:examples=oal logout | oal system logout
+ # oal:aliases=oal logout
+ 
+-nohup bash -c "sleep 2 && uwsm stop" >/dev/null 2>&1 &
+-
+-oal-osd -i logout -m "Logging out" -d 5000
+-
+-# Now close all windows
+-oal-hyprland-window-close-all
+-sleep 1 # Allow apps like Chrome to shutdown correctly
++# This one did nothing at all.
++#
++# It ran `uwsm stop` -- Hyprland's session manager, never vendored -- with output silenced and in the
++# background, then called oal-hyprland-window-close-all, which does not exist on this tree. With no
++# `set -e` and both failures swallowed, it exited 0 having left the session exactly where it was.
++# Meanwhile bin/oal-menu already had the working implementation inline, so the machine had two
++# answers to "log out" and the one with the standalone command was the broken one.
++set -uo pipefail
++exec oal-session-end logout
+--- a/bin/oal-system-reboot
++++ b/bin/oal-system-reboot
+@@ -1,17 +1,9 @@
+ #!/bin/bash
+ 
+-# oal:summary=Reboot after closing application windows
++# oal:summary=Restart the machine, closing applications first
+ # oal:examples=oal reboot | oal system reboot
+ # oal:aliases=oal reboot
+ 
+-# Schedule the reboot in the user manager so closing the terminal's systemd
+-# scope cannot terminate it before it runs.
+-systemd-run --user --collect --quiet --on-active="2s" --timer-property=AccuracySec=100ms systemctl reboot --no-wall || exit 1
+-
+-oal-osd -i reboot -m "Rebooting" -d 5000
+-
+-oal-state clear re*-required
+-
+-# Now close all windows
+-oal-hyprland-window-close-all
+-sleep 1 # Allow apps like Chrome to shutdown correctly
++set -uo pipefail
++oal-state clear 're*-required' 2>/dev/null || true
++exec oal-session-end reboot
+--- a/bin/oal-system-shutdown
++++ b/bin/oal-system-shutdown
+@@ -1,17 +1,9 @@
+ #!/bin/bash
+ 
+-# oal:summary=Shut down after closing application windows
++# oal:summary=Power off, closing applications first
+ # oal:examples=oal shutdown | oal system shutdown
+ # oal:aliases=oal shutdown
+ 
+-# Schedule the shutdown in the user manager so closing the terminal's systemd
+-# scope cannot terminate it before it runs.
+-systemd-run --user --collect --quiet --on-active="2s" --timer-property=AccuracySec=100ms systemctl poweroff --no-wall || exit 1
+-
+-oal-osd -i shutdown -m "Shutting down" -d 5000
+-
+-oal-state clear re*-required
+-
+-# Now close all windows
+-oal-hyprland-window-close-all
+-sleep 1 # Allow apps like Chrome to shutdown correctly
++set -uo pipefail
++oal-state clear 're*-required' 2>/dev/null || true
++exec oal-session-end shutdown

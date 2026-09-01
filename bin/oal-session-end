@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+# oal:summary=End the session, restart or power off, closing applications first
+# oal:args=<logout|reboot|shutdown>
+# oal:examples=oal-session-end reboot
+# oal:group=system
+# oal:hidden=true
+
+# One implementation of "end the session", because there were two and only one of them worked.
+#
+# The four oal-system-* commands drove Hyprland's session manager and a window-closing helper that
+# was never vendored, so `oal logout` exited 0 having done nothing. bin/oal-menu, meanwhile, had the
+# correct Plasma implementation written inline in a case statement. Two answers to the same
+# question, and the one that looked official was the broken one.
+#
+# Plasma's own Shutdown service is what the menu and the keyboard shortcut use, and it is the right
+# thing to ask: it closes applications, gives them a chance to save, and honours the session
+# settings a person set in System Settings. systemctl is the fallback for a machine with no
+# graphical session -- an `oal reboot` over SSH is a perfectly reasonable thing to type.
+set -uo pipefail
+
+action="${1:-}"
+case "$action" in
+  logout | reboot | shutdown) ;;
+  -h | --help) sed -n '3,4p' "$0" | sed 's/^# oal://'; exit 0 ;;
+  *) echo "Usage: oal-session-end <logout|reboot|shutdown>" >&2; exit 64 ;;
+esac
+
+have_session() {
+  [[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]] && command -v qdbus6 >/dev/null
+}
+
+kde_shutdown() {
+  local method="$1"
+  qdbus6 org.kde.Shutdown /Shutdown "org.kde.Shutdown.$method" >/dev/null 2>&1
+}
+
+if have_session; then
+  case "$action" in
+    logout)   kde_shutdown logout            && exit 0 ;;
+    reboot)   kde_shutdown logoutAndReboot   && exit 0 ;;
+    shutdown) kde_shutdown logoutAndShutdown && exit 0 ;;
+  esac
+fi
+
+# No session bus, or Plasma did not answer.
+if [[ $action == logout ]]; then
+  # There is nothing sensible to fall back to: logging out of a session that is not there is not a
+  # thing to do quietly. Say so rather than exiting 0, which is what this used to do.
+  echo "oal-session-end: no graphical session to log out of" >&2
+  exit 1
+fi
+
+# Scheduled a moment out and in the user manager, so closing the terminal that ran this cannot kill
+# it before it happens.
+target="reboot"; [[ $action == shutdown ]] && target="poweroff"
+if command -v systemd-run >/dev/null; then
+  systemd-run --user --collect --quiet --on-active=2s \
+    --timer-property=AccuracySec=100ms systemctl "$target" --no-wall && exit 0
+fi
+exec systemctl "$target"

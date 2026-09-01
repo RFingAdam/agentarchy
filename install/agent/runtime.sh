@@ -47,9 +47,17 @@ if [[ -x $guard ]] && command -v jq >/dev/null; then
   mkdir -p -- "$(dirname "$settings")"
   [[ -f $settings ]] || printf '{}\n' >"$settings"
   hook_tmp="$(mktemp)"
-  if jq --arg g "$guard" \
-      '.hooks.PreToolUse = [{matcher: "*", hooks: [{type: "command", command: $g}]}]' \
-      "$settings" >"$hook_tmp" 2>/dev/null; then
+  # Merge, never assign. This was `.hooks.PreToolUse = [...]`, which silently threw away every
+  # PreToolUse hook the user already had -- on install, and again on every oal-agent-setup. Ours is
+  # removed first so re-running cannot stack duplicates, and everything else is left where it is.
+  if jq --arg g "$guard" '
+        .hooks = (.hooks // {})
+        | .hooks.PreToolUse = (
+            ((.hooks.PreToolUse // [])
+              | map(select(((.hooks // []) | map(.command)) | index($g) | not)))
+            + [{matcher: "*", hooks: [{type: "command", command: $g}]}]
+          )
+      ' "$settings" >"$hook_tmp" 2>/dev/null; then
     mv -- "$hook_tmp" "$settings"
     log "tool-call guard registered ($guard)"
   else

@@ -14,7 +14,12 @@ start_install_log() {
   if ! oal_log_to_stdout; then
     mkdir -p "$(dirname "$OAL_INSTALL_LOG_FILE")"
     touch "$OAL_INSTALL_LOG_FILE"
-    chmod 666 "$OAL_INSTALL_LOG_FILE" 2>/dev/null || true
+    # 640, not 666. This is a root-written log under /var/log that OAL_INSTALL_DEBUG=1 fills with
+    # `bash -x` traces, i.e. every variable after expansion. World-writable meant any local user
+    # could forge or truncate the record of what the install did; world-readable meant anything an
+    # install step ever handles is readable by all of them. Nothing here handles a credential today,
+    # and the overlay contract is the obvious place where one day something will.
+    chmod 640 "$OAL_INSTALL_LOG_FILE" 2>/dev/null || true
   fi
 
   export OAL_START_TIME="${OAL_START_TIME:-$(date '+%Y-%m-%d %H:%M:%S')}"
@@ -51,9 +56,15 @@ run_logged() {
       ;;
   esac
 
-  local runner=(bash -eE)
+  # -u and -o pipefail as well as -e. A child bash inherits errexit from the parent's SHELLOPTS and
+  # does NOT inherit nounset or pipefail, so every fragment run through here was missing two thirds
+  # of the house style -- and about seventy-five of them under install/ declare no `set` line of
+  # their own precisely because they rely on this runner for it. The visible cost was that a typo'd
+  # variable expanded to empty instead of aborting, and in `cmd1 | cmd2` a failure in cmd1 was
+  # swallowed while this function logged "Completed:" underneath it.
+  local runner=(bash -euEo pipefail)
   if [[ ${OAL_INSTALL_DEBUG:-} == "1" ]]; then
-    runner=(bash -x -eE)
+    runner=(bash -x -euEo pipefail)
   fi
 
   if oal_log_to_stdout; then

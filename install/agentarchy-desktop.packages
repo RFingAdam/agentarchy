@@ -56,6 +56,16 @@ qt6-tools
 kde-cli-tools
 systemsettings
 
+# Notifications. bin/oal-notification-send shells out to notify-send, which is here and in no
+# transitive dependency of anything else in these lists -- so it exited 127 on every call, and with
+# it went crash diagnosis, the answer toast for Meta+A, the health watcher, low-battery warnings,
+# reminders, and every first-run welcome card. The whole "the machine tells you something" surface
+# rested on a package nothing named.
+#
+# It is listed here rather than in the base layer because a notification needs a session daemon to
+# receive it, and that is plasmashell.
+libnotify
+
 # --- the menu
 # fuzzel backs oal-menu-select: a Wayland-native picker, ~200 KB, themed from the current palette
 # like everything else. The alternative was reviving a compositor shell to get a menu back.

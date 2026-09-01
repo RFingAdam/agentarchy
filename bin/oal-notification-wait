@@ -16,11 +16,15 @@ notification_server_ready() {
     GetServerInformation >/dev/null 2>&1
 }
 
-# The shell has to be up to serve the IPC, and it has to have claimed the
-# notification bus name before notify-send has anywhere to deliver.
+# Owning org.freedesktop.Notifications is the whole question: it is what decides whether
+# notify-send has anywhere to deliver. It used to also require `oal-shell notifications ping`, the
+# compositor shell's own IPC -- and that shell is not vendored here, so the ping could never
+# succeed. The loop therefore ran its full length and gave up every single time, which cost every
+# crash ten seconds of nothing before oal-crash-watch abandoned the notification it was about to
+# send. The probe below was already right here, and its answer was being thrown away.
 attempts=$((timeout * 10))
 while (( attempts > 0 )); do
-  if oal-shell notifications ping >/dev/null 2>&1 && notification_server_ready; then
+  if notification_server_ready; then
     exit 0
   fi
   attempts=$((attempts - 1))

@@ -62,7 +62,9 @@ trap 'rm -f -- "$script"' EXIT
 
 # sed is the substitution engine upstream uses, so a template that renders there renders here. Values
 # are palette colours and a scheme name, never anything with a '|' in it.
+declare -A palette=()
 while IFS=$'\t' read -r key value; do
+  palette["$key"]="$value"
   printf 's|{{ %s }}|%s|g\n' "$key" "$value" >>"$script"
   printf 's|{{ %s_strip }}|%s|g\n' "$key" "${value#\#}" >>"$script"
   if [[ $value =~ ^#[0-9A-Fa-f]{6}$ ]]; then
@@ -72,13 +74,53 @@ done < <("$bin_dir/oal-theme-color" --file "$colors_file" --all)
 
 printf 's|{{ scheme_name }}|%s|g\n' "$scheme_name" >>"$script"
 
+# Function-form placeholders: {{ mix <colour> <colour> <amount%> }}.
+#
+# sed substitutes names, not expressions, so this renderer simply had no answer for them -- and
+# because its unresolved-placeholder guard below only matched single-token names, claude.json.tpl
+# and pi.json.tpl came out of here with every mix() still in the text, exit code 0, and nobody the
+# wiser. The live theme path never noticed because oal-theme-set-templates implements mix() itself
+# and is what a real theme change goes through.
+#
+# Each distinct call is evaluated once and added to the script as its own literal rule, which keeps
+# the engine a single sed pass.
+mix_color() {
+  awk -v start="${1#\#}" -v end="${2#\#}" -v amount="$3" '
+    function hex_value(c) { return index("0123456789abcdef", tolower(c)) - 1 }
+    function pair(h, i)   { return hex_value(substr(h, i, 1)) * 16 + hex_value(substr(h, i + 1, 1)) }
+    BEGIN {
+      if (amount ~ /%$/) { sub(/%$/, "", amount); amount = amount / 100 }
+      else { amount += 0; if (amount > 1) amount = amount / 100 }
+      if (amount < 0) amount = 0
+      if (amount > 1) amount = 1
+      printf "#%02x%02x%02x\n",
+        int(pair(start,1) * (1-amount) + pair(end,1) * amount + 0.5),
+        int(pair(start,3) * (1-amount) + pair(end,3) * amount + 0.5),
+        int(pair(start,5) * (1-amount) + pair(end,5) * amount + 0.5)
+    }'
+}
+
+while IFS= read -r call; do
+  [[ -n $call ]] || continue
+  read -r _ _ a b amount _ <<<"$call"
+  from="${palette[$a]:-}"
+  to="${palette[$b]:-}"
+  if [[ -z $from || -z $to ]]; then
+    echo "oal-theme-render: $template.tpl mixes a colour the palette does not define: $call" >&2
+    exit 1
+  fi
+  printf 's|%s|%s|g\n' "$call" "$(mix_color "$from" "$to" "$amount")" >>"$script"
+done < <(grep -o '{{ mix [^}]* }}' "$tpl" | sort -u)
+
 rendered="$(sed -f "$script" "$tpl")"
 
 # An unsubstituted placeholder is a silent half-rendered config: KDE would read the file, ignore the
 # broken line and show the previous colour there. Fail instead.
-if grep -q '{{ [a-z_]* }}' <<<"$rendered"; then
-  echo "oal-theme-render: $template.tpl has placeholders the palette does not define:" >&2
-  grep -o '{{ [a-z_]* }}' <<<"$rendered" | sort -u >&2
+# [^}]* rather than [a-z_]*, which could not match a placeholder containing a space, a digit or a
+# percent sign -- so every function-form call sailed past the one check meant to catch exactly this.
+if grep -q '{{ [^}]* }}' <<<"$rendered"; then
+  echo "oal-theme-render: $template.tpl has placeholders this renderer could not resolve:" >&2
+  grep -o '{{ [^}]* }}' <<<"$rendered" | sort -u >&2
   exit 1
 fi
 

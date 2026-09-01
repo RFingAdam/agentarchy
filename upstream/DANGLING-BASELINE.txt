@@ -9,9 +9,18 @@
 #   oal-launch-battlenet                      excluded from vendoring. These entries ship to
 #                                             /usr/share/agentarchy/applications, which no desktop
 #                                             environment reads, so they are inert rather than
-#                                             broken -- but they would become broken the moment
-#                                             somebody installed them properly, which is exactly the
-#                                             kind of surprise this file exists to keep visible.
+#                                             broken.
+#
+#                                             That sentence was false for as long as it stood here.
+#                                             bin/oal-refresh-applications globbed the whole
+#                                             directory into ~/.local/share/applications on every
+#                                             provision, which every desktop environment does read,
+#                                             so all eleven were live and dead in the launcher on
+#                                             every install. It copies a named list now. If that
+#                                             ever goes back to a glob, this paragraph is a lie
+#                                             again -- which is the surprise this file exists to
+#                                             keep visible, and it did not, because a baseline
+#                                             records a reference and not where the file ends up.
 #
 #   oal-provision-owner                       upstream's owner-provisioning path, excluded. The unit
 #                                             is not enabled by anything here.
