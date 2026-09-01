@@ -1,4 +1,4 @@
-# Tool-call rules for agent/hooks/pretooluse-guard. One rule per line:
+# Tool-call rules for the guard engine. One rule per line:
 #
 #   tier | tool | pattern
 #
@@ -14,6 +14,21 @@
 # Adding a rule: prefer confirm over block. A block with no override is a wall someone
 # will eventually route around by disabling the hook entirely, which is worse than a
 # prompt they answer. Reserve block for things with no legitimate agent use.
+#
+# Naming: no rule here names a runtime, for the same reason the engine does not. Where a
+# vendor's file has to be covered, it is matched by shape (a settings file under a dotted
+# directory in $HOME) rather than by brand, so a rule written for one agent covers the next.
+
+# --- the terms the agent is judged by -------------------------------------------------
+# These come first because every rule below is optional if any of them can be reached.
+# Raising the posture to trusted turns every confirm in this file into an allow, so the
+# command that does it, and the file it writes, have no legitimate agent use at all.
+# Reading the current posture (oal-agent-profile with no argument) stays free.
+block | * | oal-agent-profile[[:space:]]+(trusted|scoped|untrusted)
+block | * | oal-guard-confirm
+block | * | state/oal/(agent-profile|confirm|audit)
+# Where a runtime is told which hook to run before a tool call. Matched by shape, not brand.
+confirm | * | /\.[a-z][a-z0-9_-]*/settings\.json
 
 # --- no legitimate agent use, no override ---------------------------------------------
 block | * | rm[[:space:]]+(-[a-zA-Z]*[rR][a-zA-Z]*[[:space:]]+)+/([[:space:]]|$)
@@ -29,10 +44,24 @@ block | * | oal-system-factory-reset
 block | * | (curl|wget)[[:space:]][^|]*\|[[:space:]]*(sudo[[:space:]]+)?(ba|z|d|k)?sh
 
 # --- credentials: readable by a person, never by an agent unattended -------------------
-block | Read | /\.ssh/id_(rsa|ed25519|ecdsa)([^.]|$)
-block | Read | \.env($|[^.a-zA-Z])
-block | Read | \.age($|")
-block | * | cat[[:space:]]+[^|]*\.ssh/id_
+# Tool * rather than the structured read tool alone. These were scoped to it, which meant
+# the rule covered the one path an agent does not have to use: head, less, base64, xxd,
+# sed, awk, python -c and node -e all reached the same bytes and matched nothing, while
+# the README said every posture refuses to read private keys and dotenv files.
+#
+# The cost of tool * is that a Write whose *content* mentions one of these paths is also
+# refused. That is the right way round -- a false refusal is visible and one keystroke to
+# work around, a false permit is neither -- but if it turns noisy, the tier is the thing
+# to lower, not the tool.
+block | * | /\.ssh/(id_(rsa|ed25519|ecdsa|dsa)([^.]|$)|authorized_keys)
+block | * | \.env($|[^.a-zA-Z])
+block | * | \.age($|")
+block | * | /\.(netrc|npmrc|pypirc)($|[^.a-zA-Z])
+block | * | /\.aws/credentials
+block | * | /\.docker/config\.json
+block | * | /\.gnupg/
+block | * | /\.config/gh/hosts\.yml
+block | * | /kwalletd/
 
 # --- reversible but expensive, or hard to undo ----------------------------------------
 confirm | * | \bsudo\b
@@ -42,5 +71,6 @@ confirm | * | git[[:space:]]+push[[:space:]].*--force
 confirm | * | git[[:space:]]+(reset[[:space:]]+--hard|clean[[:space:]]+-[a-z]*f)
 confirm | * | (npm|pnpm|yarn|pip|uv)[[:space:]]+(install|add)[[:space:]]
 confirm | * | \brm[[:space:]]+-[a-zA-Z]*[rR]
-confirm | Write | /etc/
-confirm | Edit | /etc/
+# Tool * for the same reason as the credential block above: these were scoped to the two
+# structured write tools, so a shell redirect and every MCP server's write tool went past.
+confirm | * | /etc/

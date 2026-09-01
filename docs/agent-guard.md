@@ -26,7 +26,7 @@ every tool call, against a 50 ms budget that everything the agent does is charge
 
 ```bash
 echo "sudo pacman -Syu" | oal-guard --tool Bash
-# ask	confirm	needs confirmation, or a CONFIRM-<8 hex> token in the call
+# ask	confirm	needs confirmation, or a token from oal-guard-confirm in the call
 ```
 
 Exit code carries the decision: `0` allow, `1` ask, `2` deny. **Anything else means the guard itself
@@ -60,7 +60,7 @@ matters and the dangerous rules come first.
 | Tier | What happens | For |
 |---|---|---|
 | `block` | Refused. No override. | Things with no legitimate agent use: recursive deletes of `/`, `mkfs`, writing to a raw block device, a download piped into a shell, reading private keys or `.env` files. |
-| `confirm` | Refused unless the call carries a `CONFIRM-<8 hex>` token. | Reversible but expensive or hard to undo: `sudo`, package installs, forced pushes, hard resets, writes under `/etc`. |
+| `confirm` | Refused unless the call carries a token minted by a person (see below). | Reversible but expensive or hard to undo: `sudo`, package installs, forced pushes, hard resets, writes under `/etc`, editing a runtime's settings file. |
 | `allow` | Permitted, and recorded. | Explicit exceptions. |
 
 Anything no rule matches takes the default for the active posture, so `oal-agent-profile` is what
@@ -73,6 +73,35 @@ decides the general case:
 | `trusted` | allowed | allowed |
 
 `block` is never lifted, by any posture or any token. If it were, there would only be one tier.
+
+## The confirmation token
+
+A `confirm` rule holds a call back until a person says yes to that call. The token is how they say
+it on a path with no prompt:
+
+```bash
+oal-guard-confirm            # at your terminal
+# CONFIRM-3f9a21c7
+sudo pacman -S ripgrep # CONFIRM-3f9a21c7
+```
+
+It is a capability, not a password:
+
+- **Minted by a person.** `oal-guard-confirm` refuses to run without a terminal, and tool calls to
+  it are themselves a `block` rule -- so an agent asking for one is refused before it runs.
+- **Spent once.** The guard deletes it as it accepts it. A call a `block` rule refuses does not
+  spend it, because a token burned on a call that was never going to run is one you have to mint
+  again to learn nothing changed.
+- **Expiring.** Five minutes by default, `--ttl` to change it, one hour maximum.
+
+It used to be any string matching `CONFIRM-<8 hex>`, checked by regex against the same text the
+agent had just written -- so the party being gated could mint its own, and the shape was published
+here, in the README and in the test suite. That is a spelling convention, not a control.
+
+The rules that keep it that way are the first four in `default/guard/rules`: the posture command,
+this command, the guard's own state directory, and settings files under a dotted directory in
+`$HOME`. Every other rule in the file is optional if any of those can be reached, because raising
+the posture to `trusted` turns each `confirm` into an `allow`.
 
 ## Fail closed
 

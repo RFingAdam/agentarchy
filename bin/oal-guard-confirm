@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+
+# oal:summary=Mint a single-use token that lets one confirm-tier tool call through
+# oal:args=[--ttl SECONDS]
+# oal:examples=oal-guard-confirm | oal-guard-confirm --ttl 60
+# oal:group=agent
+
+# The human half of the guard's confirm tier.
+#
+# A confirm-tier rule refuses a call unless it carries a token. The token used to be any string of
+# the right shape, matched by regex against the same text the agent wrote -- so the party being
+# gated could mint its own, and the shape was published in the README. That is a spelling
+# convention, not a control.
+#
+# So a token is now a capability: minted here, spent once, and expired on a clock. The guard blocks
+# tool calls to this command, which is what makes "minted here" mean "minted by a person": an agent
+# asking for one is refused before it runs, and the only other way to get a valid token is to write
+# the file yourself, which is also blocked.
+#
+# Requiring a terminal is the second half of the same idea. It is not a security boundary on its own
+# -- anything running as you can allocate a pty -- but it stops the honest mistake of wiring this
+# into a script, which would hand back the per-call opt-in this exists to keep.
+set -euo pipefail
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/oal"
+confirm_dir="$state_dir/confirm"
+ttl=300
+
+while (($#)); do
+  case "$1" in
+    --ttl) shift; ttl="${1:-}"; shift ;;
+    -h|--help) sed -n '3,5p' "$0" | sed 's/^# oal://'; exit 0 ;;
+    *) echo "oal-guard-confirm: unknown option: $1" >&2; exit 64 ;;
+  esac
+done
+
+[[ $ttl =~ ^[0-9]+$ ]] && (( ttl > 0 && ttl <= 3600 )) ||
+  { echo "oal-guard-confirm: --ttl must be a whole number of seconds, 1 to 3600" >&2; exit 64; }
+
+if [[ ! -t 0 && ! -t 1 ]]; then
+  echo "oal-guard-confirm: refusing to mint a token with no terminal attached." >&2
+  echo "                   A token is a person saying yes to one call. Run it yourself." >&2
+  exit 1
+fi
+
+# /dev/urandom rather than $RANDOM: the token is short-lived and single-use, but it is still the
+# thing standing between a confirm rule and the call it is holding back.
+token="$(od -An -tx1 -N4 /dev/urandom | tr -d ' \n')"
+[[ $token =~ ^[0-9a-f]{8}$ ]] || { echo "oal-guard-confirm: could not read randomness" >&2; exit 1; }
+
+mkdir -p -- "$confirm_dir"
+chmod 700 -- "$confirm_dir" 2>/dev/null || true
+
+printf -v now '%(%s)T' -1
+printf '%s\n' "$(( now + ttl ))" >"$confirm_dir/$token"
+chmod 600 -- "$confirm_dir/$token" 2>/dev/null || true
+
+# Sweep anything already expired, so the directory does not accumulate. Cheap: these are 1-line
+# files and there are never many.
+for stale in "$confirm_dir"/*; do
+  [[ -f $stale && $stale != "$confirm_dir/$token" ]] || continue
+  read -r expiry <"$stale" 2>/dev/null || expiry=0
+  [[ $expiry =~ ^[0-9]+$ ]] && (( now <= expiry )) || rm -f -- "$stale"
+done
+
+cat <<INFO
+CONFIRM-$token
+
+Good for one confirm-tier call, for the next ${ttl}s. Put it in the call, usually as a
+trailing comment, and it is spent whether or not the call succeeds:
+
+    sudo pacman -S ripgrep # CONFIRM-$token
+
+It does not lift a block rule. Nothing does.
+INFO

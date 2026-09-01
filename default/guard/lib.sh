@@ -18,8 +18,9 @@
 #
 # The three tiers:
 #   block    refused outright. No override token. Reserved for what has no legitimate agent use.
-#   confirm  refused unless the call carries CONFIRM-<8 hex>, the convention the rest of this
-#            toolchain already uses, so a person opts in per call rather than per session.
+#   confirm  refused unless the call carries a token a person minted at a terminal, so the opt-in
+#            is per call rather than per session. Minting is oal-guard-confirm; the token is
+#            single-use and expires.
 #   allow    permitted and recorded.
 #
 # Anything unmatched takes the default for the active oal-agent-profile: untrusted confirms, scoped
@@ -34,6 +35,9 @@ GUARD_RULES="${GUARD_RULES:-$OAL_PATH/default/guard/rules}"
 # One log, with the runtime named on each line. The question a person actually has is "what did
 # anything on this machine try to do", and a log split per agent cannot answer it.
 GUARD_AUDIT="$GUARD_STATE/audit"
+# Where oal-guard-confirm leaves a minted token. One file per token, named by the token, holding the
+# epoch second it stops being valid.
+GUARD_CONFIRM="$GUARD_STATE/confirm"
 
 # Exit codes, so a shell caller needs no parsing. Anything else means the engine itself failed, and
 # a caller that sees an unexpected code must treat it as a refusal.
@@ -63,13 +67,35 @@ guard_log() {
   return 0
 }
 
+# _guard_token_consume <8 hex>
+#
+# A confirmation token is a capability, not a password. It is minted by a person at a terminal
+# (bin/oal-guard-confirm), it expires, and it is spent the first time it is used.
+#
+# It used to be a bare regex over the same text the agent authored, which made it something the
+# party being gated could write for itself -- and the shape was published in the README, the docs
+# and this suite, so it did not have to guess. A token the gated party can mint is not a control;
+# it is a spelling convention. Minting is itself a blocked call, so the only way to get one is to
+# be a person at a keyboard.
+_guard_token_consume() {
+  local token="$1" file="$GUARD_CONFIRM/$token" expiry="" now
+  [[ -f $file ]] || return 1
+  read -r expiry <"$file" 2>/dev/null || expiry=""
+  # Spent whether or not it turns out to be valid: an expired token left on disk is a token
+  # somebody will eventually find still lying there.
+  rm -f -- "$file" 2>/dev/null
+  [[ $expiry =~ ^[0-9]+$ ]] || return 1
+  printf -v now '%(%s)T' -1
+  (( now <= expiry ))
+}
+
 # guard_decide <runtime> <tool> <input>
 #
 # Prints "<decision>\t<tier>\t<reason>" and returns GUARD_ALLOW / GUARD_ASK / GUARD_DENY.
 # Logs every decision, including the allowed ones.
 guard_decide() {
   local runtime="${1:-unknown}" tool="${2:-}" input="${3:-}"
-  local profile tier rule_tool pattern has_token=0
+  local profile tier rule_tool pattern token=""
 
   _answer() { # _answer <decision> <code> <tier> <reason> [pattern]
     guard_log "$runtime" "$1" "$3" "${tool:-unknown}" "$4" "${5:-}"
@@ -88,8 +114,10 @@ guard_decide() {
     *) _answer deny "$GUARD_DENY" fail-closed "the configured agent profile is not one this guard knows"; return ;;
   esac
 
-  # CONFIRM-<8 hex>, the token shape the rest of this toolchain already uses.
-  [[ $input =~ CONFIRM-[0-9a-fA-F]{8} ]] && has_token=1
+  # Note the token but do not spend it yet. Validating here would burn a token on a call that a
+  # block rule was going to refuse anyway, and a token spent on a refusal is one a person has to
+  # mint again to find out nothing changed.
+  [[ $input =~ CONFIRM-([0-9a-fA-F]{8}) ]] && token="${BASH_REMATCH[1]}"
 
   while IFS='|' read -r tier rule_tool pattern; do
     tier="${tier//[[:space:]]/}"
@@ -109,13 +137,13 @@ guard_decide() {
         _answer deny "$GUARD_DENY" block "refused by a block rule: this call cannot be taken back" "$pattern"
         return ;;
       confirm)
-        if (( has_token )); then
-          _answer allow "$GUARD_ALLOW" confirm-token "confirmed by token" "$pattern"; return
+        if [[ -n $token ]] && _guard_token_consume "$token"; then
+          _answer allow "$GUARD_ALLOW" confirm-token "confirmed by a token minted at a terminal" "$pattern"; return
         fi
         if [[ $profile == trusted ]]; then
           _answer allow "$GUARD_ALLOW" confirm-trusted "allowed by the trusted profile" "$pattern"; return
         fi
-        _answer ask "$GUARD_ASK" confirm "needs confirmation, or a CONFIRM-<8 hex> token in the call" "$pattern"
+        _answer ask "$GUARD_ASK" confirm "needs confirmation, or a token from oal-guard-confirm in the call" "$pattern"
         return ;;
       allow)
         _answer allow "$GUARD_ALLOW" rule "allowed by rule" "$pattern"; return ;;
