@@ -176,36 +176,73 @@ check_thermal() {
 
 # --- packages --------------------------------------------------------------------------------------
 
+# The package manager this machine actually has.
+#
+# These three checks were pacman-only, so on anything else they reported `unknown` and the report
+# lost three of its thirteen findings. That was defensible while this was only ever an Arch
+# distribution. It stopped being defensible the moment the agent layer was worth running elsewhere:
+# 32 of 344 commands touch pacman, and a health report that goes blind on Debian is a bad advert for
+# the other 312.
+pkg_manager() {
+  local m
+  for m in pacman apt-get dnf zypper; do
+    command -v "$m" >/dev/null && { printf '%s' "$m"; return 0; }
+  done
+  printf 'none'
+}
+
 check_updates() {
-  command -v pacman >/dev/null || { record updates unknown "pacman is not on this machine"; return; }
-  # `pacman -Qu` against the sync database already on disk, not `checkupdates`, which downloads a
-  # fresh one. A health report that reaches for the network is a health report that hangs on the
-  # train, and the honest answer -- "as of your last sync" -- is the one worth giving instantly.
-  local out n age="" sync=/var/lib/pacman/sync
-  out="$(run 20 pacman -Qu)" || true
+  # Whatever the manager, the rule is the same: read the package lists already on disk, never fetch
+  # fresh ones. A health report that reaches for the network is one that hangs on a train, and "as
+  # of your last sync" is the honest answer available instantly.
+  local out="" n age="" stamp="" label="updates"
+  case "$(pkg_manager)" in
+    pacman)
+      out="$(run 20 pacman -Qu)" || true
+      stamp=/var/lib/pacman/sync ;;
+    apt-get)
+      # apt list --upgradable reads the lists in /var/lib/apt/lists and does not go out. The header
+      # line ("Listing...") is dropped.
+      out="$(run 30 apt list --upgradable 2>/dev/null | tail -n +2)" || true
+      stamp=/var/lib/apt/lists ;;
+    dnf)
+      # --cacheonly for the same reason. dnf exits 100 when updates exist, which is not a failure.
+      out="$(run 45 dnf --cacheonly check-update 2>/dev/null | grep -E '^[a-zA-Z0-9]' )" || true
+      stamp=/var/cache/dnf ;;
+    zypper)
+      out="$(run 45 zypper --no-refresh list-updates 2>/dev/null | grep -E '^v ')" || true
+      stamp=/var/cache/zypp ;;
+    *) record "$label" unknown "no package manager this report knows"; return ;;
+  esac
   n="$(printf '%s' "$out" | grep -c . || true)"
 
-  if [[ -d $sync ]]; then
+  if [[ -n $stamp && -e $stamp ]]; then
     local mtime now days
-    mtime="$(stat -c %Y "$sync" 2>/dev/null)" || mtime=""
+    mtime="$(stat -c %Y "$stamp" 2>/dev/null)" || mtime=""
     if [[ -n $mtime ]]; then
       printf -v now '%(%s)T' -1
       days=$(( (now - mtime) / 86400 ))
-      (( days >= 7 )) && age=" (package lists last synced $days days ago)"
+      (( days >= 7 )) && age=" (package lists last refreshed $days days ago)"
     fi
   fi
 
   if (( n == 0 )); then
-    record updates ok "no pending package updates$age"
+    record "$label" ok "no pending package updates$age"
   else
-    record updates warn "$n package update$( ((n>1)) && echo s) pending$age" "$(printf '%s' "$out" | head -n 10)"
+    record "$label" warn "$n package update$( ((n>1)) && echo s) pending$age" "$(printf '%s' "$out" | head -n 10)"
   fi
 }
 
 check_orphans() {
-  command -v pacman >/dev/null || { record orphans unknown "pacman is not on this machine"; return; }
-  local out n
-  out="$(run 20 pacman -Qtdq)" || true
+  local out="" n
+  case "$(pkg_manager)" in
+    pacman) out="$(run 20 pacman -Qtdq)" || true ;;
+    apt-get)
+      # --dry-run so nothing is removed. The lines that matter name the packages apt would drop.
+      out="$(run 30 apt-get -s autoremove 2>/dev/null | sed -n 's/^Remv \([^ ]*\).*/\1/p')" || true ;;
+    dnf) out="$(run 45 dnf --cacheonly repoquery --unneeded 2>/dev/null)" || true ;;
+    *) record orphans unknown "no package manager this report knows"; return ;;
+  esac
   n="$(printf '%s' "$out" | grep -c . || true)"
   if (( n == 0 )); then
     record orphans ok "no orphaned packages"
@@ -215,12 +252,19 @@ check_orphans() {
 }
 
 check_pacnew() {
-  command -v pacman >/dev/null || { record pacnew unknown "pacman is not on this machine"; return; }
-  local out n
-  out="$(run 20 find /etc -name '*.pacnew' -o -name '*.pacsave')" || true
+  # Every packaging system leaves the same wreckage under a different name: a config it could not
+  # merge, saved beside the original for a person to deal with. Nobody ever deals with them, which
+  # is exactly why they are worth reporting.
+  local out="" n
+  case "$(pkg_manager)" in
+    pacman)  out="$(run 20 find /etc -name '*.pacnew' -o -name '*.pacsave')" || true ;;
+    apt-get) out="$(run 20 find /etc -name '*.dpkg-dist' -o -name '*.dpkg-new' -o -name '*.ucf-dist')" || true ;;
+    dnf|zypper) out="$(run 20 find /etc -name '*.rpmnew' -o -name '*.rpmsave')" || true ;;
+    *) record pacnew unknown "no package manager this report knows"; return ;;
+  esac
   n="$(printf '%s' "$out" | grep -c . || true)"
   if (( n == 0 )); then
-    record pacnew ok "no unmerged .pacnew files"
+    record pacnew ok "no config files left unmerged by an update"
   else
     record pacnew warn "$n config file$( ((n>1)) && echo s) left unmerged by an update" "$out"
   fi

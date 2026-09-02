@@ -60,15 +60,31 @@ code() { grep -v '^[[:space:]]*#' "$1"; }
 }
 
 @test "a check that could not run says unknown rather than ok" {
-  # The rule. Exercised for real: this suite runs in CI on Ubuntu, where pacman does not exist, so
-  # the three package checks genuinely cannot run and must say so.
-  if command -v pacman >/dev/null; then
-    skip "pacman is present, so the package checks can run here"
-  fi
-  run "$DOCTOR" --json
-  for id in updates orphans pacnew; do
-    [ "$(echo "$output" | jq -r --arg id "$id" '.checks[] | select(.id == $id) | .severity')" = unknown ]
+  # The rule, exercised deterministically rather than by hoping the host lacks something.
+  #
+  # It used to skip when pacman was present and otherwise assert the three package checks were
+  # unknown. That stopped working the day oal-doctor learned apt: on Ubuntu those checks now return
+  # real answers, which is the improvement, and the test was asserting the absence of it.
+  #
+  # So: a PATH with the essentials and no package manager at all. Then they genuinely cannot run,
+  # on any host, and must say so.
+  local bare="$BATS_TEST_TMPDIR/bare"
+  mkdir -p "$bare"
+  local c p
+  for c in bash env cat grep sed awk find df date printf readlink dirname basename sort head tail \
+           wc tr cut stat uname systemctl journalctl timeout jq id sleep mkdir ls; do
+    p="$(command -v "$c" 2>/dev/null)" && ln -sf "$p" "$bare/$c"
   done
+  run env PATH="$bare" "$DOCTOR" --json
+  [ "$status" -le 2 ]
+  echo "$output" | jq -e . >/dev/null
+  local id sev
+  for id in updates orphans pacnew; do
+    sev="$(echo "$output" | jq -r --arg id "$id" '.checks[] | select(.id == $id) | .severity')"
+    [ "$sev" = unknown ] || { echo "$id said '$sev' with no package manager on PATH"; false; }
+  done
+  # And it says why, rather than leaving a bare verdict.
+  [[ $(echo "$output" | jq -r '.checks[] | select(.id=="updates") | .summary') == *"package manager"* ]]
 }
 
 @test "a search that found nothing is not the same as a search that could not run" {

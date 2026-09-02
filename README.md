@@ -46,6 +46,31 @@ Then `sudo systemctl reboot`, and you land in a themed Plasma 6 Wayland session.
 
 From a checkout, `./oal-bootstrap.sh` uses the tree it sits in rather than cloning.
 
+### Or just the agent layer, on any Linux
+
+You do not have to change operating system to try the part that is actually novel.
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/RFingAdam/agentarchy/main/install/agent-layer.sh
+less agent-layer.sh
+bash agent-layer.sh          # Debian, Ubuntu, Fedora, openSUSE or Arch
+```
+
+That installs the health report, the tool-call guard, the brain contract, the MCP server and the
+watcher into `/usr/local`, and nothing else: no packages, no Plasma, no themes, no greeter.
+`bash agent-layer.sh --uninstall` takes it away again and leaves the audit log, because removing
+software is not a reason to destroy the record of what it decided.
+
+This exists because the measurement said it should. Of 344 commands, **32 touch pacman and 5 touch
+KDE**; the rest never cared what they were running on. Shipping only a distribution meant the one
+way to try the idea was to reinstall your computer, which is a great deal to ask of somebody who has
+not yet seen it work.
+
+What you give up is the integration: on Agentarchy the guard is registered before your first tool
+call, instruments are reachable without root, agent state is on the panel, and a golden path proves
+all fifteen stages still work from a pristine image. With the layer you get the pieces and own the
+wiring, which is precisely the weeks of configuration this project exists to skip.
+
 ## What actually works today
 
 - A vanilla Arch cloud image becomes an installed, themed Plasma 6 Wayland session in about

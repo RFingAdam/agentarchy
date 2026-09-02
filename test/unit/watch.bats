@@ -110,15 +110,24 @@ SHIM
   code "$SRC/bin/oal-watch" | grep -q 'severity == "problem" or .severity == "warn"'
   ! code "$SRC/bin/oal-watch" | grep -q 'severity == "unknown"'
 
-  # And behaviourally, not just in the source. This suite runs in CI on Ubuntu, where pacman does
-  # not exist, so the three package checks genuinely report unknown and must never be recorded.
-  if ! command -v pacman >/dev/null; then
-    oal-watch --once --no-notify >/dev/null
-    local id
-    for id in updates orphans pacnew; do
-      ! grep -qx "$id" "$SEEN" || { echo "announced an unknown check: $id"; false; }
-    done
-  fi
+  # And behaviourally, with a report that definitely contains an unknown rather than one that
+  # happens to. This used to lean on pacman being absent, which stopped being true for these three
+  # checks the day oal-doctor learned apt.
+  local fake="$BATS_TEST_TMPDIR/tree"
+  fixed_doctor disk
+  cat >"$fake/bin/oal-doctor" <<'SHIM'
+#!/bin/bash
+printf '%s\n' '{"ok":false,"severity":"problem","checks":[
+  {"id":"disk","severity":"problem","summary":"disk is unhappy"},
+  {"id":"thermal","severity":"unknown","summary":"no sensors here"},
+  {"id":"network","severity":"ok","summary":"fine"}]}'
+exit 2
+SHIM
+  chmod +x "$fake/bin/oal-doctor"
+  run oal-watch --once --no-notify
+  grep -qx disk "$SEEN"        || { echo "the problem was not recorded"; false; }
+  ! grep -qx thermal "$SEEN"   || { echo "announced an unknown check"; false; }
+  ! grep -qx network "$SEEN"   || { echo "announced a passing check"; false; }
 }
 
 @test "it invents no second event table" {
