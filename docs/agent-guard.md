@@ -22,6 +22,28 @@ split open: it fails if the engine so much as names a runtime, and it asserts th
 The engine is **sourced rather than forked**. An adapter that shelled out would pay a process on
 every tool call, against a 50 ms budget that everything the agent does is charged.
 
+## What is actually gated, per runtime
+
+The engine is vendor-neutral. That is not the same as every agent being governed by it, and the
+difference is worth stating plainly rather than leaving somebody to discover it.
+
+| Runtime | Its tool calls | How |
+|---|---|---|
+| **Claude Code** | **gated** | It has a `PreToolUse` hook. `install/agent/runtime.sh` and `install/agent-layer.sh` wire `agent/hooks/pretooluse-guard` into its settings. |
+| **Codex** | **not gated by us** | It has no pre-tool-call hook. Its shell execution is governed by its own sandbox and approval modes, which are Codex's policy and not this machine's. |
+| Anything else | **not gated by us** | Unless something calls `oal-guard` before its tool calls. |
+| `oal-brain-do` | gated | Sources the engine directly. This is the path a brain acts through. |
+| `oal-mcp-serve` | writes gated | Its one write tool routes through `oal-brain-do`. Reads are read-only by construction. |
+
+Codex was checked rather than assumed: its config carries `mcp_servers`, a plugin marketplace and
+sandbox settings, and nothing hook-shaped. `oal-mcp-*` registers with it, so a Codex session can ask
+this machine about itself and any write it makes **through that server** is checked. What Codex does
+in its own shell is Codex's business, and this document is the place that says so.
+
+If a runtime gains a hook, an adapter is about thirty lines: parse its payload, call
+`guard_decide <runtime> <tool> <input>`, answer in its shape. `agent/hooks/pretooluse-guard` is the
+worked example.
+
 ## Asking it yourself
 
 ```bash
