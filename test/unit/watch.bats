@@ -22,7 +22,47 @@ setup() {
 
 code() { grep -v '^[[:space:]]*#' "$1"; }
 
+# A fixed report, for the tests about transition logic.
+#
+# Those tests used to run the real oal-doctor twice and compare the two results, which made them
+# depend on this machine holding still between the scans. It does not: a unit fails, the disk crosses
+# a threshold, another test writes a journal line, and the counts differ. #399 passed on two full
+# runs and failed on a third.
+#
+# Shimming oal-doctor is not the mistake tasks/lessons.md warns about. That one is shimming the unit
+# under test until it returns whatever the test wants, which is how the menu suite stayed green while
+# the menu was dead. Here the unit under test is oal-watch's transition logic and oal-doctor is its
+# input; fixing an input is what makes the logic observable at all.
+#
+# It has to go in a fake OAL_PATH rather than on PATH: oal-watch prepends its own bin to PATH on
+# line 22, so the real oal-doctor wins over any shim placed merely ahead of it. That took a failing
+# test to notice, which is the argument for the shim being a real one rather than a stub of the
+# thing being tested.
+#
+# The first test below deliberately uses the real report, so the two stay known to fit together.
+fixed_doctor() { # fixed_doctor <id>...
+  local fake="$BATS_TEST_TMPDIR/tree" ids="" id f
+  if [[ ! -d $fake/bin ]]; then
+    mkdir -p "$fake/bin"
+    for f in "$SRC"/bin/*; do ln -sfn "$f" "$fake/bin/${f##*/}"; done
+    ln -sfn "$SRC/default" "$fake/default"
+    ln -sfn "$SRC/agent" "$fake/agent"
+  fi
+  for id in "$@"; do ids+="{\"id\":\"$id\",\"severity\":\"problem\",\"summary\":\"$id is unhappy\"},"; done
+  rm -f "$fake/bin/oal-doctor"
+  cat >"$fake/bin/oal-doctor" <<SHIM
+#!/bin/bash
+printf '%s\n' '{"ok":false,"severity":"problem","checks":[${ids%,}]}'
+exit 2
+SHIM
+  chmod +x "$fake/bin/oal-doctor"
+  export OAL_PATH="$fake"
+  PATH="$fake/bin:$PATH"
+}
+
 @test "the first pass records what is wrong and reports it" {
+  # Deliberately the real oal-doctor, so the two are still known to fit together. Everything about
+  # transition logic below uses a fixed report instead.
   run oal-watch --once --no-notify
   [ "$status" -eq 0 ]
   [ -f "$SEEN" ]
@@ -31,21 +71,37 @@ code() { grep -v '^[[:space:]]*#' "$1"; }
 @test "a second pass says nothing, because nothing became news" {
   # A disk that was 96% full an hour ago and still is has not changed. A watcher that says so every
   # ten minutes is one people turn off, after which nothing is watched at all.
+  fixed_doctor disk journal
   oal-watch --once --no-notify >/dev/null
   run oal-watch --once --no-notify
   [ "$status" -eq 0 ]
   [ -z "$output" ]
 }
 
-@test "--reset makes everything news again" {
+@test "a finding that goes away and comes back is news again" {
+  # The other half of "only transitions". Nothing asserted this before, so a watcher that never
+  # re-announced a recurring problem would have passed.
+  fixed_doctor disk
   oal-watch --once --no-notify >/dev/null
-  local first_run_found
-  first_run_found="$(wc -l <"$SEEN")"
+  fixed_doctor            # nothing wrong any more
+  oal-watch --once --no-notify >/dev/null
+  fixed_doctor disk       # and back
+  run oal-watch --once --no-notify
+  [[ $output == *disk* ]]
+}
+
+@test "--reset makes everything news again" {
+  fixed_doctor disk journal oom
+  oal-watch --once --no-notify >/dev/null
+  [ "$(wc -l <"$SEEN")" -eq 3 ]
   run oal-watch --reset
   [ "$status" -eq 0 ]
   [ ! -f "$SEEN" ]
   run oal-watch --once --no-notify
-  [ "$(wc -l <"$SEEN")" -eq "$first_run_found" ]
+  [ "$status" -eq 0 ]
+  # All three are news again, and reported, not merely recorded.
+  [ "$(wc -l <"$SEEN")" -eq 3 ]
+  for id in disk journal oom; do [[ $output == *"$id"* ]] || { echo "$id was not re-announced"; false; }; done
 }
 
 @test "only problems and warnings are announced, never unknown" {

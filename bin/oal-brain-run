@@ -55,6 +55,9 @@ setsid bash -c '
   printf "state=%s\n" "$( ((rc == 0)) && echo done || echo failed )" >>"$1/meta"
   command -v oal-notification-send >/dev/null &&
     oal-notification-send "Task $( ((rc == 0)) && echo finished || echo failed )" "$(head -c 160 "$1/prompt")" >/dev/null 2>&1
-' _ "$dir" &
+# Same descriptor hygiene as oal-notification-send, and for the same reason: this worker is detached
+# on purpose and can run for a long time, so anything it inherits it holds. It also sends one of
+# those notifications when it finishes, which is the exact combination that hung the test suite.
+' _ "$dir" </dev/null 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
 
 echo "$id"

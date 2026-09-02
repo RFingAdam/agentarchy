@@ -144,4 +144,15 @@ OAL_NOTIFY_EXEC="$exec_command" "${launch[@]}" bash -c '
   key="$(notify-send --wait --action=default=Open "$@")" || exit 0
   [[ $key == default ]] || exit 0
   exec bash -c "$OAL_NOTIFY_EXEC"
-' oal-notification-send "${args[@]}" "$@" >/dev/null 2>&1 &
+#
+# The redirections close every descriptor this process inherited, not just the standard three.
+# `notify-send --wait` lives until the popup is answered, and a critical-urgency popup does not
+# expire on its own -- so this waiter can outlive its caller by hours. Anything it still holds open
+# is held open for that long too.
+#
+# That is not theoretical. `bats` reads its results through a pipe on fd 3; a test that sent one of
+# these left the waiter holding the write end, so bats reported all 409 results and then parked
+# forever waiting for an EOF that could not come. A run left overnight was still sitting there nine
+# hours later, which is why `oal-dev-check` never returned and why a branch of finished work sat
+# uncommitted.
+' oal-notification-send "${args[@]}" "$@" </dev/null >/dev/null 2>&1 3>&- 4>&- 5>&- 6>&- 7>&- 8>&- 9>&- &
