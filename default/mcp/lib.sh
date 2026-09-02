@@ -60,15 +60,23 @@ oal_mcp_row() { oal_mcp_catalog | awk -F'\x1f' -v id="$1" '$1 == id'; }
 # editing ~/.claude.json: that file is the agent's, it holds credentials, and the design's rule is
 # that nothing reads it into a path we control.
 
-# The runtimes this knows how to register a server with, in preference order. Claude Code is the
-# only one implemented, and that is a statement about what has been tested rather than a preference:
-# adding a second is a case arm here and one in oal_mcp_register. It is deliberately not guessed at
-# from memory -- the hermes brain adapter's header records what happened the last time an interface
-# was invented rather than read.
-oal_mcp_runtimes() { printf '%s\n' claude; }
+# The runtimes this knows how to register a server with, in preference order.
+#
+# Two now. Both interfaces were read from the installed binaries rather than recalled: `codex mcp
+# add <name> -- <command>` takes the same shape as Claude Code's, but `codex mcp list` prints a
+# column table with a header while `claude mcp list` prints `name: ...` lines, so the listing side
+# needs a case arm even though the adding side did not. The hermes brain adapter's header records
+# what happened the last time an interface was invented from memory instead.
+#
+# OAL_MCP_RUNTIME pins one, for a machine with both installed and an opinion about which.
+oal_mcp_runtimes() { printf '%s\n' claude codex; }
 
 oal_mcp_runtime() {
   local r
+  if [[ -n ${OAL_MCP_RUNTIME:-} ]]; then
+    command -v "$OAL_MCP_RUNTIME" >/dev/null && { printf '%s' "$OAL_MCP_RUNTIME"; return 0; }
+    return 1
+  fi
   while read -r r; do
     command -v "$r" >/dev/null && { printf '%s' "$r"; return 0; }
   done < <(oal_mcp_runtimes)
@@ -78,13 +86,21 @@ oal_mcp_runtime() {
 oal_mcp_runtime_available() { oal_mcp_runtime >/dev/null; }
 
 oal_mcp_registered() {
-  oal_mcp_runtime_available || return 0
-  claude mcp list 2>/dev/null | sed -nE 's/^([A-Za-z0-9_-]+):.*/\1/p' | sort -u
+  local rt
+  rt="$(oal_mcp_runtime)" || return 0
+  case "$rt" in
+    # `name: transport - status`
+    claude) claude mcp list 2>/dev/null | sed -nE 's/^([A-Za-z0-9_-]+):.*/\1/p' ;;
+    # A table whose first column is the name. NR>1 drops the header.
+    codex)  codex mcp list 2>/dev/null | awk 'NR>1 && $1 != "" {print $1}' ;;
+  esac | sort -u
 }
 
 oal_mcp_register() { # oal_mcp_register <id> <kind> <package> <args...>
   local id="$1" kind="$2" package="$3"; shift 3
   local -a cmd
+  local rt
+  rt="$(oal_mcp_runtime)" || oal_mcp_die "$id: no agent runtime on PATH to register with"
   case "$kind" in
     uvx) cmd=(uvx "$package") ;;
     npx) cmd=(npx -y "$package") ;;
@@ -95,10 +111,15 @@ oal_mcp_register() { # oal_mcp_register <id> <kind> <package> <args...>
     *) oal_mcp_die "$id: unknown kind '$kind' (expected uvx, npx or oal)" ;;
   esac
   (($#)) && cmd+=("$@")
-  claude mcp add "$id" -- "${cmd[@]}"
+  # Both spell this the same way, which is the only reason there is no case here.
+  "$rt" mcp add "$id" -- "${cmd[@]}"
 }
 
-oal_mcp_unregister() { claude mcp remove "$1"; }
+oal_mcp_unregister() {
+  local rt
+  rt="$(oal_mcp_runtime)" || oal_mcp_die "no agent runtime on PATH"
+  "$rt" mcp remove "$1"
+}
 
 # $HOME is the only expansion allowed in a catalog's args column. A data file that can expand
 # arbitrary shell is a data file that can run arbitrary shell.

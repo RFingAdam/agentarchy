@@ -135,3 +135,42 @@ code() { grep -v '^[[:space:]]*#' "$1"; }
   [ "$status" -eq 2 ]
   [[ $output == *"rule set unreadable"* ]]
 }
+
+# --- what is gated, and what is honestly not ------------------------------------------------------
+
+@test "the MCP layer knows more than one runtime, and both were read not recalled" {
+  # `codex mcp add <name> -- <command>` takes the same shape as Claude Code's, which is why the
+  # adding side has no case arm. The listing side does: claude prints `name: ...` lines, codex a
+  # column table with a header.
+  local lib="$SRC/default/mcp/lib.sh"
+  [ "$(grep -c . <<<"$(sed -n '/^oal_mcp_runtimes()/p' "$lib")")" -eq 1 ]
+  grep -q 'claude codex' "$lib"
+  code "$lib" | grep -q 'codex mcp list'
+  code "$lib" | grep -q "awk 'NR>1"
+  # One `mcp add` for both, invoked through the resolved runtime rather than a hardcoded vendor.
+  code "$lib" | grep -q '"\$rt" mcp add'
+  ! code "$lib" | grep -qE '^\s*claude mcp (add|remove)'
+}
+
+@test "a pinned runtime wins over the preference order" {
+  local lib="$SRC/default/mcp/lib.sh"
+  code "$lib" | grep -q 'OAL_MCP_RUNTIME'
+}
+
+@test "the guard's coverage is documented per runtime, including where it is absent" {
+  # #51. The engine being vendor-neutral is not the same as every agent being governed by it, and
+  # the gap is a property to state rather than something for somebody to discover.
+  local doc="$SRC/docs/agent-guard.md"
+  grep -q 'What is actually gated, per runtime' "$doc"
+  grep -qi 'codex' "$doc"
+  # It has to say the unwelcome half out loud.
+  grep -qiE 'not gated' "$doc"
+  # And the README must not overstate it either.
+  grep -qi 'Codex does not have one' "$SRC/README.md"
+}
+
+@test "the write path through the MCP server is the gated one, and reads are not writes" {
+  # What makes the Codex story true rather than a consolation: os_do goes through oal-brain-do.
+  code "$SRC/bin/oal-mcp-serve" | grep -q 'oal-brain-do'
+  code "$SRC/bin/oal-brain-do" | grep -q 'guard_decide'
+}

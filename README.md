@@ -204,9 +204,11 @@ echo "sudo pacman -Syu" | oal-guard --tool Bash
 # ask	confirm	needs confirmation, or a CONFIRM-<8 hex> token in the call
 ```
 
-Honest limit: a runtime is gated once something calls the guard before its tool calls. Claude Code
-has a hook for that and is wired by the install. For anything without one, `oal-guard` is the
-mechanism and the wiring is yours -- [docs/agent-guard.md](docs/agent-guard.md).
+Honest limit, and it is worth reading before you rely on this: a runtime is gated once something
+calls the guard before its tool calls. **Claude Code has a hook for that and the install wires it.
+Codex does not have one**, so its shell commands answer to its own sandbox rather than to this
+machine; what it does through `oal-mcp-serve` is checked, because that path goes through
+`oal-brain-do`. [docs/agent-guard.md](docs/agent-guard.md) has the table.
 
 **The prompt shows what the agent is doing** -- model, posture, MCP servers registered, and how much
 of today's limit is gone. It is rendered from the same `colors.toml` as the desktop, so it follows
