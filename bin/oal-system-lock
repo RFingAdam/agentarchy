@@ -1,14 +1,22 @@
 #!/bin/bash
 
-# oal:summary=Lock the computer and turn off the display
+# oal:summary=Lock the session
 # oal:group=system
 # oal:name=lock
 # oal:examples=oal system lock
 
-oal-shell lock lock >/dev/null
+# loginctl, not the compositor shell.
+#
+# This used to open with `oal-shell lock lock`, the Quickshell IPC, followed by `hyprctl
+# switchxkblayout`. Neither is vendored here, so the first exited 127 and the second silently did
+# nothing -- and since this file has no `set -e`, it went on to report success without ever locking
+# anything. On Plasma the session lock is logind's to take, and KScreenLocker answers it.
+set -uo pipefail
 
-# Set keyboard layout to default (first layout)
-hyprctl switchxkblayout all 0 > /dev/null 2>&1
+loginctl lock-session || {
+  echo "oal-system-lock: could not lock the session" >&2
+  exit 1
+}
 
 # Ensure 1password is locked. Use timeout because `1password --lock` can
 # otherwise leave a full Electron helper tree running after each lock.
@@ -18,9 +26,3 @@ if pgrep -x "1password" >/dev/null && oal-cmd-present 1password; then
     timeout --kill-after=1s 3s 1password --lock >/dev/null 2>&1 || true
   ) 9>"${XDG_RUNTIME_DIR:-/tmp}/oal-1password-lock.lock" &
 fi
-
-# Avoid running screensaver when locked
-pkill -x ttfx 2>/dev/null || true
-# ttfx handles SIGTERM asynchronously, so keep its terminal alive until it exits.
-timeout 1s pidwait -x ttfx 2>/dev/null || true
-pkill -f '[o]rg.oal.screensaver' 2>/dev/null || true

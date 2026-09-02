@@ -91,7 +91,16 @@ menu_hermes() {
   case "${chosen%%$'\t'*}" in
     dashboard) run "Hermes dashboard" oal-hermes-dashboard ;;
     status)    run "Hermes status" oal-hermes-status --cached ;;
-    waiting)   oal-hermes-waiting --cached 2>/dev/null | pick Waiting >/dev/null || true ;;
+    # Same shape as the brain row above, and for the same reason. This was the one entry in the
+    # tree not routed through run(), and oal-hermes-waiting exits 1 with no output when its cache
+    # has never been written -- which is every machine without a Hermes backend. So the menu closed
+    # and nothing happened: the single failure mode this menu was rewritten to eliminate.
+    waiting)
+      local waiting
+      waiting="$(oal-hermes-waiting --cached 2>&1)" || true
+      [[ -n $waiting ]] || waiting="nothing waiting, or no Hermes configured"
+      printf '%s\n' "$waiting" | pick Waiting >/dev/null || true
+      ;;
   esac
 }
 
@@ -102,11 +111,14 @@ menu_system() {
     $'\tlogout\tend the session' \
     $'\treboot\trestart the machine' \
     $'\tshutdown\tpower off' | pick System)" || return 0
+  # Through the commands rather than inline. This case statement used to hold the only working
+  # implementation of these four actions on the machine, while bin/oal-system-* -- the ones a person
+  # reaches as `oal logout` -- drove a session manager that is not vendored here and did nothing.
   case "${chosen%%$'\t'*}" in
-    lock) loginctl lock-session ;;
-    logout) qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logout ;;
-    reboot) qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logoutAndReboot ;;
-    shutdown) qdbus6 org.kde.Shutdown /Shutdown org.kde.Shutdown.logoutAndShutdown ;;
+    lock) run "Lock" oal-system-lock ;;
+    logout) run "Logout" oal-system-logout ;;
+    reboot) run "Reboot" oal-system-reboot ;;
+    shutdown) run "Shutdown" oal-system-shutdown ;;
   esac
 }
 

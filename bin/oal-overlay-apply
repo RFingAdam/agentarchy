@@ -35,8 +35,15 @@ else
   command -v git >/dev/null || die "git is needed to fetch an overlay from a URL"
   mkdir -p -- "$(dirname "$store")"
   if [[ -d $store/.git ]]; then
-    (( refresh )) && git -C "$store" pull --ff-only >/dev/null 2>&1 ||
+    # An if, not `A && B || C`. As a chain, a failing `git pull` under --refresh fell through to
+    # the echo and told the user to pass the flag they had just passed -- no error, exit 0, and the
+    # stale overlay applied afterwards as though it had been refreshed.
+    if (( refresh )); then
+      git -C "$store" pull --ff-only >/dev/null 2>&1 ||
+        die "could not refresh the overlay at $store; fix the checkout, or drop --refresh to apply it as it stands"
+    else
       echo "overlay already cloned at $store (use --refresh to update)"
+    fi
   else
     git clone --depth 1 "$source_ref" "$store" >/dev/null 2>&1 || die "could not clone $source_ref"
   fi

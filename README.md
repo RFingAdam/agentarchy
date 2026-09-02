@@ -103,7 +103,7 @@ every source.
 
 ## What came from Omarchy, and why you cannot see it
 
-653 files and 342 `oal-*` commands: the theme engine (35), application installers (25), hardware
+653 files and 344 `oal-*` commands: the theme engine (35), application installers (25), hardware
 helpers (24), update and removal tooling (40), the system menu (10), plus audio, Plymouth,
 notification and package wrappers.
 

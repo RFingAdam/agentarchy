@@ -1,0 +1,12 @@
+--- a/install/config/enable-services.sh
++++ b/install/config/enable-services.sh
+@@ -15,7 +15,8 @@
+ }
+ 
+ enable_unit cups.service
+-enable_unit cups-browsed.service
++# No cups-browsed: see install/agentarchy-base.packages for why it is not installed either.
++# avahi-daemon is what CUPS actually discovers printers over.
+ enable_unit avahi-daemon.service
+ enable_unit linux-modules-cleanup.service
+ enable_unit docker.socket

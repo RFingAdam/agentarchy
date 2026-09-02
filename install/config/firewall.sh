@@ -27,9 +27,9 @@ ufw_rule() {
 ufw_rule default deny incoming
 ufw_rule default allow outgoing
 
-# Allow ports for LocalSend.
-ufw_rule allow 53317/udp
-ufw_rule allow 53317/tcp
+# No LocalSend rule. These two ports were opened on every install for an application that is in
+# none of the package lists, which made "allow nothing in" mean "allow nothing in except two ports
+# for something you do not have". Whoever installs LocalSend can open them.
 
 # Allow Docker containers to use DNS on host.
 ufw_rule allow in proto udp from 172.16.0.0/12 to 172.17.0.1 port 53 comment 'allow-docker-dns'

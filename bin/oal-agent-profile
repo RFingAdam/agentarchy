@@ -13,8 +13,12 @@
 #              radius is yours alone.
 #
 # This command records the choice and swaps the shipped permission set into the agent's settings.
-# It does not enforce anything by itself -- enforcement is the PreToolUse hook, which is issue #6.
-# Until that lands, this is the posture the runtime's own permission system reads.
+# The posture it records is what the guard reads for its unmatched default and for whether a
+# confirm-tier rule needs a token; the runtime's own permission system reads the settings half.
+#
+# The guard blocks tool calls to this command. Raising the posture to trusted turns every confirm
+# rule into an allow, so an agent able to run it is an agent able to set its own terms -- which is
+# exactly what it could do until default/guard/rules grew a line for it.
 set -euo pipefail
 
 bin_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"

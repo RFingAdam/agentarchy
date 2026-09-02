@@ -36,6 +36,7 @@ bin/oal-notification-weather -> oal-shell
 bin/oal-osd -> oal-shell
 bin/oal-provision-first-run -> oal-voxtype-install
 bin/oal-provision-user -> oal-provision-owner
+bin/oal-refresh-applications -> oal-launch-webapp
 bin/oal-refresh-chromium -> oal-refresh-config
 bin/oal-refresh-herdr -> oal-refresh-config
 bin/oal-refresh-shell -> oal-bar
@@ -48,8 +49,6 @@ bin/oal-shell-config -> oal-shell
 bin/oal-system-factory-reset -> oal-provision-owner
 bin/oal-system-lock -> oal-shell
 bin/oal-system-logout -> oal-hyprland-window-close-all
-bin/oal-system-reboot -> oal-hyprland-window-close-all
-bin/oal-system-shutdown -> oal-hyprland-window-close-all
 bin/oal-system-sleep-monitor -> oal-system-sleep-lock
 bin/oal-theme-bg-set -> oal-shell
 bin/oal-theme-set -> oal-shell
@@ -61,7 +60,8 @@ bin/oal-update-status -> oal-shell
 config/oal/extensions/oal-menu.jsonc -> oal-launch-editor
 config/oal/extensions/oal-menu.jsonc -> oal-launch-or-focus-tui
 config/tmux/tmux.conf -> oal-menu-tmux-keybindings
-default/agents/skills/oal/SKILL.md -> oal-shell
+default/agents/skills/oal/SKILL.md -> oal-agent
+default/agents/skills/oal/SKILL.md -> oal-refresh-config
 default/agents/skills/oal/plugins.md -> oal-shell
 default/applications/battlenet.desktop -> oal-launch-battlenet
 default/bash/aliases -> oal-agent

@@ -1,0 +1,15 @@
+--- a/bin/oal-theme-set
++++ b/bin/oal-theme-set
+@@ -15,6 +15,12 @@
+ BACKGROUND_TRANSITION_CACHE="$HOME/.cache/oal/background-transitions"
+ THEME_SET_LOCK="${XDG_RUNTIME_DIR:-/tmp}/oal-theme-set.lock"
+ USER_THEMES_PATH="$HOME/.config/oal/themes"
++# Resolved from this file's own location when nothing set it, the way every other command in bin/
++# does. Read bare, this needed a login shell to have sourced /etc/profile.d/oal.sh -- so a theme
++# change started from KRunner, a .desktop entry, a systemd unit or any other non-login context
++# looked in /themes, found nothing, and exited with "theme does not exist". oal-theme-refresh and
++# oal-theme-install both call this without exporting it first.
++: "${OAL_PATH:=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)}"
+ OAL_THEMES_PATH="$OAL_PATH/themes"
+ 
+ run_parallel() {

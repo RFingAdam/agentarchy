@@ -23,6 +23,9 @@ parse_oal_option() {
       echo "Missing value for $1" >&2
       exit 1
     fi
+    # Accepted and deliberately unused: see the note further down about the oal-glyph hint. The
+    # flag stays so that two dozen call sites do not have to change over a decoration.
+    # shellcheck disable=SC2034
     glyph=$2
     parsed_option_args=2
     return 0
@@ -101,23 +104,44 @@ done
 # Tag as a user-action toast so it pops through DND.
 args+=("-a" "$app_name" "-u" "$urgency")
 
-if [[ -n $glyph ]]; then
-  args+=("--hint=string:oal-glyph:$glyph")
-fi
+# -g is still accepted, and no longer sends anything. It used to go out as a custom hint,
+# oal-glyph, for the compositor shell to draw beside the text; that shell is not vendored here and
+# nothing else has ever read the hint. Callers keep passing glyphs, so the flag stays rather than
+# breaking two dozen call sites over a decoration.
 
+# image-path, unlike the two hints above, is in the freedesktop specification, so this one is read.
 if [[ -n $image ]]; then
   args+=("--hint=string:image-path:$image")
 fi
 
-# The shell runs the click command itself, from a copy it keeps alongside the
-# on-screen popup. A libnotify action would instead keep this process blocked
-# until the click, and die unanswered whenever the shell restarts underneath it.
-if [[ -n $exec_command ]]; then
-  args+=("--hint=string:oal-exec:$exec_command")
+set -- "$headline"
+[[ -n $description ]] && set -- "$@" "$description"
+
+if [[ -z $exec_command ]]; then
+  notify-send "${args[@]}" "$@"
+  exit 0
 fi
 
-if [[ -n $description ]]; then
-  notify-send "${args[@]}" "$headline" "$description"
+# A click has to reach a command.
+#
+# This used to be a third custom hint, oal-exec, and the comment here explained that the compositor
+# shell ran the command itself from its own copy of the popup, and that a libnotify action would
+# instead block this process until the click. The first half stopped being true the day that shell
+# was left out of vendoring: nothing on this desktop reads oal-exec, so every "click to diagnose"
+# notification the machine has ever sent has been a dead popup. The second half is still true, and
+# is the reason the wait happens in a detached process rather than in the caller, which expects to
+# get its shell back immediately.
+#
+# --action=default is the specification's name for "the body was clicked", so it draws no extra
+# button; notify-send --wait prints the invoked key and exits when the popup is answered or expires.
+if command -v setsid >/dev/null; then
+  launch=(setsid --fork)
 else
-  notify-send "${args[@]}" "$headline"
+  launch=()
 fi
+
+OAL_NOTIFY_EXEC="$exec_command" "${launch[@]}" bash -c '
+  key="$(notify-send --wait --action=default=Open "$@")" || exit 0
+  [[ $key == default ]] || exit 0
+  exec bash -c "$OAL_NOTIFY_EXEC"
+' oal-notification-send "${args[@]}" "$@" >/dev/null 2>&1 &
