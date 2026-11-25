@@ -122,6 +122,20 @@ menu_system() {
   esac
 }
 
+# Small tools that used to live in the compositor shell and now go through the same picker.
+menu_tools() {
+  local chosen
+  chosen="$(printf '%s\n' \
+    $'\temoji\tpick an emoji to copy' \
+    $'\tclipboard\tearlier clipboard entries' \
+    $'\ttimezone\tset the system timezone' | pick Tools)" || return 0
+  case "${chosen%%$'\t'*}" in
+    emoji) run "Emoji" oal-menu-emoji ;;
+    clipboard) run "Clipboard" oal-menu-clipboard ;;
+    timezone) run "Timezone" oal-menu-timezone ;;
+  esac
+}
+
 route="${1:-root}"
 # What is wrong with this machine, one click from the dock.
 #
@@ -162,6 +176,7 @@ case "$route" in
   agent) menu_agent ;;
   system) menu_system ;;
   hermes) menu_hermes ;;
+  tools) menu_tools ;;
   -h | --help) sed -n '2,4p' "$0"; exit 0 ;;
   root)
     chosen="$(printf '%s\n' \
@@ -170,6 +185,7 @@ case "$route" in
       $'\tLayout\tpanels and dock' \
       $'\tAgent\tposture and MCP servers' \
       $'\tHermes\tgateways, boards and what is waiting' \
+      $'\tTools\temoji, clipboard history, timezone' \
       $'\tSystem\tlock, log out, restart' | pick Agentarchy)" || exit 0
     case "${chosen%%$'\t'*}" in
       Health) menu_health ;;
@@ -177,8 +193,9 @@ case "$route" in
       Layout) menu_layout ;;
       Agent) menu_agent ;;
       Hermes) menu_hermes ;;
+      Tools) menu_tools ;;
       System) menu_system ;;
     esac
     ;;
-  *) echo "oal-menu: no route '$route' (try health, theme, layout, agent, hermes, system)" >&2; exit 1 ;;
+  *) echo "oal-menu: no route '$route' (try health, theme, layout, agent, hermes, tools, system)" >&2; exit 1 ;;
 esac

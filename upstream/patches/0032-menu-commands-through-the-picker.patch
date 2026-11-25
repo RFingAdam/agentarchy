@@ -1,0 +1,217 @@
+--- a/bin/oal-menu-clipboard
++++ b/bin/oal-menu-clipboard
+@@ -3,4 +3,41 @@
+ # oal:group=menu
+ # oal:examples=oal menu clipboard
+ 
+-oal-shell shell toggle oal.clipboard
++# Klipper's history, offered through oal-menu-select.
++#
++# This summoned a clipboard plugin over a compositor IPC that is not vendored here, so it exited
++# 127. Plasma keeps the history in Klipper, which answers on D-Bus. Each entry is read by index
++# rather than as one list, because the list reply puts a multi-line entry on several lines and the
++# rows would no longer line up with the entries. The chosen entry goes back on the clipboard.
++set -euo pipefail
++
++qdbus=$(command -v qdbus6 || command -v qdbus) || {
++  echo "oal-menu-clipboard: qdbus6 is not installed" >&2
++  exit 1
++}
++klipper() { "$qdbus" org.kde.klipper /klipper "org.kde.klipper.klipper.$1" "${@:2}"; }
++
++options=()
++for (( i = 0; i < 2048; i++ )); do
++  # Klipper answers an index past the end with an empty string.
++  item=$(klipper getClipboardHistoryItem "$i" 2>/dev/null) || break
++  [[ -n $item ]] || break
++  # One line of it, with no tabs, since a tab separates the picker's fields.
++  preview=${item%%$'\n'*}
++  preview=${preview//$'\t'/ }
++  (( ${#preview} <= 80 )) || preview="${preview:0:79}…"
++  options+=($'\t'"$preview"$'\t'"#$i")
++done
++
++if (( ${#options[@]} == 0 )); then
++  oal-notification-send "Clipboard" "Nothing in the clipboard history" 2>/dev/null || true
++  exit 0
++fi
++
++# The subtext comes back after a tab and is the stable key: two entries can share a first line.
++chosen=$(oal-menu-select "Clipboard" "${options[@]}") || exit 1
++index=${chosen##*$'\t'#}
++[[ $index =~ ^[0-9]+$ ]] || exit 1
++
++item=$(klipper getClipboardHistoryItem "$index")
++klipper setClipboardContents "$item" >/dev/null
+--- a/bin/oal-menu-emoji
++++ b/bin/oal-menu-emoji
+@@ -3,4 +3,15 @@
+ # oal:group=menu
+ # oal:examples=oal menu emoji
+ 
+-oal-shell shell toggle oal.emojis
++# Plasma's own emoji picker, not a list of our own.
++#
++# This summoned an emoji plugin over a compositor IPC that is not vendored here, so it exited 127.
++# A picker needs the emoji data to offer, and Plasma already ships a searchable selector with it:
++# plasma-emojier, from plasma-desktop. It copies the chosen emoji to the clipboard.
++set -euo pipefail
++
++command -v plasma-emojier >/dev/null || {
++  echo "oal-menu-emoji: plasma-emojier is not installed (it comes with plasma-desktop)" >&2
++  exit 1
++}
++exec plasma-emojier
+--- a/bin/oal-menu-images
++++ b/bin/oal-menu-images
+@@ -72,11 +72,8 @@
+   exit 1
+ fi
+ 
+-selection_file=$(mktemp)
+-done_file=$(mktemp)
+ pending_file=$(mktemp)
+-rm -f "$done_file"
+-trap 'rm -f "$selection_file" "$done_file" "$pending_file"' EXIT
++trap 'rm -f "$pending_file"' EXIT
+ 
+ image_dirs_env=""
+ for dir in "${image_dirs[@]}"; do
+@@ -271,43 +268,36 @@
+   exit 0
+ fi
+ 
+-# Image rows can contain newlines and tabs, which don't survive positional
+-# shell IPC arguments. Base64-encode for transit; the ImagePicker plugin
+-# Qt.atob()s on the other side.
+-rows_b64=$(printf '%s' "$rows" | base64 -w 0)
+-
++# Through oal-menu-select, the picker every other menu uses.
++#
++# This used to hand the rows to an image-grid plugin over a compositor IPC that is not vendored here,
++# so every caller exited 127 at this point. The picker is a list, not a grid, so the thumbnails above
++# are still built and cached (--cache-only and --preload rely on that) but are not shown. Each row is
++# "<TAB><name><TAB><path>": the name is what a person reads, and the path comes back as the subtext,
++# which keeps two directories' same-named files apart.
+ if [[ $preload == true ]]; then
+-  oal-shell image-selector preload "$rows_b64" "$selected_list_image" "$show_labels" "$filterable" >/dev/null || true
+   exit 0
+ fi
+-
+-if ! open_result=$(oal-shell image-selector open \
+-     "" \
+-     "$rows_b64" \
+-     "$selected_list_image" \
+-     "$selection_file" \
+-     "$done_file" \
+-     "$show_labels" \
+-     "$filterable"); then
+-  echo "Image selector failed to accept request" >&2
+-  exit 1
+-fi
+-
+-if [[ $open_result != "ok" ]]; then
+-  echo "Image selector failed to accept request" >&2
+-  exit 1
+-fi
+-
+-while [[ ! -e $done_file ]]; do
+-  sleep 0.01
+-done
+-
+-if [[ -s $selection_file ]]; then
+-  if [[ $print_name == true ]]; then
+-    selection=$(<"$selection_file")
+-    selection=${selection##*/}
+-    printf '%s\n' "${selection%.*}"
+-  else
+-    cat "$selection_file"
+-  fi
++# --show-labels and --filterable described the grid. A list always shows its labels; both are still
++# accepted so the callers that pass them keep working.
++: "$show_labels" "$filterable"
++
++options=()
++while IFS=$'\t' read -r row_image _; do
++  [[ -n $row_image ]] || continue
++  name=${row_image##*/}
++  options+=($'\t'"${name%.*}"$'\t'"$row_image")
++done <<<"$rows"
++
++(( ${#options[@]} )) || exit 1
++
++selection=$(oal-menu-select "Image" "${options[@]}") || exit 1
++selection=${selection#*$'\t'}
++[[ -n $selection ]] || exit 1
++
++if [[ $print_name == true ]]; then
++  selection=${selection##*/}
++  printf '%s\n' "${selection%.*}"
++else
++  printf '%s\n' "$selection"
+ fi
+--- a/bin/oal-menu-input
++++ b/bin/oal-menu-input
+@@ -29,30 +29,25 @@
+   shift
+ done
+ 
+-selection_file=$(mktemp)
+-done_file=$(mktemp)
+-rm -f "$done_file"
+-trap 'rm -f "$selection_file" "$done_file"' EXIT
+-
+-payload=$(perl -MEncode=decode -MJSON::PP=encode_json -e '
+-  my $payload = {
+-    mode => "input",
+-    prompt => decode("UTF-8", $ARGV[0]),
+-    selectionFile => decode("UTF-8", $ARGV[1]),
+-    doneFile => decode("UTF-8", $ARGV[2])
+-  };
+-  $payload->{width} = int($ARGV[3]) if length($ARGV[3] // "");
+-  print encode_json($payload)
+-' "$prompt" "$selection_file" "$done_file" "$menu_width")
+-
+-oal-shell shell summon oal.menu "$payload" >/dev/null
+-
+-while [[ ! -e $done_file ]]; do
+-  sleep 0.05
+-done
+-
+-if [[ -s $selection_file ]]; then
+-  cat "$selection_file"
++# The same backends as oal-menu-select, in the same order, so a prompt looks like the menu it came
++# from: kdialog first because it works with a mouse, fuzzel when OAL_MENU_BACKEND=fuzzel asks for it.
++# A free-text answer is not something a picker can return, so this cannot be a call to the picker.
++#
++# It used to send a JSON payload to a menu plugin over a compositor IPC that is not vendored here,
++# so it exited 127 and every caller waiting for an answer got none.
++answer=""
++if [[ ${OAL_MENU_BACKEND:-} != fuzzel ]] && command -v kdialog >/dev/null; then
++  answer=$(kdialog --title "Agentarchy" --inputbox "$prompt" 2>/dev/null) || exit 1
++elif command -v fuzzel >/dev/null; then
++  args=(--dmenu --prompt-only "$prompt> " --no-exit-on-keyboard-focus-loss)
++  config="${XDG_STATE_HOME:-$HOME/.local/state}/oal/current/theme/fuzzel.ini"
++  [[ -r $config ]] && args+=(--config "$config")
++  [[ -n $menu_width ]] && args+=(--width "$menu_width")
++  answer=$(fuzzel "${args[@]}" </dev/null 2>/dev/null) || exit 1
+ else
++  echo "oal-menu-input: neither kdialog nor fuzzel is installed" >&2
+   exit 1
+ fi
++
++[[ -n $answer ]] || exit 1
++printf '%s\n' "$answer"
+--- a/bin/oal-menu-timezone
++++ b/bin/oal-menu-timezone
+@@ -7,6 +7,8 @@
+ set -e
+ 
+ timezone=$(timedatectl list-timezones | oal-menu-select "Set timezone" -- --width 520 --maxheight 520) || exit 1
+-sudo timedatectl set-timezone "$timezone"
+-oal-shell -q oal.clock refresh
++# No sudo: this runs from the menu, which has no terminal for a password prompt. timedated asks
++# through polkit, and Plasma's polkit agent puts that prompt on screen. Plasma's clock follows the
++# system zone on its own, so there is no clock to refresh afterwards.
++timedatectl set-timezone "$timezone"
+ oal-notification-send "Timezone is now set to $timezone"

@@ -63,7 +63,9 @@ Every command that referenced `oal-shell`, and what happened to it.
 |---|---|
 | `oal-menu` | Rewritten as a tree over `oal-menu-select`. Native, not vendored. |
 | `oal-menu-select` | Rewritten on fuzzel. Contract unchanged. Native, not vendored. |
-| `oal-menu-emoji`, `oal-menu-clipboard`, `oal-menu-images`, `oal-menu-timezone`, `oal-menu-input` | Still vendored and still call `oal-shell` directly rather than going through `oal-menu-select`. They work the moment each is pointed at the picker, which is a mechanical change per command and is left until one of them is wanted. |
+| `oal-menu-clipboard`, `oal-menu-images`, `oal-menu-timezone` | Through `oal-menu-select` (#49). Clipboard reads Klipper's history over D-Bus and puts the chosen entry back; images is a list of names now, not a thumbnail grid; timezone uses `timedatectl` without `sudo`, so polkit prompts on screen. Captured in `upstream/patches/0032-menu-commands-through-the-picker.patch`. |
+| `oal-menu-emoji` | Opens `plasma-emojier`, Plasma's own emoji selector: a picker needs emoji data to offer, and Plasma ships one with it. |
+| `oal-menu-input` | A free-text answer is not something a picker returns, so it uses the picker's backends directly: `kdialog --inputbox`, or `fuzzel --prompt-only` with `OAL_MENU_BACKEND=fuzzel`. |
 
 ### Needs a different subsystem, not a picker (6)
 
@@ -102,6 +104,7 @@ Hermes   the dashboard, fleet status, and what is waiting
 Theme    every installed theme, applied with oal-theme-set
 Layout   ubuntu / mint, applied with oal-layout-set
 Agent    posture (oal-agent-profile), registered MCP servers (oal-mcp-status)
+Tools    emoji, clipboard history, timezone
 System   lock, log out, restart, shut down
 ```
 

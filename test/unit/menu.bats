@@ -179,3 +179,141 @@ SH
     [ "$worst_line" -lt "$ok_line" ]
   fi
 }
+
+# --- #49: the five menu commands that called the compositor shell ----------------------------------
+# Each is driven with kdialog (and, where needed, qdbus6 or timedatectl) shimmed, never with
+# oal-menu-select shimmed, so the real picker runs between the command and the answer.
+
+shim_dir() {
+  local d="$BATS_TEST_TMPDIR/$1"
+  mkdir -p "$d"
+  printf '%s' "$d"
+}
+
+@test "the five ported menu commands no longer call the shell that was never vendored" {
+  for f in oal-menu-emoji oal-menu-clipboard oal-menu-images oal-menu-timezone oal-menu-input; do
+    run bash -c "grep -v '^[[:space:]]*#' '$SRC/bin/$f' | grep -c 'oal-shell'"
+    [ "$output" = "0" ] || { echo "$f still calls oal-shell"; return 1; }
+  done
+}
+
+@test "the tools route reaches emoji, clipboard and timezone" {
+  local shim
+  shim="$(shim_dir tools)"
+  for c in oal-menu-emoji oal-menu-clipboard oal-menu-timezone; do
+    printf '#!/bin/bash\nprintf %%s %s >"%s/ran"\n' "$c" "$BATS_TEST_TMPDIR" >"$shim/$c"
+    chmod +x "$shim/$c"
+  done
+  local i=0
+  for c in oal-menu-emoji oal-menu-clipboard oal-menu-timezone; do
+    printf '#!/bin/bash\necho %s\n' "$i" >"$shim/kdialog"
+    chmod +x "$shim/kdialog"
+    rm -f "$BATS_TEST_TMPDIR/ran"
+    PATH="$shim:$SRC/bin:$PATH" run "$SRC/bin/oal-menu" tools
+    [ "$status" -eq 0 ]
+    [ "$(cat "$BATS_TEST_TMPDIR/ran")" = "$c" ] || { echo "row $i did not run $c"; return 1; }
+    i=$((i + 1))
+  done
+  # And Tools is on the root menu, so it is reachable from the dock and Meta+Space.
+  grep -q $'Tools) menu_tools' "$SRC/bin/oal-menu"
+}
+
+@test "clipboard offers Klipper's history and puts the chosen entry back whole" {
+  local shim
+  shim="$(shim_dir clip)"
+  # Three entries, the middle one on two lines: it must still be one row and come back whole.
+  cat >"$shim/qdbus6" <<SH
+#!/bin/bash
+case "\$3" in
+  *getClipboardHistoryItem)
+    case "\$4" in
+      0) echo first ;;
+      1) printf 'second line one\nsecond line two\n' ;;
+      2) echo third ;;
+      *) echo ;;
+    esac ;;
+  *setClipboardContents) printf '%s' "\$4" >"$BATS_TEST_TMPDIR/clipboard" ;;
+esac
+SH
+  # Record the rows offered, then pick the second.
+  cat >"$shim/kdialog" <<SH
+#!/bin/bash
+printf '%s\n' "\$@" >"$BATS_TEST_TMPDIR/offered"
+echo 1
+SH
+  chmod +x "$shim/qdbus6" "$shim/kdialog"
+  PATH="$shim:$SRC/bin:$PATH" run "$SRC/bin/oal-menu-clipboard"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$BATS_TEST_TMPDIR/clipboard")" = $'second line one\nsecond line two' ]
+  # Three rows (tags 0, 1, 2), not four: the two-line entry did not split.
+  run grep -cxE '[0-9]+' "$BATS_TEST_TMPDIR/offered"
+  [ "$output" = "3" ]
+}
+
+@test "images go through the picker and return the path, or the name with --print-name" {
+  local shim dir
+  shim="$(shim_dir img)"
+  dir="$BATS_TEST_TMPDIR/pics"
+  mkdir -p "$dir"
+  : >"$dir/aurora.png"; : >"$dir/beach.jpg"
+  printf '#!/bin/bash\necho 1\n' >"$shim/kdialog"
+  chmod +x "$shim/kdialog"
+  # --lazy-thumbnails, so rows exist without vipsthumbnail; the picker shows names, not thumbnails.
+  XDG_CACHE_HOME="$BATS_TEST_TMPDIR/cache" PATH="$shim:$SRC/bin:$PATH" \
+    run "$SRC/bin/oal-menu-images" --lazy-thumbnails "$dir"
+  [ "$status" -eq 0 ]
+  [ "$output" = "$dir/beach.jpg" ]
+  XDG_CACHE_HOME="$BATS_TEST_TMPDIR/cache" PATH="$shim:$SRC/bin:$PATH" \
+    run "$SRC/bin/oal-menu-images" --print-name --lazy-thumbnails "$dir"
+  [ "$status" -eq 0 ]
+  [ "$output" = "beach" ]
+}
+
+@test "input returns what was typed and fails when cancelled" {
+  local shim
+  shim="$(shim_dir input)"
+  printf '#!/bin/bash\n[[ " $* " == *" --inputbox "* ]] || exit 9\necho "in ten minutes"\n' >"$shim/kdialog"
+  chmod +x "$shim/kdialog"
+  PATH="$shim:$PATH" run "$SRC/bin/oal-menu-input" "Reminder" --width 400
+  [ "$status" -eq 0 ]
+  [ "$output" = "in ten minutes" ]
+
+  printf '#!/bin/bash\nexit 1\n' >"$shim/kdialog"
+  PATH="$shim:$PATH" run "$SRC/bin/oal-menu-input" "Reminder"
+  [ "$status" -ne 0 ]
+}
+
+@test "timezone sets the zone through timedated, with no sudo and no terminal" {
+  local shim
+  shim="$(shim_dir tz)"
+  cat >"$shim/timedatectl" <<SH
+#!/bin/bash
+case "\$1" in
+  list-timezones) printf '%s\n' America/Chicago Europe/Berlin ;;
+  set-timezone) printf '%s' "\$2" >"$BATS_TEST_TMPDIR/tz.set" ;;
+esac
+SH
+  printf '#!/bin/bash\necho 0\n' >"$shim/kdialog"
+  printf '#!/bin/bash\nexit 0\n' >"$shim/oal-notification-send"
+  printf '#!/bin/bash\necho sudo was called >&2; exit 1\n' >"$shim/sudo"
+  chmod +x "$shim"/*
+  PATH="$shim:$SRC/bin:$PATH" run "$SRC/bin/oal-menu-timezone"
+  [ "$status" -eq 0 ]
+  [ "$(cat "$BATS_TEST_TMPDIR/tz.set")" = America/Chicago ]
+}
+
+@test "emoji opens Plasma's own selector and says so when it is missing" {
+  local shim bare
+  shim="$(shim_dir emoji)"
+  printf '#!/bin/bash\ntouch "%s/emojier"\n' "$BATS_TEST_TMPDIR" >"$shim/plasma-emojier"
+  chmod +x "$shim/plasma-emojier"
+  PATH="$shim:$PATH" run "$SRC/bin/oal-menu-emoji"
+  [ "$status" -eq 0 ]
+  [ -e "$BATS_TEST_TMPDIR/emojier" ]
+
+  bare="$(shim_dir emoji-bare)"
+  ln -sf "$(command -v bash)" "$bare/bash"
+  PATH="$bare" run "$SRC/bin/oal-menu-emoji"
+  [ "$status" -ne 0 ]
+  [[ $output == *"plasma-emojier is not installed"* ]]
+}
