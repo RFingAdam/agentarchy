@@ -3,4 +3,41 @@
 # oal:group=menu
 # oal:examples=oal menu clipboard
 
-oal-shell shell toggle oal.clipboard
+# Klipper's history, offered through oal-menu-select.
+#
+# This summoned a clipboard plugin over a compositor IPC that is not vendored here, so it exited
+# 127. Plasma keeps the history in Klipper, which answers on D-Bus. Each entry is read by index
+# rather than as one list, because the list reply puts a multi-line entry on several lines and the
+# rows would no longer line up with the entries. The chosen entry goes back on the clipboard.
+set -euo pipefail
+
+qdbus=$(command -v qdbus6 || command -v qdbus) || {
+  echo "oal-menu-clipboard: qdbus6 is not installed" >&2
+  exit 1
+}
+klipper() { "$qdbus" org.kde.klipper /klipper "org.kde.klipper.klipper.$1" "${@:2}"; }
+
+options=()
+for (( i = 0; i < 2048; i++ )); do
+  # Klipper answers an index past the end with an empty string.
+  item=$(klipper getClipboardHistoryItem "$i" 2>/dev/null) || break
+  [[ -n $item ]] || break
+  # One line of it, with no tabs, since a tab separates the picker's fields.
+  preview=${item%%$'\n'*}
+  preview=${preview//$'\t'/ }
+  (( ${#preview} <= 80 )) || preview="${preview:0:79}…"
+  options+=($'\t'"$preview"$'\t'"#$i")
+done
+
+if (( ${#options[@]} == 0 )); then
+  oal-notification-send "Clipboard" "Nothing in the clipboard history" 2>/dev/null || true
+  exit 0
+fi
+
+# The subtext comes back after a tab and is the stable key: two entries can share a first line.
+chosen=$(oal-menu-select "Clipboard" "${options[@]}") || exit 1
+index=${chosen##*$'\t'#}
+[[ $index =~ ^[0-9]+$ ]] || exit 1
+
+item=$(klipper getClipboardHistoryItem "$index")
+klipper setClipboardContents "$item" >/dev/null

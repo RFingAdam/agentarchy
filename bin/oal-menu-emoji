@@ -3,4 +3,15 @@
 # oal:group=menu
 # oal:examples=oal menu emoji
 
-oal-shell shell toggle oal.emojis
+# Plasma's own emoji picker, not a list of our own.
+#
+# This summoned an emoji plugin over a compositor IPC that is not vendored here, so it exited 127.
+# A picker needs the emoji data to offer, and Plasma already ships a searchable selector with it:
+# plasma-emojier, from plasma-desktop. It copies the chosen emoji to the clipboard.
+set -euo pipefail
+
+command -v plasma-emojier >/dev/null || {
+  echo "oal-menu-emoji: plasma-emojier is not installed (it comes with plasma-desktop)" >&2
+  exit 1
+}
+exec plasma-emojier

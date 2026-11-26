@@ -72,11 +72,8 @@ if (( ${#image_dirs[@]} == 0 )); then
   exit 1
 fi
 
-selection_file=$(mktemp)
-done_file=$(mktemp)
 pending_file=$(mktemp)
-rm -f "$done_file"
-trap 'rm -f "$selection_file" "$done_file" "$pending_file"' EXIT
+trap 'rm -f "$pending_file"' EXIT
 
 image_dirs_env=""
 for dir in "${image_dirs[@]}"; do
@@ -271,43 +268,36 @@ if [[ $cache_only == true || $prepare_only == true ]]; then
   exit 0
 fi
 
-# Image rows can contain newlines and tabs, which don't survive positional
-# shell IPC arguments. Base64-encode for transit; the ImagePicker plugin
-# Qt.atob()s on the other side.
-rows_b64=$(printf '%s' "$rows" | base64 -w 0)
-
+# Through oal-menu-select, the picker every other menu uses.
+#
+# This used to hand the rows to an image-grid plugin over a compositor IPC that is not vendored here,
+# so every caller exited 127 at this point. The picker is a list, not a grid, so the thumbnails above
+# are still built and cached (--cache-only and --preload rely on that) but are not shown. Each row is
+# "<TAB><name><TAB><path>": the name is what a person reads, and the path comes back as the subtext,
+# which keeps two directories' same-named files apart.
 if [[ $preload == true ]]; then
-  oal-shell image-selector preload "$rows_b64" "$selected_list_image" "$show_labels" "$filterable" >/dev/null || true
   exit 0
 fi
+# --show-labels and --filterable described the grid. A list always shows its labels; both are still
+# accepted so the callers that pass them keep working.
+: "$show_labels" "$filterable"
 
-if ! open_result=$(oal-shell image-selector open \
-     "" \
-     "$rows_b64" \
-     "$selected_list_image" \
-     "$selection_file" \
-     "$done_file" \
-     "$show_labels" \
-     "$filterable"); then
-  echo "Image selector failed to accept request" >&2
-  exit 1
-fi
+options=()
+while IFS=$'\t' read -r row_image _; do
+  [[ -n $row_image ]] || continue
+  name=${row_image##*/}
+  options+=($'\t'"${name%.*}"$'\t'"$row_image")
+done <<<"$rows"
 
-if [[ $open_result != "ok" ]]; then
-  echo "Image selector failed to accept request" >&2
-  exit 1
-fi
+(( ${#options[@]} )) || exit 1
 
-while [[ ! -e $done_file ]]; do
-  sleep 0.01
-done
+selection=$(oal-menu-select "Image" "${options[@]}") || exit 1
+selection=${selection#*$'\t'}
+[[ -n $selection ]] || exit 1
 
-if [[ -s $selection_file ]]; then
-  if [[ $print_name == true ]]; then
-    selection=$(<"$selection_file")
-    selection=${selection##*/}
-    printf '%s\n' "${selection%.*}"
-  else
-    cat "$selection_file"
-  fi
+if [[ $print_name == true ]]; then
+  selection=${selection##*/}
+  printf '%s\n' "${selection%.*}"
+else
+  printf '%s\n' "$selection"
 fi

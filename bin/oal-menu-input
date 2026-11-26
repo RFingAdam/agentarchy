@@ -29,30 +29,25 @@ while (( $# > 0 )); do
   shift
 done
 
-selection_file=$(mktemp)
-done_file=$(mktemp)
-rm -f "$done_file"
-trap 'rm -f "$selection_file" "$done_file"' EXIT
-
-payload=$(perl -MEncode=decode -MJSON::PP=encode_json -e '
-  my $payload = {
-    mode => "input",
-    prompt => decode("UTF-8", $ARGV[0]),
-    selectionFile => decode("UTF-8", $ARGV[1]),
-    doneFile => decode("UTF-8", $ARGV[2])
-  };
-  $payload->{width} = int($ARGV[3]) if length($ARGV[3] // "");
-  print encode_json($payload)
-' "$prompt" "$selection_file" "$done_file" "$menu_width")
-
-oal-shell shell summon oal.menu "$payload" >/dev/null
-
-while [[ ! -e $done_file ]]; do
-  sleep 0.05
-done
-
-if [[ -s $selection_file ]]; then
-  cat "$selection_file"
+# The same backends as oal-menu-select, in the same order, so a prompt looks like the menu it came
+# from: kdialog first because it works with a mouse, fuzzel when OAL_MENU_BACKEND=fuzzel asks for it.
+# A free-text answer is not something a picker can return, so this cannot be a call to the picker.
+#
+# It used to send a JSON payload to a menu plugin over a compositor IPC that is not vendored here,
+# so it exited 127 and every caller waiting for an answer got none.
+answer=""
+if [[ ${OAL_MENU_BACKEND:-} != fuzzel ]] && command -v kdialog >/dev/null; then
+  answer=$(kdialog --title "Agentarchy" --inputbox "$prompt" 2>/dev/null) || exit 1
+elif command -v fuzzel >/dev/null; then
+  args=(--dmenu --prompt-only "$prompt> " --no-exit-on-keyboard-focus-loss)
+  config="${XDG_STATE_HOME:-$HOME/.local/state}/oal/current/theme/fuzzel.ini"
+  [[ -r $config ]] && args+=(--config "$config")
+  [[ -n $menu_width ]] && args+=(--width "$menu_width")
+  answer=$(fuzzel "${args[@]}" </dev/null 2>/dev/null) || exit 1
 else
+  echo "oal-menu-input: neither kdialog nor fuzzel is installed" >&2
   exit 1
 fi
+
+[[ -n $answer ]] || exit 1
+printf '%s\n' "$answer"
